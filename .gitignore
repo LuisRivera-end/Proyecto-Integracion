@@ -1,0 +1,31 @@
+# Dependencias
+node_modules/
+
+# Archivos de build / compilados
+dist/
+build/
+
+# Tailwind JIT cache
+*.cache
+.pnp
+.pnp.js
+
+# Archivos de entorno
+.env
+.env.local
+.env.*.local
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
