@@ -2,8 +2,11 @@
 node_modules/
 
 # Archivos de build / compilados
-dist/
+frontend/dist/
 build/
+backend/venv/
+__pycache__/
+*.pyc
 
 # Tailwind JIT cache
 *.cache
