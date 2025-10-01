@@ -1,0 +1,9 @@
+# Fuerza a que todos los archivos de texto usen LF en el repo
+* text=auto eol=lf
+
+# Archivos CSS y JS también con LF
+*.js text eol=lf
+*.css text eol=lf
+*.html text eol=lf
+*.json text eol=lf
+*.md text eol=lf
