@@ -8,7 +8,8 @@ RUN npm run build
 
 # Etapa de producción con Nginx
 FROM nginx:alpine
-COPY --from=build /app/src/index.html /usr/share/nginx/html/index.html
+COPY --from=build /app/src/pantalla.html /usr/share/nginx/html/index.html
 COPY --from=build /app/dist /usr/share/nginx/html/dist 
+COPY --from=build /app/src/js /usr/share/nginx/html/js
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]
