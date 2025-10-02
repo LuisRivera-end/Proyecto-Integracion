@@ -105,17 +105,23 @@ document.addEventListener("DOMContentLoaded", () => {
   //   ADMINISTRADOR
 
   // tabs
-  window.selectSector = function (sector) {
+  window.selectSector = (sector) => {
     document.querySelectorAll(".sector-tab").forEach((tab) => {
-      tab.classList.remove("bg-cyan-400", "text-white");
-      tab.classList.add("bg-gray-500", "text-gray-400", "hover:bg-gray-700");
+      // 1. Quitar clases de gradiente verde de la pestaña activa previa
+      tab.classList.remove("bg-gradient-to-r", "from-slate-600", "to-emerald-600", "text-white", "shadow-md");
+      // 2. Aplicar el estilo inactivo (gris) a todas las pestañas
+      tab.classList.add("bg-slate-200", "text-slate-600", "hover:bg-slate-300");
     });
+    
     const activeTab = document.getElementById(`tab-${sector}`);
+    
     if (activeTab) {
-      activeTab.classList.remove("bg-gray-500", "text-gray-400", "hover:bg-gray-700");
-      activeTab.classList.add("bg-cyan-400", "text-white");
+      // 3. Quitar el estilo inactivo (gris) de la pestaña activa
+      activeTab.classList.remove("bg-slate-200", "text-slate-600", "hover:bg-slate-300");
+      // 4. Aplicar el estilo activo (gradiente verde) a la pestaña seleccionada
+      activeTab.classList.add("bg-gradient-to-r", "from-slate-600", "to-emerald-600", "text-white", "shadow-md");
     }
-  };
+  }
 
   // select empleado
   window.selectEmployee = function () {
