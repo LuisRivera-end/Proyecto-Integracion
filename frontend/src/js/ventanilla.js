@@ -145,23 +145,71 @@ document.addEventListener("DOMContentLoaded", () => {
     contenedor.appendChild(select);
   };
 
-  // descansos
+  // función agregar descanso
   window.addDescanso = function (inicio = "", fin = "") {
     const container = document.getElementById("descansos-container");
     const id = descansosCount++;
+
+    // obtener fecha de hoy en formato yyyy-mm-dd 
+    const hoy = new Date().toISOString().split("T")[0];
+
+    // calcular mañana
+    const manana = new Date();
+    manana.setDate(manana.getDate() + 1);
+    const mananaStr = manana.toISOString().split("T")[0];
+
     const html = `
       <div id="descanso-${id}" class="flex flex-col md:flex-row gap-3 items-center bg-gray-50 p-4 rounded-lg border">
-        <input type="time" class="flex-1 border rounded px-2 py-1" value="${inicio}">
-        <input type="time" class="flex-1 border rounded px-2 py-1" value="${fin}">
+        <input 
+          type="date" 
+          id="inicio-${id}" 
+          class="flex-1 border rounded px-2 py-1"
+          value="${inicio}" 
+          min="${hoy}"
+          onchange="updateMinFin(${id})"
+        >
+        <input 
+          type="date" 
+          id="fin-${id}" 
+          class="flex-1 border rounded px-2 py-1"
+          value="${fin}" 
+          min="${mananaStr}"
+        >
         <button type="button" onclick="removeDescanso(${id})"
                 class="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded">X</button>
       </div>`;
+
     container.insertAdjacentHTML("beforeend", html);
   };
 
-  window.removeDescanso = function (id) {
-    document.getElementById(`descanso-${id}`).remove();
+  // función para actualizar la fecha mínima del fin
+  window.updateMinFin = function (id) {
+    const inicioInput = document.getElementById(`inicio-${id}`);
+    const finInput = document.getElementById(`fin-${id}`);
+
+    if (inicioInput && finInput) {
+      // convertir la fecha de inicio a Date
+      const fechaInicio = new Date(inicioInput.value);
+
+      // calcular el día siguiente
+      fechaInicio.setDate(fechaInicio.getDate() + 1);
+      const minFin = fechaInicio.toISOString().split("T")[0];
+
+      finInput.min = minFin;
+
+      // si la fecha de fin actual es menor que la mínima, resetearla
+      if (finInput.value && finInput.value < minFin) {
+        finInput.value = minFin;
+      }
+    }
   };
+
+  // función para eliminar descanso
+  window.removeDescanso = function (id) {
+    const elem = document.getElementById(`descanso-${id}`);
+    if (elem) elem.remove();
+  };
+
 
   // guardar agenda
   const agendaForm = document.getElementById("agenda-form");
@@ -171,7 +219,7 @@ document.addEventListener("DOMContentLoaded", () => {
       document.getElementById("success-message").classList.remove("hidden");
       setTimeout(() => {
         document.getElementById("success-message").classList.add("hidden");
-      }, 2000);
+      }, 5000);
     });
   }
   // iniciar empleado select
