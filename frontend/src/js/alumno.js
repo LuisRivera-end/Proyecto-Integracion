@@ -1,13 +1,26 @@
+const matriculaFolioLabel = document.getElementById("matricula-folio");
+const noMatriculaCheckbox = document.getElementById("no-matricula-checkbox");
+const inputMatriculaFolio = document.getElementById("input-matricula-folio");
 const form = document.getElementById("ticket-form");
 const formContainer = document.getElementById("form-container");
 const ticketResult = document.getElementById("ticket-result");
 const errorMessage = document.getElementById("error-message");
 const errorText = document.getElementById("error-text");
 
+noMatriculaCheckbox.addEventListener("click", () => {
+    if (noMatriculaCheckbox.checked) {
+        matriculaFolioLabel.textContent = "Folio";
+        inputMatriculaFolio.placeholder = "Ingresa tu folio";
+    } else {
+        matriculaFolioLabel.textContent = "Matrícula";
+        inputMatriculaFolio.placeholder = "Ingresa tu matrícula";
+    }
+});
+
 form.addEventListener("submit", function(e) {
     e.preventDefault();
 
-    const matricula = document.getElementById("matricula").value.trim();
+    const matricula = inputMatriculaFolio.value.trim();
     const sector = document.getElementById("sector").value;
 
     if (!matricula || !sector) {

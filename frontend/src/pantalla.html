@@ -19,53 +19,8 @@
                     <span class="text-slate-500 text-sm font-medium">Actualización automática</span>
                 </div>
             </div>
-    
-            
-            <div class="bg-white/95 backdrop-blur-sm rounded-3xl shadow-xl overflow-hidden">
-                <div class="overflow-x-auto">
-                    <table class="min-w-full">
-                        <thead class="bg-slate-50 rounded-t-3xl">
-                            <tr class="bg-gradient-to-r from-slate-700 to-slate-600 text-white">
-                                <th class="px-8 py-5 text-left text-lg font-semibold">Matrícula</th>
-                                <th class="px-8 py-5 text-left text-lg font-semibold">Ticket</th>
-                                <th class="px-8 py-5 text-left text-lg font-semibold">Sector</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr class="bg-slate-50 border-b border-slate-200 hover:bg-slate-100 transition-colors">
-                                <td class="px-8 py-6 text-slate-800 font-semibold text-lg">A00123</td>
-                                <td class="px-8 py-6 text-emerald-700 font-bold text-2xl">T-101</td>
-                                <td class="px-8 py-6 text-slate-700 font-medium text-lg">Servicios Escolares</td>
-                            </tr>
-                            <tr class="bg-white border-b border-slate-200 hover:bg-slate-100 transition-colors">
-                                <td class="px-8 py-6 text-slate-800 font-semibold text-lg">B00456</td>
-                                <td class="px-8 py-6 text-emerald-700 font-bold text-2xl">T-102</td>
-                                <td class="px-8 py-6 text-slate-700 font-medium text-lg">Becas</td>
-                            </tr>
-                            <tr class="bg-slate-50 border-b border-slate-200 hover:bg-slate-100 transition-colors">
-                                <td class="px-8 py-6 text-slate-800 font-semibold text-lg">C00789</td>
-                                <td class="px-8 py-6 text-emerald-700 font-bold text-2xl">T-103</td>
-                                <td class="px-8 py-6 text-slate-700 font-medium text-lg">Cajas</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-    
-                
-                
-                <!-- <div class="text-center py-16">
-                    <div class="inline-flex items-center justify-center w-24 h-24 bg-slate-100 rounded-full mb-4">
-                        <svg class="w-12 h-12 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                        </svg>
-                    </div>
-                    <p class="text-slate-600 text-xl font-semibold">No hay tickets en espera</p>
-                </div> -->
-                
-            </div>
-    
-             
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
+            <!--tarjetas-->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                 <div class="bg-gradient-to-br from-slate-700 to-slate-600 rounded-2xl shadow-xl p-8 text-white border border-slate-500 hover:shadow-2xl transition-all duration-300">
                     <div class="flex items-center justify-between">
                         <div>
@@ -84,7 +39,7 @@
                     <div class="flex items-center justify-between">
                         <div>
                             <p class="text-emerald-100 text-sm font-semibold uppercase tracking-wide mb-1">Becas</p>
-                            <p class="text-white text-5xl font-bold mt-2">1</p>
+                            <p class="text-white text-5xl font-bold mt-2">2</p>
                         </div>
                         <div class="bg-white/10 p-4 rounded-xl backdrop-blur-sm">
                             <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -108,6 +63,56 @@
                     </div>
                 </div>
             </div>
+            
+            <!--pantallita de tickets-->
+            <div class="bg-white/95 backdrop-blur-sm rounded-3xl shadow-xl overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="min-w-full">
+                        <thead class="bg-slate-50 rounded-t-3xl">
+                            <tr class="bg-gradient-to-r from-slate-700 to-slate-600 text-white">
+                                <th class="px-8 py-5 text-left text-lg font-semibold">Ticket</th>
+                                <th class="px-8 py-5 text-left text-lg font-semibold">Sector</th>
+                                <th class="px-8 py-5 text-left text-lg font-semibold">Ventanilla</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr class="bg-slate-50 border-b border-slate-200 hover:bg-slate-100 transition-colors">
+                                <td class="px-8 py-6 text-emerald-700 font-bold text-2xl">S-101</td>
+                                <td class="px-8 py-6 text-slate-700 font-medium text-lg">Servicios Escolares</td>
+                                <td class="px-8 py-6 text-slate-700 font-medium text-lg">Ventanilla 1</td>
+                            </tr>
+                            <tr class="bg-white border-b border-slate-200 hover:bg-slate-100 transition-colors">
+                                <td class="px-8 py-6 text-emerald-700 font-bold text-2xl">B-102</td>
+                                <td class="px-8 py-6 text-slate-700 font-medium text-lg">Becas</td>
+                                <td class="px-8 py-6 text-slate-700 font-medium text-lg">Ventanilla 1</td>
+                            </tr>
+                            <tr class="bg-slate-50 border-b border-slate-200 hover:bg-slate-100 transition-colors">
+                                <td class="px-8 py-6 text-emerald-700 font-bold text-2xl">C-103</td>
+                                <td class="px-8 py-6 text-slate-700 font-medium text-lg">Cajas</td>
+                                <td class="px-8 py-6 text-slate-700 font-medium text-lg">Ventanilla 2</td>
+                            </tr>
+                            <tr class="bg-white border-b border-slate-200 hover:bg-slate-100 transition-colors">
+                                <td class="px-8 py-6 text-emerald-700 font-bold text-2xl">C-104</td>
+                                <td class="px-8 py-6 text-slate-700 font-medium text-lg">Becas</td>
+                                <td class="px-8 py-6 text-slate-700 font-medium text-lg">Por asignar</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+    
+                
+                
+                <!-- <div class="text-center py-16">
+                    <div class="inline-flex items-center justify-center w-24 h-24 bg-slate-100 rounded-full mb-4">
+                        <svg class="w-12 h-12 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                    </div>
+                    <p class="text-slate-600 text-xl font-semibold">No hay tickets en espera</p>
+                </div> -->
+                
+            </div>
+
             <!-- idiomas -->
             <div class="gtranslate_wrapper"></div>
             <script src="./js/idioma.js"></script>

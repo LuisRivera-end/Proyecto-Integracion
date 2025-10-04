@@ -159,25 +159,42 @@ document.addEventListener("DOMContentLoaded", () => {
     const mananaStr = manana.toISOString().split("T")[0];
 
     const html = `
-      <div id="descanso-${id}" class="flex flex-col md:flex-row gap-3 items-center bg-gray-50 p-4 rounded-lg border">
-        <input 
-          type="date" 
-          id="inicio-${id}" 
-          class="flex-1 border rounded px-2 py-1"
-          value="${inicio}" 
-          min="${hoy}"
-          onchange="updateMinFin(${id})"
-        >
-        <input 
-          type="date" 
-          id="fin-${id}" 
-          class="flex-1 border rounded px-2 py-1"
-          value="${fin}" 
-          min="${mananaStr}"
-        >
-        <button type="button" onclick="removeDescanso(${id})"
-                class="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded">X</button>
+      <div id="descanso-${id}" 
+          class="flex flex-col md:flex-row md:items-end gap-4 bg-white p-4 rounded-lg border shadow-sm">
+        <div class="flex flex-col flex-1">
+          <label for="inicio-${id}" class="text-gray-700 text-sm font-medium mb-1">
+            Fecha de Inicio
+          </label>
+          <input 
+            type="date" 
+            id="inicio-${id}" 
+            class="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+            value="${inicio}" 
+            min="${hoy}"
+            onchange="updateMinFin(${id})"
+          >
+        </div>
+        <div class="flex flex-col flex-1">
+          <label for="fin-${id}" class="text-gray-700 text-sm font-medium mb-1">
+            Fecha de Fin
+          </label>
+          <input 
+            type="date" 
+            id="fin-${id}" 
+            class="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+            value="${fin}" 
+            min="${mananaStr}"
+          >
+        </div>
+
+        <!-- Botón eliminar -->
+        <button type="button" 
+                onclick="removeDescanso(${id})"
+                class="self-start md:self-center bg-red-600 hover:bg-red-700 text-white font-medium px-3 py-2 rounded-lg transition-colors">
+          ✕
+        </button>
       </div>`;
+  
 
     container.insertAdjacentHTML("beforeend", html);
   };
