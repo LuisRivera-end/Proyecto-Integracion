@@ -1,4 +1,4 @@
-const matriculaFolioLabel = document.getElementById("matricula-folio");
+const matriculaFolioLabel = document.getElementById("matricula-folio-label");
 const noMatriculaCheckbox = document.getElementById("no-matricula-checkbox");
 const inputMatriculaFolio = document.getElementById("input-matricula-folio");
 const form = document.getElementById("ticket-form");
@@ -19,11 +19,10 @@ noMatriculaCheckbox.addEventListener("click", () => {
 
 form.addEventListener("submit", function(e) {
     e.preventDefault();
-
-    const matricula = inputMatriculaFolio.value.trim();
+    const MatriculaOFolioIngresado = inputMatriculaFolio.value.trim();
     const sector = document.getElementById("sector").value;
 
-    if (!matricula || !sector) {
+    if (!MatriculaOFolioIngresado|| !sector) {
         errorText.textContent = "Por favor, completa todos los campos.";
         errorMessage.classList.remove("hidden");
         return;
@@ -31,19 +30,29 @@ form.addEventListener("submit", function(e) {
 
     errorMessage.classList.add("hidden");
 
-    // filio random
-    const folio = "T-" + Math.floor(Math.random() * 1000);
+    
+    const ticket = "T-" + Math.floor(Math.random() * 1000);
 
-    document.getElementById("result-matricula").textContent = matricula;
+    const matriculaFolio = document.getElementById("matricula-o-folio");
+    if (noMatriculaCheckbox.checked) {
+        
+        matriculaFolio.textContent = "Folio:";
+    } else {
+        
+        matriculaFolio.textContent = "Matrícula:";
+    } 
+    document.getElementById("result-matricula-o-folio").textContent = MatriculaOFolioIngresado;
     document.getElementById("result-sector").textContent = sector;
-    document.getElementById("result-folio").textContent = folio;
+    document.getElementById("result-ticket").textContent = ticket;
 
     formContainer.classList.add("hidden");
     ticketResult.classList.remove("hidden");
 });
 
+
 function resetForm() {
     form.reset();
     ticketResult.classList.add("hidden");
     formContainer.classList.remove("hidden");
+    location.reload();
 }
