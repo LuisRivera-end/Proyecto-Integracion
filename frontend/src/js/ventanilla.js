@@ -128,7 +128,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const contenedor = document.getElementById("contenedor");
     const select = document.createElement("select");
     select.className =
-      "w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none transition";
+      "w-full max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg px-3 sm:px-4 py-2.5 sm:py-3 border border-gray-300 rounded-xl bg-white text-sm sm:text-base focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none transition duration-300 ease-in-out shadow-sm";
+      
     const opciones = [
       { value: "", text: "Seleccionar empleado" },
       { value: "empleado1", text: "Empleado 1" },
@@ -136,6 +137,7 @@ document.addEventListener("DOMContentLoaded", () => {
       { value: "empleado3", text: "Empleado 3" },
       { value: "empleado4", text: "Empleado 4" }
     ];
+
     opciones.forEach((op) => {
       const option = document.createElement("option");
       option.value = op.value;
