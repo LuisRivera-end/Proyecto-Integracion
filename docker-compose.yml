@@ -10,3 +10,27 @@ services:
     build: ./backend
     ports:
       - "5000:5000"
+    depends_on:
+      - mariadb
+    environment:
+      - DB_HOST=mariadb
+      - DB_USER=turnoadmin
+      - DB_PASSWORD=13Demayo!
+      - DB_NAME=TurnosUal
+
+  mariadb:
+    image: mariadb:11.4
+    container_name: mariadb
+    restart: always
+    environment:
+      - MARIADB_ROOT_PASSWORD=13Demayo!
+      - MARIADB_DATABASE=TurnosUal
+      - MARIADB_USER=turnoadmin
+      - MARIADB_PASSWORD=13Demayo!
+    ports:
+      - "3307:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+
+volumes:
+  db_data:
