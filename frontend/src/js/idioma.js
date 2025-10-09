@@ -7,6 +7,7 @@ window.gtranslateSettings = {
     "switcher_vertical_position":"top",
     "float_switcher_open_direction":"bottom",
     "alt_flags":{"es":"mexico"},
-    "url_structure":"none"
 };
-  
+window.addEventListener("pageshow", function (event) {
+  if (event.persisted) window.location.reload();
+});
