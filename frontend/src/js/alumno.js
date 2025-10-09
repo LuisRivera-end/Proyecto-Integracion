@@ -33,10 +33,15 @@ form.addEventListener("submit", function(e) {
     
     const ticket = "T-" + Math.floor(Math.random() * 1000);
 
+    const fecha = new Date();
+    const opciones = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+    document.getElementById('result-fecha').textContent = fecha.toLocaleDateString('es-ES', opciones);
+
     const matriculaFolio = document.getElementById("matricula-o-folio");
+    const nombreTicket = document.getElementById("nombre-ticket");
     if (noMatriculaCheckbox.checked) {
-        
         matriculaFolio.textContent = "Folio:";
+        nombreTicket.remove()
     } else {
         
         matriculaFolio.textContent = "Matrícula:";

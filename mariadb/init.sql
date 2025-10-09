@@ -176,8 +176,8 @@ INSERT INTO Estado_empleado_ventanilla (Nombre) VALUES
 INSERT INTO Estados_Turno (Nombre) VALUES
 ('Pendiente'),
 ('Cancelado'),
-('Activo'),
-('Atendido');
+('Atendiendo'),
+('Completado');
 
 /* ====== 6. Tipo_Horario ====== */
 INSERT INTO Tipo_Horario (Nombre) VALUES
