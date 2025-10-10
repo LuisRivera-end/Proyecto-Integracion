@@ -270,29 +270,36 @@ def login():
     cursor = conn.cursor(dictionary=True)
     
     try:
-        # Consulta mejorada para incluir información del rol
+        # Consulta mejorada para incluir información del estado del empleado
         cursor.execute("""
-            SELECT e.*, r.Rol 
+            SELECT e.*, r.Rol, ee.Nombre as Estado_Empleado
             FROM Empleado e 
             LEFT JOIN Rol r ON e.ID_ROL = r.ID_Rol 
-            WHERE e.Usuario = %s AND e.ID_Estado = 1
+            LEFT JOIN Estado_Empleado ee ON e.ID_Estado = ee.ID_Estado
+            WHERE e.Usuario = %s
         """, (username,))
         user = cursor.fetchone()
 
         if not user:
             return jsonify({"error": "Usuario no existe"}), 404
 
+        # Verificar si el empleado está activo
+        if user["ID_Estado"] != 1:  # 1 = Activo según tu estructura
+            estado_empleado = user["Estado_Empleado"] or "Inactivo"
+            return jsonify({"error": f"Usuario no activo. Estado actual: {estado_empleado}"}), 403
+
         # Hash de la contraseña para comparar
         hashed_pw = sha256(password.encode()).hexdigest()
         if user["Passwd"] != hashed_pw:
             return jsonify({"error": "Contraseña incorrecta"}), 401
 
-        # Retornar información completa
+        # Retornar información completa solo si está activo
         return jsonify({
             "id": user["ID_Empleado"],
             "nombre": f"{user['nombre1']} {user['Apellido1']}",
             "rol": user["ID_ROL"],
-            "sector": user["Rol"]  # Esto será 'Operador Cajas', 'Operador Ventanillas', etc.
+            "sector": user["Rol"],  # Esto será 'Operador Cajas', 'Operador Ventanillas', etc.
+            "estado": user["Estado_Empleado"]
         })
         
     except Exception as e:

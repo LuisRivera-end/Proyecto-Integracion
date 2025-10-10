@@ -22,47 +22,52 @@ document.addEventListener("DOMContentLoaded", () => {
   // -----------------------------
   // LOGIN
   // -----------------------------
-  loginForm.addEventListener("submit", async (e) => {
+// En tu ventanilla.js, mejora el manejo de errores en el login:
+loginForm.addEventListener("submit", async (e) => {
     e.preventDefault();
     const username = document.getElementById("username").value.trim();
     const password = document.getElementById("password").value.trim();
 
     try {
-      const res = await fetch(`${API_BASE_URL}/api/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password })
-      });
-      
-      if (!res.ok) throw new Error("Credenciales incorrectas");
-      
-      const data = await res.json();
-      currentUser = { 
-        id: data.id, 
-        username: data.nombre, 
-        rol: data.rol, 
-        sector: data.sector 
-      };
+        const res = await fetch(`${API_BASE_URL}/api/login`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ username, password })
+        });
+        
+        if (!res.ok) {
+            const errorData = await res.json();
+            throw new Error(errorData.error || "Credenciales incorrectas");
+        }
+        
+        const data = await res.json();
+        currentUser = { 
+            id: data.id, 
+            username: data.nombre, 
+            rol: data.rol, 
+            sector: data.sector 
+        };
 
-      // Admin va directo a admin.html
-      if (currentUser.rol === 1) {
-        window.location.href = "admin.html";
-        return;
-      }
+        // Admin va directo a admin.html
+        if (currentUser.rol === 1) {
+            window.location.href = "admin.html";
+            return;
+        }
 
-      // Si no es admin, mostrar selección de ventanilla
-      loginScreen.classList.add("hidden");
-      ventanillaSelectionScreen.classList.remove("hidden");
-      backButton.classList.add("hidden");
-      loginError.classList.add("hidden");
+        // Si no es admin, mostrar selección de ventanilla
+        loginScreen.classList.add("hidden");
+        ventanillaSelectionScreen.classList.remove("hidden");
+        backButton.classList.add("hidden");
+        loginError.classList.add("hidden");
 
-      await cargarVentanillas(currentUser.id); // Cambiado de currentUser.rol a currentUser.id
+        await cargarVentanillas(currentUser.id);
+        
     } catch (err) {
-      console.error("Error en login:", err);
-      loginError.textContent = "Credenciales incorrectas. Por favor, intenta de nuevo.";
-      loginError.classList.remove("hidden");
+        console.error("Error en login:", err);
+        loginError.textContent = err.message;
+        loginError.classList.remove("hidden");
     }
-  });
+});
 
   // -----------------------------
   // CARGAR VENTANILLAS LIBRES
@@ -191,7 +196,7 @@ async function iniciarVentanilla(idVentanilla, nombreVentanilla) {
     fetchTickets();
     
     // Actualizar cada 5 segundos
-    refreshInterval = setInterval(fetchTickets, 5000);
+    refreshInterval = setInterval(fetchTickets, 1000);
   }
 
   function stopTicketPolling() {

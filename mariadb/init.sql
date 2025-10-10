@@ -217,7 +217,8 @@ INSERT INTO Ventanillas (Ventanilla, ID_Sector) VALUES
 INSERT INTO Empleado (ID_ROL, nombre1, nombre2, Apellido1, Apellido2, Usuario, Passwd, ID_Estado)
 VALUES (1, 'Luis', '', 'Rivera', '', 'admin', SHA2('12345', 256), 1),
         (2, 'Luis', '', 'Rivera', '', 'Fur1us', SHA2('12345', 256), 1),
-        (2, 'gabriel', '', 'ortiz', '', 'itzumi', SHA2('12345', 256), 1);
+        (2, 'gabriel', '', 'ortiz', '', 'itzumi', SHA2('12345', 256), 1),
+        (2, 'Salvador', '', 'ortiz', '', 'esotilin', SHA2('12345', 256), 1);
 
 /* ====== 10. Alumnos ====== */
 INSERT INTO Alumnos (nombre1, nombre2, Apellido1, Apellido2, Carrera, Matricula) VALUES
