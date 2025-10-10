@@ -297,30 +297,24 @@ def get_estados_empleado():
 def ventanillas_libres(id_empleado):
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
-
+    
     # Obtenemos el sector del empleado
-    cursor.execute("""
-        SELECT E.ID_ROL, E.ID_Estado
-        FROM Empleado E
-        WHERE E.ID_Empleado = %s
-    """, (id_empleado,))
+    cursor.execute("SELECT ID_ROL FROM Empleado WHERE ID_Empleado = %s", (id_empleado,))
     empleado = cursor.fetchone()
-
+    
     if not empleado:
         cursor.close()
         conn.close()
         return jsonify({"error": "Empleado no encontrado"}), 404
 
-    # Seleccionamos ventanillas libres que el empleado pueda usar
+    # Seleccionamos ventanillas libres que el empleado pueda usar (mismo sector y no asignadas)
     cursor.execute("""
         SELECT V.ID_Ventanilla, V.Ventanilla
         FROM Ventanillas V
-        LEFT JOIN Empleado_Ventanilla EV 
+        LEFT JOIN Empleado_Ventanilla EV
             ON V.ID_Ventanilla = EV.ID_Ventanilla AND EV.ID_Estado = 1
-        WHERE EV.ID_Ventanilla IS NULL
-        -- Aquí puedes filtrar por sector si quieres, ej:
-        -- AND V.ID_Sector = %s
-    """, ())
+        WHERE EV.ID_Ventanilla IS NULL AND V.ID_Sector = %s
+    """, (empleado['ID_Sector'],))
     
     ventanillas = cursor.fetchall()
     cursor.close()

@@ -145,6 +145,14 @@ CREATE TABLE Turno_Invitado (
     FOREIGN KEY (ID_Estados) REFERENCES Estados_Turno(ID_Estado)
 );
 
+CREATE TABLE Rol_Ventanilla (
+    ID_Rol INT(1),
+    ID_Ventanilla INT(1),
+    PRIMARY KEY (ID_Rol, ID_Ventanilla),
+    FOREIGN KEY (ID_Ventanilla) REFERENCES Ventanillas(ID_Ventanilla),
+    FOREIGN KEY (ID_ROL) REFERENCES Rol(ID_Rol)
+);
+
 /* ==============================================
     INSERTS INICIALES - TurnosUal
 ============================================== */
