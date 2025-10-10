@@ -293,33 +293,26 @@ def get_estados_empleado():
     conn.close()
     return jsonify(estados), 200
 
-@app.route("/api/ventanillas/libres/<int:id_empleado>", methods=["GET"])
-def ventanillas_libres(id_empleado):
+@app.route("/api/ventanillas/libres/<int:id_rol>", methods=["GET"])
+def ventanillas_libres(id_rol):
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
-    
-    # Obtenemos el sector del empleado
-    cursor.execute("SELECT ID_ROL FROM Empleado WHERE ID_Empleado = %s", (id_empleado,))
-    empleado = cursor.fetchone()
-    
-    if not empleado:
-        cursor.close()
-        conn.close()
-        return jsonify({"error": "Empleado no encontrado"}), 404
 
-    # Seleccionamos ventanillas libres que el empleado pueda usar (mismo sector y no asignadas)
+    # Seleccionamos ventanillas libres que pertenezcan al rol
     cursor.execute("""
         SELECT V.ID_Ventanilla, V.Ventanilla
         FROM Ventanillas V
-        LEFT JOIN Empleado_Ventanilla EV
+        JOIN Rol_Ventanilla RV ON V.ID_Ventanilla = RV.ID_Ventanilla
+        LEFT JOIN Empleado_Ventanilla EV 
             ON V.ID_Ventanilla = EV.ID_Ventanilla AND EV.ID_Estado = 1
-        WHERE EV.ID_Ventanilla IS NULL AND V.ID_Sector = %s
-    """, (empleado['ID_Sector'],))
-    
+        WHERE EV.ID_Ventanilla IS NULL
+            AND RV.ID_Rol = %s
+    """, (id_rol,))
+
     ventanillas = cursor.fetchall()
     cursor.close()
     conn.close()
-    
+
     return jsonify(ventanillas), 200
 
 

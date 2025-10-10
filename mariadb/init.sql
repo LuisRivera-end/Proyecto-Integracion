@@ -223,3 +223,15 @@ INSERT INTO Alumnos (nombre1, nombre2, Apellido1, Apellido2, Carrera, Matricula)
 ('Ana', 'Maria', 'Torres', 'Jimenez', 'LAE', '28381'),
 ('Jorge', '', 'Martinez', 'Santos', 'ARQ', '28313'),
 ('Lucia', 'Fernanda', 'Mendez', 'Perez', 'LANG', '24355');
+
+/* ====== 11. Rol_Ventanilla ====== */
+INSERT INTO Rol_Ventanilla (ID_Rol, ID_Ventanilla) VALUES
+(2, 1),
+(2, 2),
+(2, 3),
+(2, 4),
+(3, 5),
+(3, 6),
+(3, 7),
+(3, 8),
+(4, 9);
