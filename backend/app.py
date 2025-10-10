@@ -406,8 +406,8 @@ def iniciar_ventanilla():
     id_empleado = data.get("id_empleado")
     id_ventanilla = data.get("id_ventanilla")
     
-    print(f"Iniciando ventanilla - Empleado: {id_empleado}, Ventanilla: {id_ventanilla}")  # Debug
-    
+    print(f"Iniciando ventanilla - Empleado: {id_empleado}, Ventanilla: {id_ventanilla}")
+
     if not id_empleado or not id_ventanilla:
         return jsonify({"error": "Empleado y ventanilla requeridos"}), 400
 
@@ -415,7 +415,7 @@ def iniciar_ventanilla():
     cursor = conn.cursor()
     
     try:
-        # Verificar si la ventanilla está libre
+        # Verificar si la ventanilla está libre (estado 1 = Activo)
         cursor.execute("""
             SELECT 1 FROM Empleado_Ventanilla
             WHERE ID_Ventanilla = %s AND ID_Estado = 1
@@ -424,14 +424,14 @@ def iniciar_ventanilla():
         if cursor.fetchone():
             return jsonify({"error": "Ventanilla ocupada"}), 400
 
-        # Registrar asignación
+        # Registrar asignación (usar estado 1 = Activo)
         cursor.execute("""
             INSERT INTO Empleado_Ventanilla (ID_Empleado, ID_Ventanilla, Fecha_Inicio, ID_Estado)
             VALUES (%s, %s, NOW(), 1)
         """, (id_empleado, id_ventanilla))
         
         conn.commit()
-        print(f"Ventanilla {id_ventanilla} iniciada para empleado {id_empleado}")  # Debug
+        print(f"Ventanilla {id_ventanilla} iniciada para empleado {id_empleado}")
         return jsonify({"message": "Ventanilla iniciada correctamente"}), 201
         
     except Exception as e:
@@ -461,41 +461,43 @@ def cerrar_ventanilla():
         if not id_empleado:
             return jsonify({"error": "Empleado requerido"}), 400
 
-        conn = get_db_connection()
-        cursor = conn.cursor()
+        print(f"Cerrando ventanilla para empleado: {id_empleado}")
 
-        print(f"Cerrando ventanilla para empleado: {id_empleado}")  # Debug
-
-        # Verificar si existe una asignación activa
-        cursor.execute("""
+        # PRIMERA CONEXIÓN: Solo para verificar
+        conn_check = get_db_connection()
+        cursor_check = conn_check.cursor(dictionary=True, buffered=True)  # BUFFERED=True
+        
+        cursor_check.execute("""
             SELECT ID_Asignacion 
             FROM Empleado_Ventanilla 
             WHERE ID_Empleado = %s AND ID_Estado = 1
         """, (id_empleado,))
         
-        asignacion = cursor.fetchone()
+        asignacion = cursor_check.fetchone()
+        cursor_check.close()
+        conn_check.close()
         
         if not asignacion:
             print(f"No se encontró ventanilla activa para el empleado {id_empleado}")
             return jsonify({"error": "No hay ventanilla activa para este empleado"}), 404
 
-        # Actualizar la asignación para cerrarla
-        cursor.execute("""
+        # SEGUNDA CONEXIÓN: Solo para actualizar
+        conn_update = get_db_connection()
+        cursor_update = conn_update.cursor()
+        
+        cursor_update.execute("""
             UPDATE Empleado_Ventanilla
             SET Fecha_Termino = NOW(), 
-                ID_Estado = 0
+                ID_Estado = 2
             WHERE ID_Empleado = %s AND ID_Estado = 1
         """, (id_empleado,))
 
-        filas_afectadas = cursor.rowcount
-        conn.commit()
-        cursor.close()
-        conn.close()
+        filas_afectadas = cursor_update.rowcount
+        conn_update.commit()
+        cursor_update.close()
+        conn_update.close()
 
-        print(f"Ventanilla cerrada. Filas afectadas: {filas_afectadas}")  # Debug
-
-        if filas_afectadas == 0:
-            return jsonify({"error": "No se pudo cerrar la ventanilla"}), 400
+        print(f"Ventanilla cerrada. Filas afectadas: {filas_afectadas}")
 
         return jsonify({"message": "Ventanilla liberada correctamente"}), 200
 
@@ -504,7 +506,6 @@ def cerrar_ventanilla():
         import traceback
         print(f"Traceback: {traceback.format_exc()}")
         return jsonify({"error": f"Error interno del servidor: {str(e)}"}), 500
-
 # -------------------
 # LLAMAR SIGUIENTE TICKET - NUEVO ENDPOINT
 # -------------------
