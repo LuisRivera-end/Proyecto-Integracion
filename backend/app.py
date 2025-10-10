@@ -174,7 +174,7 @@ def get_tickets():
         SELECT t.Folio, a.Matricula, e.Sector 
         FROM Turno t
         JOIN Alumnos a ON t.ID_Alumno = a.ID_Alumno
-        JOIN Empleados e ON e.Sector = %s
+        JOIN Empleado e ON e.Sector = %s
         WHERE t.ID_Estados = 1
     """, (request.args.get("sector", ""),))
     tickets = cursor.fetchall()
