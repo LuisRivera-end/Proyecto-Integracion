@@ -62,7 +62,33 @@
       </div>
     </div>
 
-    <!-- Pantalla de gestión de tickets -->
+
+    <div id="ventanilla-selection-screen" class="hidden min-h-screen flex items-center justify-center p-4">
+      <div class="bg-white/95 backdrop-blur-sm rounded-3xl shadow-2xl p-10 w-full max-w-md border border-slate-200 text-center">
+        <h2 class="text-2xl font-bold text-slate-800 mb-6">Selecciona tu Ventanilla</h2>
+        <p class="text-slate-600 mb-8">Por favor elige a qué ventanilla perteneces</p>
+
+        <div class="grid grid-cols-2 gap-4">
+          <button data-ventanilla="1"
+                  class="ventanilla-btn bg-slate-600 hover:bg-slate-700 text-white font-semibold py-3 rounded-xl transition-all duration-300 shadow-md hover:shadow-lg">
+            Ventanilla 1
+          </button>
+          <button data-ventanilla="2"
+                  class="ventanilla-btn bg-slate-600 hover:bg-slate-700 text-white font-semibold py-3 rounded-xl transition-all duration-300 shadow-md hover:shadow-lg">
+            Ventanilla 2
+          </button>
+          <button data-ventanilla="3"
+                  class="ventanilla-btn bg-slate-600 hover:bg-slate-700 text-white font-semibold py-3 rounded-xl transition-all duration-300 shadow-md hover:shadow-lg">
+            Ventanilla 3
+          </button>
+          <button data-ventanilla="4"
+                  class="ventanilla-btn bg-slate-600 hover:bg-slate-700 text-white font-semibold py-3 rounded-xl transition-all duration-300 shadow-md hover:shadow-lg">
+            Ventanilla 4
+          </button>
+        </div>
+      </div>
+    </div>
+        <!-- Pantalla de gestión de tickets -->
     <div id="management-screen" class="hidden min-h-screen p-8">
       <div class="max-w-6xl mx-auto">
         <div class="bg-white/95 backdrop-blur-sm rounded-3xl shadow-xl p-8 mb-8 flex justify-between items-center border border-slate-200">
@@ -72,8 +98,7 @@
             <p class="text-sm text-slate-500 mt-1">Usuario: <span id="user-name" class="font-medium"></span></p>
           </div>
           <button id="logout-btn"
-                  class="bg-slate-600 hover:bg-slate-700 text-white px-6 py-3 rounded-xl font-semibold 
-                         transition-all duration-300 flex items-center gap-2 shadow-md hover:shadow-lg">
+                  class="bg-slate-600 hover:bg-slate-700 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-300 flex items-center gap-2 shadow-md hover:shadow-lg">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                     d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0

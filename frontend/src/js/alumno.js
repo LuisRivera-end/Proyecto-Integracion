@@ -3,31 +3,47 @@ const API_BASE_URL = window.location.hostname === "localhost"
     : "http://backend:5000"; 
 
 document.addEventListener("DOMContentLoaded", () => {
-    const form = document.getElementById('ticket-form');
-    const formContainer = document.getElementById('form-container');
-    const ticketResult = document.getElementById('ticket-result');
-    const errorMessage = document.getElementById('error-message');
-    const errorText = document.getElementById('error-text');
+    const form = document.getElementById("ticket-form");
+    const formContainer = document.getElementById("form-container");
+    const ticketResult = document.getElementById("ticket-result");
+    const errorMessage = document.getElementById("error-message");
+    const errorText = document.getElementById("error-text");
 
-    form.addEventListener('submit', async (e) => {
+    const noMatriculaCheckbox = document.getElementById("no-matricula-checkbox");
+    const matriculaFolioLabel = document.getElementById("matricula-folio-label");
+    const inputMatriculaFolio = document.getElementById("input-matricula-folio");
+
+    noMatriculaCheckbox.addEventListener("click", () => {
+        if (noMatriculaCheckbox.checked) {
+            matriculaFolioLabel.textContent = "Folio";
+            inputMatriculaFolio.placeholder = "Ingresa tu folio";
+        } else {
+            matriculaFolioLabel.textContent = "Matrícula";
+            inputMatriculaFolio.placeholder = "Ingresa tu matrícula";
+        }
+    });
+
+
+    // ✅ Envío del formulario
+    form.addEventListener("submit", async (e) => {
         e.preventDefault();
 
-        const matriculaInput = document.getElementById('input-matricula-folio');
-        const sectorInput = document.getElementById('sector');
+        const MatriculaOFolioIngresado = inputMatriculaFolio.value.trim();
+        const sector = document.getElementById("sector").value;
 
-        const matricula = matriculaInput.value.trim();
-        const sector = sectorInput.value;
-
-        if (!matricula || !sector) {
-            showError("Debes completar matrícula y sector.");
+        if (!MatriculaOFolioIngresado || !sector) {
+            showError("Por favor, completa todos los campos.");
             return;
         }
 
         try {
             const response = await fetch(`${API_BASE_URL}/api/ticket`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ matricula, sector })
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ 
+                    matricula: MatriculaOFolioIngresado,
+                    sector 
+                })
             });
 
             const data = await response.json();
@@ -36,33 +52,37 @@ document.addEventListener("DOMContentLoaded", () => {
                 throw new Error(data.error || "Error al generar el ticket");
             }
 
-            // Ocultar el formulario y mostrar el ticket
-            formContainer.classList.add('hidden');
-            ticketResult.classList.remove('hidden');
-            errorMessage.classList.add('hidden');
+            // ✅ Actualizar campos visibles del ticket
+            const matriculaFolio = document.getElementById("matricula-o-folio");
+            matriculaFolio.textContent = noMatriculaCheckbox.checked ? "Folio:" : "Matrícula:";
 
-            // Actualizar los campos del ticket
-            document.getElementById('result-fecha').textContent = data.fecha;
-            document.getElementById('result-matricula-o-folio').textContent = data.alumno;
-            document.getElementById('result-ticket').textContent = data.folio;
-            document.getElementById('result-sector').textContent = data.sector;
+            document.getElementById("result-matricula-o-folio").textContent = MatriculaOFolioIngresado;
+            document.getElementById("result-sector").textContent = data.sector || sector;
+            document.getElementById("result-ticket").textContent = data.folio || ("T-" + Math.floor(Math.random() * 1000));
+            if (data.fecha) document.getElementById("result-fecha").textContent = data.fecha;
+
+            // ✅ Cambiar vistas
+            formContainer.classList.add("hidden");
+            ticketResult.classList.remove("hidden");
+            errorMessage.classList.add("hidden");
 
         } catch (err) {
             showError(err.message);
         }
     });
 
-    // Función para mostrar mensaje de error
     function showError(message) {
         errorText.textContent = message;
-        errorMessage.classList.remove('hidden');
+        errorMessage.classList.remove("hidden");
     }
 
-    // Función para resetear el formulario y la pantalla de ticket
     window.resetForm = function() {
         form.reset();
-        ticketResult.classList.add('hidden');
-        formContainer.classList.remove('hidden');
-        errorMessage.classList.add('hidden');
+        formContainer.classList.remove("hidden");
+        ticketResult.classList.add("hidden");
+        errorMessage.classList.add("hidden");
+        // Restablecer texto y placeholder
+        matriculaFolioLabel.textContent = "Matrícula";
+        inputMatriculaFolio.placeholder = "Ingresa tu matrícula";
     };
 });

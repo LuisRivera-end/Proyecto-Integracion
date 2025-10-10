@@ -293,5 +293,100 @@ def get_estados_empleado():
     conn.close()
     return jsonify(estados), 200
 
+@app.route("/api/ventanillas/libres/<int:id_empleado>", methods=["GET"])
+def ventanillas_libres(id_empleado):
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    # Obtenemos el sector del empleado
+    cursor.execute("""
+        SELECT E.ID_ROL, E.ID_Estado
+        FROM Empleado E
+        WHERE E.ID_Empleado = %s
+    """, (id_empleado,))
+    empleado = cursor.fetchone()
+
+    if not empleado:
+        cursor.close()
+        conn.close()
+        return jsonify({"error": "Empleado no encontrado"}), 404
+
+    # Seleccionamos ventanillas libres que el empleado pueda usar
+    cursor.execute("""
+        SELECT V.ID_Ventanilla, V.Ventanilla
+        FROM Ventanillas V
+        LEFT JOIN Empleado_Ventanilla EV 
+            ON V.ID_Ventanilla = EV.ID_Ventanilla AND EV.ID_Estado = 1
+        WHERE EV.ID_Ventanilla IS NULL
+        -- Aquí puedes filtrar por sector si quieres, ej:
+        -- AND V.ID_Sector = %s
+    """, ())
+    
+    ventanillas = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    
+    return jsonify(ventanillas), 200
+
+
+@app.route("/api/ventanilla/iniciar", methods=["POST"])
+def iniciar_ventanilla():
+    data = request.get_json()
+    id_empleado = data.get("id_empleado")
+    id_ventanilla = data.get("id_ventanilla")
+    
+    if not id_empleado or not id_ventanilla:
+        return jsonify({"error": "Empleado y ventanilla requeridos"}), 400
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    # Verificar si la ventanilla está libre
+    cursor.execute("""
+        SELECT 1 FROM Empleado_Ventanilla
+        WHERE ID_Ventanilla = %s AND ID_Estado = 1
+    """, (id_ventanilla,))
+    
+    if cursor.fetchone():
+        cursor.close()
+        conn.close()
+        return jsonify({"error": "Ventanilla ocupada"}), 400
+
+    # Registrar asignación
+    cursor.execute("""
+        INSERT INTO Empleado_Ventanilla (ID_Empleado, ID_Ventanilla, Fecha_Inicio, ID_Estado)
+        VALUES (%s, %s, NOW(), 1)
+    """, (id_empleado, id_ventanilla))
+    
+    conn.commit()
+    cursor.close()
+    conn.close()
+    
+    return jsonify({"message": "Ventanilla iniciada correctamente"}), 201
+
+@app.route("/api/ventanilla/cerrar", methods=["PUT"])
+def cerrar_ventanilla():
+    data = request.get_json()
+    id_empleado = data.get("id_empleado")
+    
+    if not id_empleado:
+        return jsonify({"error": "Empleado requerido"}), 400
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    # Terminar la asignación activa
+    cursor.execute("""
+        UPDATE Empleado_Ventanilla
+        SET Fecha_Termino = NOW(), ID_Estado = 0
+        WHERE ID_Empleado = %s AND ID_Estado = 1
+    """, (id_empleado,))
+    
+    conn.commit()
+    cursor.close()
+    conn.close()
+    
+    return jsonify({"message": "Ventanilla liberada"}), 200
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
