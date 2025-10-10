@@ -1,63 +1,68 @@
-const matriculaFolioLabel = document.getElementById("matricula-folio-label");
-const noMatriculaCheckbox = document.getElementById("no-matricula-checkbox");
-const inputMatriculaFolio = document.getElementById("input-matricula-folio");
-const form = document.getElementById("ticket-form");
-const formContainer = document.getElementById("form-container");
-const ticketResult = document.getElementById("ticket-result");
-const errorMessage = document.getElementById("error-message");
-const errorText = document.getElementById("error-text");
+const API_BASE_URL = window.location.hostname === "localhost" 
+    ? "http://localhost:5000"
+    : "http://backend:5000"; 
 
-noMatriculaCheckbox.addEventListener("click", () => {
-    if (noMatriculaCheckbox.checked) {
-        matriculaFolioLabel.textContent = "Folio";
-        inputMatriculaFolio.placeholder = "Ingresa tu folio";
-    } else {
-        matriculaFolioLabel.textContent = "Matrícula";
-        inputMatriculaFolio.placeholder = "Ingresa tu matrícula";
+document.addEventListener("DOMContentLoaded", () => {
+    const form = document.getElementById('ticket-form');
+    const formContainer = document.getElementById('form-container');
+    const ticketResult = document.getElementById('ticket-result');
+    const errorMessage = document.getElementById('error-message');
+    const errorText = document.getElementById('error-text');
+
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const matriculaInput = document.getElementById('input-matricula-folio');
+        const sectorInput = document.getElementById('sector');
+
+        const matricula = matriculaInput.value.trim();
+        const sector = sectorInput.value;
+
+        if (!matricula || !sector) {
+            showError("Debes completar matrícula y sector.");
+            return;
+        }
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/ticket`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ matricula, sector })
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error || "Error al generar el ticket");
+            }
+
+            // Ocultar el formulario y mostrar el ticket
+            formContainer.classList.add('hidden');
+            ticketResult.classList.remove('hidden');
+            errorMessage.classList.add('hidden');
+
+            // Actualizar los campos del ticket
+            document.getElementById('result-fecha').textContent = data.fecha;
+            document.getElementById('result-matricula-o-folio').textContent = data.alumno;
+            document.getElementById('result-ticket').textContent = data.folio;
+            document.getElementById('result-sector').textContent = data.sector;
+
+        } catch (err) {
+            showError(err.message);
+        }
+    });
+
+    // Función para mostrar mensaje de error
+    function showError(message) {
+        errorText.textContent = message;
+        errorMessage.classList.remove('hidden');
     }
+
+    // Función para resetear el formulario y la pantalla de ticket
+    window.resetForm = function() {
+        form.reset();
+        ticketResult.classList.add('hidden');
+        formContainer.classList.remove('hidden');
+        errorMessage.classList.add('hidden');
+    };
 });
-
-form.addEventListener("submit", function(e) {
-    e.preventDefault();
-    const MatriculaOFolioIngresado = inputMatriculaFolio.value.trim();
-    const sector = document.getElementById("sector").value;
-
-    if (!MatriculaOFolioIngresado|| !sector) {
-        errorText.textContent = "Por favor, completa todos los campos.";
-        errorMessage.classList.remove("hidden");
-        return;
-    }
-
-    errorMessage.classList.add("hidden");
-
-    
-    const ticket = "T-" + Math.floor(Math.random() * 1000);
-
-    const fecha = new Date();
-    const opciones = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-    document.getElementById('result-fecha').textContent = fecha.toLocaleDateString('es-ES', opciones);
-
-    const matriculaFolio = document.getElementById("matricula-o-folio");
-    const nombreTicket = document.getElementById("nombre-ticket");
-    if (noMatriculaCheckbox.checked) {
-        matriculaFolio.textContent = "Folio:";
-        nombreTicket.remove()
-    } else {
-        
-        matriculaFolio.textContent = "Matrícula:";
-    } 
-    document.getElementById("result-matricula-o-folio").textContent = MatriculaOFolioIngresado;
-    document.getElementById("result-sector").textContent = sector;
-    document.getElementById("result-ticket").textContent = ticket;
-
-    formContainer.classList.add("hidden");
-    ticketResult.classList.remove("hidden");
-});
-
-
-function resetForm() {
-    form.reset();
-    ticketResult.classList.add("hidden");
-    formContainer.classList.remove("hidden");
-    location.reload();
-}
