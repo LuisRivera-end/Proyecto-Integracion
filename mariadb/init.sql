@@ -124,9 +124,10 @@ CREATE TABLE Turno (
     ID_Turno INT(6) NOT NULL AUTO_INCREMENT PRIMARY KEY,
     ID_Alumno INT(6) NOT NULL,
     ID_Ventanilla INT(6),
-    Fecha_Ticket DATETIME NOT NULL,
+    Fecha_Ticket DATETIME(3) NOT NULL,
     Folio VARCHAR(6) NOT NULL,
     ID_Estados INT(1) NOT NULL,
+    Fecha_Ultimo_Estado DATETIME(3) NOT NULL,
     FOREIGN KEY (ID_Alumno) REFERENCES Alumnos(ID_Alumno),
     FOREIGN KEY (ID_Ventanilla) REFERENCES Ventanillas(ID_Ventanilla),
     FOREIGN KEY (ID_Estados) REFERENCES Estados_Turno(ID_Estado)
@@ -136,9 +137,10 @@ DROP TABLE IF EXISTS `Turno_Invitado`;
 CREATE TABLE Turno_Invitado (
     ID_TurnoInvitado INT(6) NOT NULL AUTO_INCREMENT PRIMARY KEY,
     ID_Ventanilla INT(6),
-    Fecha_Ticket DATETIME NOT NULL,
+    Fecha_Ticket DATETIME(6) NOT NULL,
     Folio_Invitado VARCHAR(6) NOT NULL,
     ID_Estados INT(1) NOT NULL,
+    Fecha_Ultimo_Estado DATETIME(3) NOT NULL,
     FOREIGN KEY (ID_Ventanilla) REFERENCES Ventanillas(ID_Ventanilla),
     FOREIGN KEY (ID_Estados) REFERENCES Estados_Turno(ID_Estado)
 );
