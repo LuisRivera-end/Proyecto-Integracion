@@ -74,13 +74,32 @@
     
         <div class="bg-white rounded-lg shadow p-6 mb-6">
             <h3 class="text-lg font-semibold text-gray-900 mb-4">Estado del Sistema</h3>
-            <div class="flex items-center justify-between">
-                <span class="text-gray-600">Tickets en Espera:</span>
-                <span class="text-2xl font-bold text-gray-600" id="tickets-espera">0</span>
-            </div>
-            <div class="flex items-center justify-between mt-4">
-                <span class="text-gray-600">Último Ticket:</span>
-                <span class="text-2xl font-bold text-gray-900" id="ultimo-ticket">-</span>
+            <!-- Resumen -->
+            <div class="mt-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-center">
+              <div class="bg-slate-100 p-4 rounded-lg shadow">
+                <p class="text-gray-600 text-sm">Total Agregados</p>
+                <p id="total-agregados" class="text-3xl font-bold text-gray-900">0</p>
+              </div>
+              <div class="bg-slate-100 p-4 rounded-lg shadow">
+                <p class="text-gray-600 text-sm">Completados</p>
+                <p id="total-completados" class="text-3xl font-bold text-green-600">0</p>
+              </div>
+              <div class="bg-slate-100 p-4 rounded-lg shadow">
+                <p class="text-gray-600 text-sm">Cancelados</p>
+                <p id="total-cancelados" class="text-3xl font-bold text-red-600">0</p>
+              </div>
+              <div class="bg-slate-100 p-4 rounded-lg shadow">
+                <p class="text-gray-600 text-sm">Pendientes</p>
+                <p id="total-pendientes" class="text-3xl font-bold text-yellow-600">0</p>
+              </div>
+              <div class="bg-slate-100 p-4 rounded-lg shadow col-span-1 sm:col-span-2">
+                <p class="text-gray-600 text-sm">Sector con más tickets</p>
+                <p id="sector-mas" class="text-lg font-semibold text-gray-800">-</p>
+              </div>
+              <div class="bg-slate-100 p-4 rounded-lg shadow col-span-1 sm:col-span-2">
+                <p class="text-gray-600 text-sm">Sector con menos tickets</p>
+                <p id="sector-menos" class="text-lg font-semibold text-gray-800">-</p>
+              </div>
             </div>
         </div>
 
@@ -135,25 +154,6 @@
             </table>
           </div>
 
-          <!-- Resumen -->
-          <div class="mt-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-center">
-            <div class="bg-slate-100 p-4 rounded-lg shadow">
-              <p class="text-gray-600 text-sm">Total Agregados</p>
-              <p id="total-agregados" class="text-3xl font-bold text-gray-900">0</p>
-            </div>
-            <div class="bg-slate-100 p-4 rounded-lg shadow">
-              <p class="text-gray-600 text-sm">Atendidos</p>
-              <p id="total-atendidos" class="text-3xl font-bold text-green-600">0</p>
-            </div>
-            <div class="bg-slate-100 p-4 rounded-lg shadow">
-              <p class="text-gray-600 text-sm">Cancelados</p>
-              <p id="total-cancelados" class="text-3xl font-bold text-red-600">0</p>
-            </div>
-            <div class="bg-slate-100 p-4 rounded-lg shadow">
-              <p class="text-gray-600 text-sm">Sector con más tickets</p>
-              <p id="sector-mas" class="text-lg font-semibold text-gray-800">-</p>
-            </div>
-          </div>
         </div>
         <!-- idiomas -->
        <div class="gtranslate_wrapper"></div>

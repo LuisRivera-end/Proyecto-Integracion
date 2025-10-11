@@ -9,9 +9,7 @@ function mostrarFecha() {
 function generarDatosSimulados() {
     const total = Math.floor(Math.random() * 150) + 50;
     return {
-        total: total,
-        enEspera: Math.floor(Math.random() * 15),
-        ultimoTicket: 'T' + String(total).padStart(3, '0')
+        total: total
     };
 }
 
@@ -34,8 +32,7 @@ function actualizarDatos() {
     const datos = generarDatosSimulados();
     
     animarNumero(document.getElementById('total-tickets'), datos.total);
-    animarNumero(document.getElementById('tickets-espera'), datos.enEspera);
-    document.getElementById('ultimo-ticket').textContent = datos.ultimoTicket;
+;
 }
 
 
@@ -105,7 +102,7 @@ function mostrarHistorial(filtroEstado = "todos", filtroSector = "todos") {
         tr.innerHTML = `
             <td class="py-3 px-4">${ticket.id}</td>
             <td class="py-3 px-4">${ticket.sector}</td>
-            <td class="py-3 px-4 capitalize ${ticket.estado === 'cancelado' ? 'text-red-600' : ticket.estado === 'atendido' ? 'text-green-600' : 'text-yellow-600'}">${ticket.estado}</td>
+            <td class="py-3 px-4 capitalize ${ticket.estado === 'cancelado' ? 'text-red-600' : ticket.estado === 'completado' ? 'text-green-600' : 'text-yellow-600'}">${ticket.estado}</td>
             <td class="py-3 px-4">${ticket.creado.toLocaleString()}</td>
             <td class="py-3 px-4">${ticket.finalizado ? ticket.finalizado.toLocaleString() : "-"}</td>
         `;
@@ -118,9 +115,10 @@ function mostrarHistorial(filtroEstado = "todos", filtroSector = "todos") {
 // Actualizar estadísticas
 function actualizarResumen(lista) {
     const total = lista.length;
-    const atendidos = lista.filter(t => t.estado === "atendido").length;
+    const completados = lista.filter(t => t.estado === "completado").length;
     const cancelados = lista.filter(t => t.estado === "cancelado").length;
     const agregados = total;
+    const pendientes = total - completados - cancelados;
     
     const conteoSectores = {};
     lista.forEach(t => {
@@ -129,11 +127,14 @@ function actualizarResumen(lista) {
 
     const sectoresOrdenados = Object.entries(conteoSectores).sort((a,b) => b[1]-a[1]);
     const mas = sectoresOrdenados[0]?.[0] || "-";
+    const menos = sectoresOrdenados[sectoresOrdenados.length - 1]?.[0] || "-";
 
     document.getElementById("total-agregados").textContent = agregados;
-    document.getElementById("total-atendidos").textContent = atendidos;
+    document.getElementById("total-completados").textContent = completados;
     document.getElementById("total-cancelados").textContent = cancelados;
     document.getElementById("sector-mas").textContent = mas;
+    document.getElementById("sector-menos").textContent = menos;
+    document.getElementById("total-pendientes").textContent = pendientes;
 }
 
 // Filtros

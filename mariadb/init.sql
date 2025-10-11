@@ -123,15 +123,18 @@ DROP TABLE IF EXISTS `Turno`;
 CREATE TABLE Turno (
     ID_Turno INT(6) NOT NULL AUTO_INCREMENT PRIMARY KEY,
     ID_Alumno INT(6) NOT NULL,
+    ID_Sector INT(1) NOT NULL,
     ID_Ventanilla INT(6),
     Fecha_Ticket DATETIME(3) NOT NULL,
     Folio VARCHAR(6) NOT NULL,
     ID_Estados INT(1) NOT NULL,
     Fecha_Ultimo_Estado DATETIME(3) NOT NULL,
     FOREIGN KEY (ID_Alumno) REFERENCES Alumnos(ID_Alumno),
+    FOREIGN KEY (ID_Sector) REFERENCES Sectores(ID_Sector),
     FOREIGN KEY (ID_Ventanilla) REFERENCES Ventanillas(ID_Ventanilla),
     FOREIGN KEY (ID_Estados) REFERENCES Estados_Turno(ID_Estado)
 );
+
 
 DROP TABLE IF EXISTS `Turno_Invitado`;
 CREATE TABLE Turno_Invitado (
@@ -218,14 +221,15 @@ INSERT INTO Empleado (ID_ROL, nombre1, nombre2, Apellido1, Apellido2, Usuario, P
 VALUES (1, 'Luis', '', 'Rivera', '', 'admin', SHA2('12345', 256), 1),
         (2, 'Luis', '', 'Rivera', '', 'Fur1us', SHA2('12345', 256), 1),
         (2, 'gabriel', '', 'ortiz', '', 'itzumi', SHA2('12345', 256), 1),
-        (2, 'Salvador', '', 'ortiz', '', 'esotilin', SHA2('12345', 256), 1);
+        (2, 'Salvador', '', 'Butanda', '', 'python', SHA2('12345', 256), 1);
 
 /* ====== 10. Alumnos ====== */
 INSERT INTO Alumnos (nombre1, nombre2, Apellido1, Apellido2, Carrera, Matricula) VALUES
 ('Carlos', 'Eduardo', 'Ramirez', 'Lopez', 'ISC', '28385'),
 ('Ana', 'Maria', 'Torres', 'Jimenez', 'LAE', '28381'),
 ('Jorge', '', 'Martinez', 'Santos', 'ARQ', '28313'),
-('Lucia', 'Fernanda', 'Mendez', 'Perez', 'LANG', '24355');
+('Lucia', 'Fernanda', 'Mendez', 'Perez', 'LANG', '24355'),
+('Salvador', '', 'Butanda', 'Fuentes', 'UAL', '21783');
 
 /* ====== 11. Rol_Ventanilla ====== */
 INSERT INTO Rol_Ventanilla (ID_Rol, ID_Ventanilla) VALUES

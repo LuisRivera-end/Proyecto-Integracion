@@ -44,47 +44,54 @@ def health_check():
 def generar_ticket():
     data = request.get_json()
     matricula = data.get('matricula')
-    sector = data.get('sector')
+    sector_nombre = data.get('sector')
 
-    if not matricula or not sector:
+    if not matricula or not sector_nombre:
         return jsonify({"error": "matrícula y sector son requeridos"}), 400
 
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
 
-    # 1️⃣ Buscar ID_Alumno a partir de la matrícula
-    cursor.execute("SELECT ID_Alumno, nombre1, Apellido1 FROM Alumnos WHERE Matricula = %s", (matricula,))
+    # Buscar ID del alumno
+    cursor.execute("SELECT ID_Alumno FROM Alumnos WHERE Matricula = %s", (matricula,))
     alumno = cursor.fetchone()
-
     if not alumno:
         cursor.close()
         conn.close()
         return jsonify({"error": "No se encontró alumno con esa matrícula"}), 404
-
     ID_Alumno = alumno["ID_Alumno"]
-    
-    # 3️⃣ Generar folio aleatorio
+
+    # Buscar ID del sector
+    cursor.execute("SELECT ID_Sector FROM Sectores WHERE Sector = %s", (sector_nombre,))
+    sector = cursor.fetchone()
+    if not sector:
+        cursor.close()
+        conn.close()
+        return jsonify({"error": "No se encontró el sector especificado"}), 404
+    ID_Sector = sector["ID_Sector"]
+
+    # Generar folio y guardar
     Folio = generar_folio_unico(cursor)
+    Fecha_Ticket = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
     Fecha_Ticket_publico = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    Fecha_Ticket = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3] # Usado para Fecha_Ticket y Fecha_Ultimo_Estado
 
     cursor.execute("""
-        INSERT INTO Turno (ID_Alumno, ID_Ventanilla, Fecha_Ticket, Folio, ID_Estados, Fecha_Ultimo_Estado)
-        VALUES (%s, NULL, %s, %s, 1, %s)
-    """, (ID_Alumno, Fecha_Ticket, Folio, Fecha_Ticket))
-    
+        INSERT INTO Turno (ID_Alumno, ID_Sector, ID_Ventanilla, Fecha_Ticket, Folio, ID_Estados, Fecha_Ultimo_Estado)
+        VALUES (%s, %s, NULL, %s, %s, 1, %s)
+    """, (ID_Alumno, ID_Sector, Fecha_Ticket, Folio, Fecha_Ticket))
+
     conn.commit()
     cursor.close()
     conn.close()
 
-    # 5️⃣ Responder al frontend
     return jsonify({
         "mensaje": "Ticket generado exitosamente",
         "folio": Folio,
         "fecha": Fecha_Ticket_publico,
         "alumno": matricula,
-        "sector": sector
+        "sector": sector_nombre
     }), 201
+
     
 @app.route('/api/turno/<int:id_turno>/estado', methods=['PUT'])
 def actualizar_estado_turno(id_turno):
@@ -162,18 +169,19 @@ def get_tickets():
     cursor = conn.cursor(dictionary=True)
     
     try:
-        # Consulta corregida con la estructura real de la BD
         cursor.execute("""
             SELECT 
-                t.Folio as folio,
-                t.ID_Turno as id_turno,
-                a.Matricula as matricula,
-                et.Nombre as estado,
-                t.Fecha_Ticket as fecha_ticket
+                t.Folio AS folio,
+                t.ID_Turno AS id_turno,
+                a.Matricula AS matricula,
+                s.Sector AS sector,
+                et.Nombre AS estado,
+                t.Fecha_Ticket AS fecha_ticket
             FROM Turno t
             JOIN Alumnos a ON t.ID_Alumno = a.ID_Alumno
+            JOIN Sectores s ON t.ID_Sector = s.ID_Sector
             JOIN Estados_Turno et ON t.ID_Estados = et.ID_Estado
-            WHERE t.ID_Estados = 1  -- Solo tickets pendientes (Pendiente)
+            WHERE t.ID_Estados = 1  -- Solo tickets pendientes
             ORDER BY t.Fecha_Ticket ASC
         """)
         
@@ -191,6 +199,7 @@ def get_tickets():
     finally:
         cursor.close()
         conn.close()
+
 
 # -------------------
 # ATENDER TICKET - CORREGIDO
@@ -233,6 +242,36 @@ def attend_ticket(folio):
     except Exception as e:
         print(f"Error en attend_ticket: {e}")
         return jsonify({"error": "Error interno del servidor"}), 500
+        
+@app.route("/api/tickets_count", methods=["GET"])
+def get_tickets_count():
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    try:
+        cursor.execute("""
+            SELECT 
+                s.Sector AS nombre_sector,
+                COUNT(t.ID_Turno) AS cantidad
+            FROM Turno t
+            JOIN Sectores s ON t.ID_Sector = s.ID_Sector
+            WHERE t.ID_Estados = 1  -- Solo tickets pendientes
+            GROUP BY s.Sector
+        """)
+        resultados = cursor.fetchall()
+
+        # Convertir a formato { 'Cajas': 3, 'Becas': 5, 'Servicios Escolares': 2 }
+        conteos = {r["nombre_sector"]: r["cantidad"] for r in resultados}
+
+        return jsonify(conteos), 200
+    except Exception as e:
+        import traceback
+        print(f"Error en get_tickets_count: {e}")
+        print(traceback.format_exc())
+        return jsonify({"error": str(e)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
 
 @app.route('/api/tickets/<folio>/complete', methods=['PUT'])
 def complete_ticket(folio):
