@@ -4,7 +4,7 @@ const API_BASE_URL = window.location.hostname === "localhost"
 
 document.addEventListener("DOMContentLoaded", () => {
   const loginScreen = document.getElementById("login-screen");
-  const ventanillaSelectionScreen = document.getElementById("ventanilla-selection-screen");
+  //const ventanillaSelectionScreen = document.getElementById("ventanilla-selection-screen"); // ELIMINADA
   const managementScreen = document.getElementById("management-screen");
   const loginForm = document.getElementById("login-form");
   const loginError = document.getElementById("login-error");
@@ -20,9 +20,8 @@ document.addEventListener("DOMContentLoaded", () => {
   let refreshInterval = null;
 
   // -----------------------------
-  // LOGIN
+  // LOGIN - CORREGIDO
   // -----------------------------
-// En tu ventanilla.js, mejora el manejo de errores en el login:
 loginForm.addEventListener("submit", async (e) => {
     e.preventDefault();
     const username = document.getElementById("username").value.trim();
@@ -54,13 +53,14 @@ loginForm.addEventListener("submit", async (e) => {
             return;
         }
 
-        // Si no es admin, mostrar selección de ventanilla
+        // Si no es admin, ir directamente a iniciar la ventanilla
         loginScreen.classList.add("hidden");
-        ventanillaSelectionScreen.classList.remove("hidden");
+        managementScreen.classList.remove("hidden"); // Muestra directamente la gestión
         backButton.classList.add("hidden");
         loginError.classList.add("hidden");
 
-        await cargarVentanillas(currentUser.id);
+        // Llama a iniciarVentanilla con ID 0 para asignación automática
+        await iniciarVentanilla(0, "Automática");
         
     } catch (err) {
         console.error("Error en login:", err);
@@ -70,51 +70,14 @@ loginForm.addEventListener("submit", async (e) => {
 });
 
   // -----------------------------
-  // CARGAR VENTANILLAS LIBRES
+  // CARGAR VENTANILLAS LIBRES - ELIMINADA
   // -----------------------------
-  async function cargarVentanillas(id_empleado) {
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/ventanillas/libres/${id_empleado}`);
-      if (!res.ok) throw new Error("No se pudieron cargar ventanillas");
-      const ventanillas = await res.json();
-
-      const container = ventanillaSelectionScreen.querySelector(".grid");
-      container.innerHTML = "";
-
-      ventanillas.forEach(v => {
-        const btn = document.createElement("button");
-        btn.className = "ventanilla-btn bg-slate-600 hover:bg-slate-700 text-white font-semibold py-3 rounded-xl transition-all duration-300 shadow-md hover:shadow-lg";
-        btn.textContent = v.Ventanilla || `Ventanilla ${v.ID_Ventanilla}`;
-        btn.setAttribute("data-ventanilla", v.ID_Ventanilla);
-
-        btn.addEventListener("click", () => {
-          const ventanilla = { 
-            id: v.ID_Ventanilla, 
-            nombre: v.Ventanilla || `Ventanilla ${v.ID_Ventanilla}`,
-            sector: v.ID_Sector || currentUser.sector
-          };
-          
-          iniciarVentanilla(ventanilla.id, ventanilla.nombre);
-        });
-
-        container.appendChild(btn);
-      });
-
-      // Si no hay ventanillas disponibles
-      if (ventanillas.length === 0) {
-        container.innerHTML = '<p class="text-slate-600 col-span-2">No hay ventanillas disponibles</p>';
-      }
-
-    } catch (err) {
-      console.error("Error al cargar ventanillas:", err);
-      const container = ventanillaSelectionScreen.querySelector(".grid");
-      container.innerHTML = '<p class="text-red-600 col-span-2">Error al cargar ventanillas</p>';
-    }
-  }
-
+  /* La función cargarVentanillas se elimina por completo */
+  
 // -----------------------------
-// INICIAR VENTANILLA - MEJORADO
+// INICIAR VENTANILLA - CORREGIDO
 // -----------------------------
+// Se eliminó la línea "iniciarVentanilla(ventanilla.id, ventanilla.nombre);"
 async function iniciarVentanilla(idVentanilla, nombreVentanilla) {
     try {
         console.log("Intentando iniciar ventanilla:", {
@@ -140,15 +103,22 @@ async function iniciarVentanilla(idVentanilla, nombreVentanilla) {
         const data = await res.json();
         console.log("Ventanilla iniciada:", data.message);
 
+        // **MODIFICACIÓN CLAVE: Obtener ID y Nombre de la ventanilla asignada del backend**
+        const assignedVentanillaId = data.ID_Ventanilla; 
+        const assignedVentanillaNombre = data.Nombre_Ventanilla; 
+        
+        if (!assignedVentanillaId) {
+             throw new Error("El sistema no pudo asignar una ventanilla disponible. El backend no devolvió una asignación válida.");
+        }
+        
         currentUser.ventanilla = { 
-            id: idVentanilla, 
-            nombre: nombreVentanilla 
+            id: assignedVentanillaId, 
+            nombre: assignedVentanillaNombre
         };
 
-        ventanillaSelectionScreen.classList.add("hidden");
-        managementScreen.classList.remove("hidden");
+        // Ya se mostró managementScreen en el login
 
-        userSector.textContent = `${currentUser.sector} - ${nombreVentanilla}`;
+        userSector.textContent = `${currentUser.sector} - ${currentUser.ventanilla.nombre}`;
         userName.textContent = currentUser.username;
 
         // Iniciar polling para actualizar tickets automáticamente
@@ -156,8 +126,12 @@ async function iniciarVentanilla(idVentanilla, nombreVentanilla) {
 
     } catch (err) {
         console.error("Error al iniciar ventanilla:", err);
-        alert(`Error: ${err.message}`);
-        await cargarVentanillas(currentUser.id);
+        alert(`Error al iniciar ventanilla: ${err.message}. Por favor, cierra sesión e intenta de nuevo.`);
+        
+        // Regresar a la pantalla de login si falla la inicialización
+        managementScreen.classList.add("hidden");
+        loginScreen.classList.remove("hidden");
+        backButton.classList.remove("hidden");
     }
 }
 
@@ -301,7 +275,7 @@ async function iniciarVentanilla(idVentanilla, nombreVentanilla) {
   }
 
   // -----------------------------
-  // CERRAR SESIÓN
+  // CERRAR SESIÓN - CORREGIDO
   // -----------------------------
 logoutBtn.addEventListener("click", async () => {
     // Detener el polling de tickets
@@ -335,7 +309,7 @@ logoutBtn.addEventListener("click", async () => {
     currentUser = null;
     loginForm.reset();
     managementScreen.classList.add("hidden");
-    ventanillaSelectionScreen.classList.add("hidden");
+    // ventanillaSelectionScreen.classList.add("hidden"); // ELIMINADA
     loginScreen.classList.remove("hidden");
     backButton.classList.remove("hidden");
     

@@ -396,7 +396,7 @@ def get_estados_empleado():
     return jsonify(estados), 200
 
 # -------------------
-# VENTANILLAS LIBRES - CORREGIDO
+# VENTANILLAS LIBRES 
 # -------------------
 @app.route("/api/ventanillas/libres/<int:id_empleado>", methods=["GET"])
 def ventanillas_libres(id_empleado):
@@ -454,22 +454,64 @@ def iniciar_ventanilla():
     
     print(f"Iniciando ventanilla - Empleado: {id_empleado}, Ventanilla: {id_ventanilla}")
 
-    if not id_empleado or not id_ventanilla:
-        return jsonify({"error": "Empleado y ventanilla requeridos"}), 400
+    if not id_empleado:
+        # Solo se requiere el empleado, la ventanilla puede ser 0 para asignación automática
+        return jsonify({"error": "Empleado requerido"}), 400
 
     conn = get_db_connection()
-    cursor = conn.cursor()
+    cursor = conn.cursor(dictionary=True)
     
     try:
-        # Verificar si la ventanilla está libre (estado 1 = Activo)
-        cursor.execute("""
-            SELECT 1 FROM Empleado_Ventanilla
-            WHERE ID_Ventanilla = %s AND ID_Estado = 1
-        """, (id_ventanilla,))
-        
-        if cursor.fetchone():
-            return jsonify({"error": "Ventanilla ocupada"}), 400
+        # --- LÓGICA DE ASIGNACIÓN AUTOMÁTICA ---
+        if id_ventanilla == 0:
+            # 1. Obtener el rol del empleado
+            cursor.execute("SELECT ID_ROL FROM Empleado WHERE ID_Empleado = %s", (id_empleado,))
+            empleado = cursor.fetchone()
+            if not empleado:
+                return jsonify({"error": "Empleado no encontrado"}), 404
+            id_rol = empleado["ID_ROL"]
+            
+            # 2. Buscar la primera ventanilla libre para ese rol
+            cursor.execute("""
+                SELECT 
+                    V.ID_Ventanilla,
+                    V.Ventanilla
+                FROM Ventanillas V
+                JOIN Rol_Ventanilla RV ON V.ID_Ventanilla = RV.ID_Ventanilla
+                LEFT JOIN Empleado_Ventanilla EV 
+                    ON V.ID_Ventanilla = EV.ID_Ventanilla AND EV.ID_Estado = 1
+                WHERE EV.ID_Ventanilla IS NULL
+                    AND RV.ID_Rol = %s
+                LIMIT 1
+            """, (id_rol,))
+            
+            ventanilla_libre = cursor.fetchone()
+            
+            if not ventanilla_libre:
+                return jsonify({"error": "No hay ventanillas libres disponibles para tu rol"}), 400
+                
+            id_ventanilla = ventanilla_libre["ID_Ventanilla"]
+            nombre_ventanilla = ventanilla_libre["Ventanilla"]
+            
+        else:
+            # Lógica para asignar un ID específico (si el frontend lo enviara)
+            cursor.execute("SELECT Ventanilla FROM Ventanillas WHERE ID_Ventanilla = %s", (id_ventanilla,))
+            ventanilla_data = cursor.fetchone()
+            if not ventanilla_data:
+                return jsonify({"error": "ID de ventanilla inválido"}), 400
+            nombre_ventanilla = ventanilla_data["Ventanilla"]
+            
+            # Verificar si la ventanilla está libre
+            cursor.execute("""
+                SELECT 1 FROM Empleado_Ventanilla
+                WHERE ID_Ventanilla = %s AND ID_Estado = 1
+            """, (id_ventanilla,))
+            
+            if cursor.fetchone():
+                return jsonify({"error": "Ventanilla ocupada"}), 400
 
+
+        # --- LÓGICA DE ASIGNACIÓN (Común) ---
         # Registrar asignación (usar estado 1 = Activo)
         cursor.execute("""
             INSERT INTO Empleado_Ventanilla (ID_Empleado, ID_Ventanilla, Fecha_Inicio, ID_Estado)
@@ -478,7 +520,13 @@ def iniciar_ventanilla():
         
         conn.commit()
         print(f"Ventanilla {id_ventanilla} iniciada para empleado {id_empleado}")
-        return jsonify({"message": "Ventanilla iniciada correctamente"}), 201
+        
+        # Devolver el ID y Nombre de la ventanilla asignada
+        return jsonify({
+            "message": "Ventanilla iniciada correctamente",
+            "ID_Ventanilla": id_ventanilla,
+            "Nombre_Ventanilla": nombre_ventanilla
+        }), 201
         
     except Exception as e:
         print(f"Error en iniciar_ventanilla: {e}")
