@@ -29,10 +29,11 @@ def generar_folio_unico(cursor):
     estados_activos = (1, 3)  # ID_Estados: 1 = Pendiente, 3 = Activo/Atendiendo
     while True:
         folio = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
-        cursor.execute("""
+        cursor.execute(f"""
             SELECT 1 FROM Turno 
-            WHERE Folio = %s AND ID_Estados IN (%s, %s)
+            WHERE Folio = %s AND ID_Estados IN ({','.join(['%s']*len(estados_activos))})
         """, (folio, *estados_activos))
+
         if not cursor.fetchone():
             return folio
         
@@ -311,10 +312,11 @@ def login():
     try:
         # Consulta mejorada para incluir información del estado del empleado
         cursor.execute("""
-            SELECT e.*, r.Rol, ee.Nombre as Estado_Empleado
+            SELECT e.*, r.Rol, ee.Nombre as Estado_Empleado, s.Sector
             FROM Empleado e 
             LEFT JOIN Rol r ON e.ID_ROL = r.ID_Rol 
             LEFT JOIN Estado_Empleado ee ON e.ID_Estado = ee.ID_Estado
+            LEFT JOIN Sectores s ON e.ID_Sector = s.ID_Sector
             WHERE e.Usuario = %s
         """, (username,))
         user = cursor.fetchone()
@@ -337,7 +339,7 @@ def login():
             "id": user["ID_Empleado"],
             "nombre": f"{user['nombre1']} {user['Apellido1']}",
             "rol": user["ID_ROL"],
-            "sector": user["Rol"],  # Esto será 'Operador Cajas', 'Operador Ventanillas', etc.
+            "sector": user["Sector"],
             "estado": user["Estado_Empleado"]
         })
         
@@ -358,12 +360,25 @@ def add_employee():
         # Hash de la contraseña
         passwd_hash = sha256(data['passwd'].encode()).hexdigest()
 
+        # Mapear rol a sector automáticamente
+        rol_a_sector = {
+            1: 1, 
+            2: 2,
+            3: 3,  
+            4: 4,  
+        }
+
+        id_rol = data['id_rol']
+        id_sector = rol_a_sector.get(id_rol, None)
+        if id_sector is None:
+            return jsonify({"error": "Rol inválido"}), 400
+
         cursor.execute("""
             INSERT INTO Empleado
-            (ID_ROL, nombre1, nombre2, Apellido1, Apellido2, Usuario, Passwd, ID_Estado)
-            VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
+            (ID_ROL, ID_Sector, nombre1, nombre2, Apellido1, Apellido2, Usuario, Passwd, ID_Estado)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
         """, (
-            data['id_rol'], data['nombre1'], data['nombre2'], data['apellido1'],
+            id_rol, id_sector, data['nombre1'], data['nombre2'], data['apellido1'],
             data['apellido2'], data['usuario'], passwd_hash, data['id_estado']
         ))
         conn.commit()
@@ -374,6 +389,7 @@ def add_employee():
     finally:
         cursor.close()
         conn.close()
+
 
 @app.route('/api/roles', methods=['GET'])
 def get_roles():
@@ -418,7 +434,7 @@ def ventanillas_libres(id_empleado):
             SELECT 
                 V.ID_Ventanilla,
                 V.Ventanilla,
-                S.Sector as ID_Sector
+                S.ID_Sector, S.Sector
             FROM Ventanillas V
             JOIN Rol_Ventanilla RV ON V.ID_Ventanilla = RV.ID_Ventanilla
             JOIN Sectores S ON V.ID_Sector = S.ID_Sector

@@ -201,7 +201,7 @@ async function iniciarVentanilla(idVentanilla, nombreVentanilla) {
       const tickets = await res.json();
       console.log("Tickets recibidos:", tickets);
       
-      renderTickets(tickets);
+      renderTickets(tickets, currentUser.sector);
     } catch (err) {
       console.error("Error al obtener tickets:", err);
       // Mostrar mensaje de error en la interfaz
@@ -216,63 +216,100 @@ async function iniciarVentanilla(idVentanilla, nombreVentanilla) {
 
   // -----------------------------
   // RENDERIZAR TICKETS
-  // -----------------------------
-  function renderTickets(tickets) {
-    ticketsContainer.innerHTML = "";
+function renderTickets(tickets, sector) {
+  ticketsContainer.innerHTML = "";
 
-    if (!tickets || !tickets.length) {
-      noTicketsMessage.classList.remove("hidden");
-      return;
-    }
-    
-    noTicketsMessage.classList.add("hidden");
+  // Normalizamos el sector del usuario para comparar
+  const normSector = String(sector ?? "").trim().toLowerCase();
 
-    tickets.forEach(ticket => {
-      const div = document.createElement("div");
-      div.className = "flex justify-between items-center p-4 bg-gray-50 border rounded-lg shadow-sm hover:shadow-md transition-shadow";
-      div.innerHTML = `
-        <div class="flex-1">
-          <p class="font-semibold text-gray-800">
-            Ticket: <span class="text-blue-600">${ticket.folio || ticket.ID_Ticket}</span>
-          </p>
-          <p class="text-sm text-gray-600 mt-1">
-            Matrícula: ${ticket.matricula || 'N/A'}
-          </p>
-          <p class="text-xs text-gray-500 mt-1">
-            Estado: ${ticket.estado || 'Pendiente'}
-          </p>
-        </div>
-        <button class="attend-btn bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors font-medium">
-          Atender
-        </button>
-      `;
+  // Aceptamos varias estructuras de respuesta: array directo o { tickets: [...] } o { data: [...] }
+  let list = [];
+  if (Array.isArray(tickets)) {
+    list = tickets;
+  } else if (tickets && Array.isArray(tickets.tickets)) {
+    list = tickets.tickets;
+  } else if (tickets && Array.isArray(tickets.data)) {
+    list = tickets.data;
+  } else {
+    console.warn("renderTickets: estructura de 'tickets' inesperada:", tickets);
+  }
 
-      const ticketId = ticket.folio || ticket.ID_Ticket;
-      
-      div.querySelector(".attend-btn").addEventListener("click", async () => {
+  console.log("renderTickets -> lista normalizada:", list);
+  console.log("renderTickets -> sector usuario normalizado:", normSector);
+
+  // Filtramos por sector (normalizado: string, trim, lowercase)
+  const visibles = list.filter(t => {
+    if (!t) return false;
+    // Si no tiene sector, lo descartamos (puedes cambiar la lógica si quieres incluirlos)
+    if (t.sector == null) return false;
+    return String(t.sector).trim().toLowerCase() === normSector;
+  });
+
+  console.log("Tickets visibles tras filtrar:", visibles);
+
+  if (!visibles.length) {
+    // no hay tickets para este sector
+    noTicketsMessage.classList.remove("hidden");
+    return;
+  }
+
+  noTicketsMessage.classList.add("hidden");
+
+  visibles.forEach(ticket => {
+    const div = document.createElement("div");
+    div.className = "flex justify-between items-center p-4 bg-gray-50 border rounded-lg shadow-sm hover:shadow-md transition-shadow";
+    div.innerHTML = `
+      <div class="flex-1">
+        <p class="font-semibold text-gray-800">
+          Ticket: <span class="text-blue-600">${ticket.folio || ticket.ID_Ticket}</span>
+        </p>
+        <p class="text-sm text-gray-600 mt-1">
+          Matrícula: ${ticket.matricula || 'N/A'}
+        </p>
+        <p class="text-xs text-gray-500 mt-1">
+          Estado: ${ticket.estado || 'Pendiente'}
+        </p>
+        <p class="text-xs text-gray-500 mt-1">
+          Sector: ${ticket.sector || 'N/A'}
+        </p>
+      </div>
+      <button class="attend-btn bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors font-medium">
+        Atender
+      </button>
+    `;
+
+    const ticketId = ticket.folio || ticket.ID_Ticket;
+
+    const btn = div.querySelector(".attend-btn");
+    if (btn) {
+      btn.addEventListener("click", async () => {
         try {
           const res = await fetch(`${API_BASE_URL}/api/tickets/${ticketId}/attend`, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ 
+            body: JSON.stringify({
               id_ventanilla: currentUser.ventanilla.id,
-              id_empleado: currentUser.id 
+              id_empleado: currentUser.id
             })
           });
-          
+
           if (!res.ok) throw new Error("No se pudo atender el ticket");
-          
+
           await fetchTickets(); // Recargar lista después de atender
-          
+
         } catch (err) {
           console.error("Error al atender ticket:", err);
           alert("Error al atender el ticket");
         }
       });
+    } else {
+      console.warn("No se encontró el botón attend-btn en ticket:", ticket);
+    }
 
-      ticketsContainer.appendChild(div);
-    });
-  }
+    ticketsContainer.appendChild(div);
+  });
+}
+
 
   // -----------------------------
   // CERRAR SESIÓN - CORREGIDO
