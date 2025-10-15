@@ -1,3 +1,7 @@
+const API_BASE_URL = window.location.hostname === "localhost" 
+    ? "http://localhost:5000"
+    : "http://backend:5000";
+
 // Función para mostrar la fecha actual
 function mostrarFecha() {
     const fecha = new Date();
@@ -5,12 +9,24 @@ function mostrarFecha() {
     document.getElementById('fecha-actual').textContent = fecha.toLocaleDateString('es-ES', opciones);
 }
 
-// se va aquitar solamente lo estoy simulando pura simulacion
-function generarDatosSimulados() {
-    const total = Math.floor(Math.random() * 150) + 50;
-    return {
-        total: total
-    };
+// Mostrar total - CORREGIDA
+async function totalTickets() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/total_tickets`);
+            
+        if (!response.ok) {
+            throw new Error(`Error al obtener tickets: ${response.status}`);
+        }
+
+        const data = await response.json();
+        const datos = data[0].cantidad;
+        console.log("Tickets obtenidos:", datos); // Debug
+
+        return datos;
+    } catch (error) {
+        console.error("Error al cargar tickets:", error);
+        return 0; // Devuelve 0 si hay error
+    }
 }
 
 function animarNumero(elemento, valorFinal, duracion = 1000) {
@@ -24,17 +40,27 @@ function animarNumero(elemento, valorFinal, duracion = 1000) {
             valorActual = valorFinal;
             clearInterval(intervalo);
         }
-        elemento.textContent = Math.floor(valorActual);
+        elemento.textContent = Math.round(valorActual);
     }, 16);
 }
 
-function actualizarDatos() {
-    const datos = generarDatosSimulados();
-    
-    animarNumero(document.getElementById('total-tickets'), datos.total);
-;
+// Función actualizarDatos - CORREGIDA (ahora es async)
+async function actualizarDatos() {
+    try {
+        const datos = await totalTickets(); // Esperar a que se resuelva la Promise
+        const total = document.getElementById('total-tickets');
+        
+        // Usar animación o asignación directa
+        animarNumero(total, datos);
+        // O si prefieres sin animación:
+        // total.textContent = datos;
+        
+        console.log("Datos actualizados:", datos);
+    } catch (error) {
+        console.error("Error al actualizar datos:", error);
+        document.getElementById('total-tickets').textContent = "Error";
+    }
 }
-
 
 function dentroHorario() {
     const fecha = new Date();
@@ -47,18 +73,26 @@ function dentroHorario() {
     return false;
 }
 
-
-window.onload = function() {
+// Window onload - CORREGIDO (ahora es async)
+window.onload = async function() {
     mostrarFecha();
+    
     if (dentroHorario()) {
-        actualizarDatos();
-        setInterval(actualizarDatos, 30000);
+        await actualizarDatos(); // Esperar a que se carguen los datos iniciales
+        setInterval(actualizarDatos, 30000); // Actualizar cada 30 segundos
     } else {
         document.getElementById('total-tickets').textContent = "-";
         document.getElementById('tickets-espera').textContent = "-";
         document.getElementById('ultimo-ticket').textContent = "-";
     }
-};// Datos simulados para el historial
+    
+    // Inicializar el historial simulado (parte existente de tu código)
+    generarHistorialSimulado();
+    mostrarHistorial();
+};
+
+// El resto de tu código para el historial simulado se mantiene igual...
+// Datos simulados para el historial
 const sectores = ["Cajas", "Becas", "Servicios Escolares"];
 const estados = ["atendiendo", "cancelado", "completado", "pendiente"];
 let historial = [];
@@ -144,10 +178,4 @@ document.getElementById("filtro-status").addEventListener("change", e => {
 
 document.getElementById("filtro-sector").addEventListener("change", e => {
     mostrarHistorial(document.getElementById("filtro-status").value, e.target.value);
-});
-
-// Inicializar historial al cargar la página
-window.addEventListener("DOMContentLoaded", () => {
-    generarHistorialSimulado();
-    mostrarHistorial();
 });

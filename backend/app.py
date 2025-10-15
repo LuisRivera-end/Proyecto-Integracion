@@ -10,7 +10,7 @@ from hashlib import sha256
 app = Flask(__name__)
 CORS(app, 
     resources={r"/api/*": {
-        "origins": ["http://localhost:8080", "http://localhost"],
+        "origins": "*",
         "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
         "allow_headers": ["Content-Type", "Authorization"],
         "supports_credentials": True
@@ -158,6 +158,33 @@ def save_agenda():
     conn.close()
     return jsonify({"message": "Agenda guardada correctamente"}), 201
 
+# -------------------
+# TICKETS conteo total
+# -------------------
+@app.route("/api/total_tickets", methods=["GET"])
+def total_tickets():
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    try:
+        cursor.execute("""
+            SELECT 
+                COUNT(ID_Turno) AS cantidad
+            FROM Turno
+        """)
+        Total = cursor.fetchall()
+        
+        # Convertir a formato { 'Cajas': 3, 'Becas': 5, 'Servicios Escolares': 2 }
+        return jsonify(Total), 200
+
+        #return jsonify(), 200
+    except Exception as e:
+        import traceback
+        print(f"Error en get_tickets_count: {e}")
+        print(traceback.format_exc())
+        return jsonify({"error": str(e)}), 500
+    finally:
+        cursor.close()
+        conn.close()
 # -------------------
 # TICKETS - CORREGIDO
 # -------------------
