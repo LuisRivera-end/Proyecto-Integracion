@@ -693,7 +693,7 @@ class TicketPDF(FPDF):
         self.set_font("Arial", "I", 8)
         self.cell(0, 10, "Esfuerzo que trasciende", 0, 0, "C")
 
-def generar_ticket(matricula, numero_ticket, sector ,fecha):
+def generar_ticket_PDF(matricula, numero_ticket, sector ,fecha):
     pdf = TicketPDF("P", "mm", (58, 100))  # 58mm de ancho (ticket estándar)
     pdf.add_page()
 
@@ -727,7 +727,7 @@ def download_ticket_pdf():
     
     try:
         # Generar el PDF en bytes
-        pdf_bytes = generar_ticket(matricula, numero_ticket, sector,fecha)
+        pdf_bytes = generar_ticket_PDF(matricula, numero_ticket, sector,fecha)
         
         # Usar make_response para crear una respuesta HTTP con los bytes
         response = make_response(pdf_bytes)
