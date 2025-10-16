@@ -7,9 +7,10 @@
     <link rel="stylesheet" href="../dist/output.css">
     <link rel="stylesheet" href="style.css">
 </head>
-<body class="bg-gradient-to-br from-slate-600 via-slate-500 to-emerald-300 p-8 min-h-screen">
+<body class="min-h-screen">
+  <div class="bg-gradient-to-br from-slate-600 via-slate-500 to-emerald-300 p-8 min-h-screen">
     <div class="max-w-4xl mx-auto">
-        <div class="fixed right-4 top-4 z-50" id="dropdown">
+      <div class="fixed right-4 top-4 z-50" id="dropdown">
             <div class="relative inline-block text-left">
               <button id="dropdownButton" class="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-gray-200">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5 text-gray-700">
@@ -65,12 +66,20 @@
         </div>
 
         <div class="bg-white rounded-lg shadow-lg p-8 mb-6">
-            <div class="text-center mb-8">
-                <p class="text-gray-600 text-lg mb-2">Total de Tickets Atendidos Hoy</p>
-                <p class="text-6xl font-bold text-gray-600" id="total-tickets">0</p>
+          <div class="relative"> <!-- Contenedor relativo para posicionamiento absoluto del botón -->
+        
+            <!-- Botón posicionado en esquina superior derecha -->
+            <button onclick="actualizarDatos()" class="absolute top-0 right-0 bg-gradient-to-r from-slate-600 to-emerald-600 hover:from-slate-700 hover:to-emerald-700 text-white font-semibold rounded-lg transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 text-5xl">
+              ⟳
+            </button>
+        
+            <!-- Contenido centrado -->
+            <div class="text-center">
+              <p class="text-gray-600 text-lg mb-2">Total de Tickets Atendidos Hoy</p>
+              <p class="text-6xl font-bold text-gray-600" id="total-tickets">0</p>
             </div>
+          </div>
         </div>
-
     
         <div class="bg-white rounded-lg shadow p-6 mb-6">
             <h3 class="text-lg font-semibold text-gray-900 mb-4">Estado del Sistema</h3>
@@ -103,12 +112,7 @@
             </div>
         </div>
 
-        <div class="mt-6 text-center">
-            <button onclick="actualizarDatos()" class="w-full bg-gradient-to-r from-slate-600 to-emerald-600 hover:from-slate-700 hover:to-emerald-700 text-white font-semibold py-3.5 mb-4
-            rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5">
-                Actualizar Datos
-            </button>
-        </div>
+
 
 
         <!-- HISTORIAL DE TICKETS -->
@@ -167,12 +171,12 @@
 
         </div>
         <!-- idiomas -->
-       <div class="gtranslate_wrapper"></div>
-       <script src="https://cdn.gtranslate.net/widgets/latest/float.js" defer></script>
-       <script src="./js/idioma.js"></script>
-
+        <div class="gtranslate_wrapper"></div>
+        <script src="https://cdn.gtranslate.net/widgets/latest/float.js" defer></script>
+        <script src="./js/idioma.js"></script>
+      </div>
     </div>
-
+  </div>
     <script src="./js/historial.js"></script>
     <script src="./js/desplegable.js"></script>
 </body>
