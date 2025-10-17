@@ -107,7 +107,6 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 async function imprimir() {
-    // Obtener los datos visibles del ticket
     const matricula = document.getElementById("result-matricula-o-folio").textContent.trim();
     const sector = document.getElementById("result-sector").textContent.trim();
     const numero_ticket = document.getElementById("result-ticket").textContent.trim();
@@ -115,35 +114,49 @@ async function imprimir() {
     const tiempo_estimado = document.getElementById("tiempo-estimado-minutos").textContent.trim();
 
     try {
+        // 1️⃣ Pedimos el PDF al backend
         const response = await fetch(`${API_BASE_URL}/api/ticket/download`, {
             method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-                matricula,
-                numero_ticket,
-                sector,
-                fecha,
-                tiempo_estimado
-            })
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ matricula, numero_ticket, sector, fecha, tiempo_estimado })
         });
 
-        if (!response.ok) {
-            throw new Error("Error al generar el PDF desde el servidor");
-        }
+        if (!response.ok) throw new Error("Error al generar el PDF");
 
-        // Recibimos el PDF como Blob
         const blob = await response.blob();
 
-        // Creamos una URL temporal para el PDF
-        const pdfURL = URL.createObjectURL(blob);
+        // 2️⃣ Convertimos el PDF a base64 para QZ
+        const reader = new FileReader();
+        reader.onload = async function() {
+            const base64PDF = reader.result.split(",")[1]; // solo la parte base64
 
-        // Abrimos en una nueva pestaña
-        window.open(pdfURL, "_blank");
+            // 3️⃣ Conectamos con QZ Tray
+            await qz.websocket.connect();
+
+            // 4️⃣ Elegimos la impresora (predeterminada o específica)
+            const printer = await qz.printers.find("POS-58");
+            const config = qz.configs.create(printer);
+
+            // 5️⃣ Mandamos a imprimir
+            const printData = [{
+                type: 'pdf',
+                format: 'base64',
+                data: base64PDF
+            }];
+
+            await qz.print(config, printData);
+
+            // 6️⃣ Desconectamos
+            qz.websocket.disconnect();
+
+            console.log("Ticket impreso correctamente");
+        };
+
+        reader.readAsDataURL(blob);
+
     } catch (error) {
         console.error("Error al imprimir:", error);
-        alert("No se pudo generar el ticket. Intenta de nuevo.");
+        alert("No se pudo imprimir el ticket. Intenta de nuevo.");
     }
 }
 
