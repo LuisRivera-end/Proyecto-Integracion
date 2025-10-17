@@ -94,6 +94,90 @@ def generar_ticket():
         "sector": sector_nombre
     }), 201
 
+# -------------------
+# TIEMPO PROMEDIO DE ESPERA POR SECTOR
+# -------------------
+@app.route("/api/tiempo_espera_promedio/<sector_nombre>", methods=["GET"])
+def tiempo_espera_promedio_por_sector(sector_nombre):
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    
+    try:
+        # Buscar ID del sector
+        cursor.execute("SELECT ID_Sector FROM Sectores WHERE Sector = %s", (sector_nombre,))
+        sector_data = cursor.fetchone()
+        
+        if not sector_data:
+            # Si no encuentra el sector, usar valor por defecto
+            return jsonify({"tiempo_estimado": 5}), 200
+            
+        id_sector = sector_data["ID_Sector"]
+        
+        # Calcular el tiempo promedio de atención para tickets completados del mismo sector
+        # Consideramos solo los tickets de las últimas 4 horas para mayor precisión
+        cursor.execute("""
+            SELECT 
+                AVG(TIMESTAMPDIFF(MINUTE, t.Fecha_Ticket, t.Fecha_Ultimo_Estado)) as promedio_minutos,
+                COUNT(*) as total_tickets
+            FROM Turno t
+            WHERE t.ID_Estados = 4  -- Tickets completados
+            AND t.ID_Sector = %s
+            AND t.Fecha_Ticket >= DATE_SUB(NOW(), INTERVAL 4 HOUR)
+            AND TIMESTAMPDIFF(MINUTE, t.Fecha_Ticket, t.Fecha_Ultimo_Estado) > 0  -- Excluir tiempos negativos/erróneos
+            AND TIMESTAMPDIFF(MINUTE, t.Fecha_Ticket, t.Fecha_Ultimo_Estado) < 120  -- Excluir tiempos muy largos (más de 2 horas)
+        """, (id_sector,))
+        
+        resultado = cursor.fetchone()
+        
+        # Si no hay datos suficientes, ampliar el rango de tiempo
+        if not resultado or resultado["total_tickets"] < 3:
+            cursor.execute("""
+                SELECT 
+                    AVG(TIMESTAMPDIFF(MINUTE, t.Fecha_Ticket, t.Fecha_Ultimo_Estado)) as promedio_minutos
+                FROM Turno t
+                WHERE t.ID_Estados = 4  -- Tickets completados
+                AND t.ID_Sector = %s
+                AND t.Fecha_Ticket >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
+                AND TIMESTAMPDIFF(MINUTE, t.Fecha_Ticket, t.Fecha_Ultimo_Estado) > 0
+                AND TIMESTAMPDIFF(MINUTE, t.Fecha_Ticket, t.Fecha_Ultimo_Estado) < 120
+            """, (id_sector,))
+            
+            resultado = cursor.fetchone()
+        
+        # Determinar el tiempo estimado
+        if resultado and resultado["promedio_minutos"]:
+            promedio = resultado["promedio_minutos"]
+            # Aplicar factores de ajuste según la hora del día
+            hora_actual = datetime.now().hour
+            if 11 <= hora_actual <= 14:  # Hora pico
+                promedio = promedio * 1.3  # 30% más de tiempo en horas pico
+            elif hora_actual >= 15:  # Tarde
+                promedio = promedio * 0.8  # 20% menos en la tarde
+            
+            tiempo_estimado = max(5, min(60, round(promedio)))  # Entre 5 y 60 minutos
+        else:
+            # Valores por defecto según el sector si no hay datos históricos
+            tiempos_por_defecto = {
+                "Cajas": 5,
+                "Becas": 10,
+                "Servicios Escolares": 5
+            }
+            tiempo_estimado = tiempos_por_defecto.get(sector_nombre, 5)
+        
+        return jsonify({"tiempo_estimado": int(tiempo_estimado)}), 200
+        
+    except Exception as e:
+        print(f"Error en tiempo_espera_promedio_por_sector: {e}")
+        # Valores por defecto en caso de error
+        tiempos_por_defecto = {
+            "Cajas": 5,
+            "Becas": 10,
+            "Servicios Escolares": 5
+        }
+        return jsonify({"tiempo_estimado": tiempos_por_defecto.get(sector_nombre, 5)}), 200
+    finally:
+        cursor.close()
+        conn.close()
     
 @app.route('/api/turno/<int:id_turno>/estado', methods=['PUT'])
 def actualizar_estado_turno(id_turno):
