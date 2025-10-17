@@ -35,6 +35,20 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         try {
+            // Obtener tiempo estimado de espera para el sector específico
+            let tiempoEstimado = 5; // Valor por defecto actualizado
+            
+            try {
+                const tiempoResponse = await fetch(`${API_BASE_URL}/api/tiempo_espera_promedio/${encodeURIComponent(sector)}`);
+                if (tiempoResponse.ok) {
+                    const tiempoData = await tiempoResponse.json();
+                    tiempoEstimado = tiempoData.tiempo_estimado;
+                }
+            } catch (tiempoError) {
+                console.warn("No se pudo obtener el tiempo estimado:", tiempoError);
+                // Usar valor por defecto si falla
+            }
+
             const response = await fetch(`${API_BASE_URL}/api/ticket`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -58,6 +72,12 @@ document.addEventListener("DOMContentLoaded", () => {
             document.getElementById("result-sector").textContent = data.sector || sector;
             document.getElementById("result-ticket").textContent = data.folio || ("T-" + Math.floor(Math.random() * 1000));
             if (data.fecha) document.getElementById("result-fecha").textContent = data.fecha;
+
+            // ✅ Mostrar tiempo estimado de espera
+            const tiempoEstimadoElement = document.getElementById("tiempo-estimado-minutos");
+            if (tiempoEstimadoElement) {
+                tiempoEstimadoElement.textContent = tiempoEstimado;
+            }
 
             // ✅ Cambiar vistas
             formContainer.classList.add("hidden");
@@ -92,6 +112,7 @@ async function imprimir() {
     const sector = document.getElementById("result-sector").textContent.trim();
     const numero_ticket = document.getElementById("result-ticket").textContent.trim();
     const fecha = document.getElementById("result-fecha").textContent.trim();
+    const tiempo_estimado = document.getElementById("tiempo-estimado-minutos").textContent.trim();
 
     try {
         const response = await fetch(`${API_BASE_URL}/api/ticket/download`, {
@@ -103,7 +124,8 @@ async function imprimir() {
                 matricula,
                 numero_ticket,
                 sector,
-                fecha
+                fecha,
+                tiempo_estimado
             })
         });
 
@@ -131,6 +153,7 @@ async function descargar() {
     const sector = document.getElementById("result-sector").textContent.trim();
     const numero_ticket = document.getElementById("result-ticket").textContent.trim();
     const fecha = document.getElementById("result-fecha").textContent.trim();
+    const tiempo_estimado = document.getElementById("tiempo-estimado-minutos").textContent.trim();
 
     try {
         const response = await fetch(`${API_BASE_URL}/api/ticket/download`, {
@@ -142,7 +165,8 @@ async function descargar() {
                 matricula,
                 numero_ticket,
                 sector,
-                fecha
+                fecha,
+                tiempo_estimado
             })
         });
 

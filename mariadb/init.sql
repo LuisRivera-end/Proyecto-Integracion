@@ -81,7 +81,6 @@ DROP TABLE IF EXISTS `Empleado`;
 CREATE TABLE Empleado (
     ID_Empleado INT(6) NOT NULL AUTO_INCREMENT PRIMARY KEY,
     ID_ROL INT(1) NOT NULL,
-    ID_Sector INT(1) NOT NULL,
     nombre1 VARCHAR(20) NOT NULL,
     nombre2 VARCHAR(20) NOT NULL DEFAULT '',
     Apellido1 VARCHAR(20) NOT NULL,
@@ -90,8 +89,7 @@ CREATE TABLE Empleado (
     Passwd VARCHAR(70) NOT NULL,
     ID_Estado INT(1) NOT NULL,
     FOREIGN KEY (ID_ROL) REFERENCES Rol(ID_Rol),
-    FOREIGN KEY (ID_Estado) REFERENCES Estado_Empleado(ID_Estado),
-    FOREIGN KEY (ID_Sector) REFERENCES Sectores(ID_Sector)
+    FOREIGN KEY (ID_Estado) REFERENCES Estado_Empleado(ID_Estado)
 );
 
 
@@ -173,7 +171,6 @@ INSERT INTO Rol (Rol) VALUES
 
 /* ====== 2. Sectores ====== */
 INSERT INTO Sectores (Sector) VALUES 
-('Administrador'),
 ('Cajas'),
 ('Becas'),
 ('Servicios Escolares');
@@ -210,26 +207,25 @@ INSERT INTO Horarios (ID_Tipo, Descripcion, Hora_Inicio, Hora_Fin) VALUES
 /* ====== 8. Ventanillas ====== */
 /* 4 Cajas, 1 Becas, 4 Servicios Escolares */
 INSERT INTO Ventanillas (Ventanilla, ID_Sector) VALUES
-('Caja1', 2),
-('Caja2', 2),
-('Caja3', 2),
-('Caja4', 2),
-('Beca1', 3),
-('ServiciosEscolares1', 4),
-('ServiciosEscolares2', 4),
-('ServiciosEscolares3', 4),
-('ServiciosEscolares4', 4);
-
+('Caja1', 1),
+('Caja2', 1),
+('Caja3', 1),
+('Caja4', 1),
+('Beca1', 2),
+('ServiciosEscolares1', 3),
+('ServiciosEscolares2', 3),
+('ServiciosEscolares3', 3),
+('ServiciosEscolares4', 3);
 
 /* ====== 9. Empleado (Admin) ====== */
 /* Estado = Activo */
-INSERT INTO Empleado (ID_ROL, ID_Sector, nombre1, nombre2, Apellido1, Apellido2, Usuario, Passwd, ID_Estado)
+INSERT INTO Empleado (ID_ROL, nombre1, nombre2, Apellido1, Apellido2, Usuario, Passwd, ID_Estado)
 VALUES 
-(1, 1, 'Luis', '', 'Rivera', '', 'admin', SHA2('12345', 256), 1),
-(2, 2, 'Luis', '', 'Rivera', '', 'Fur1us', SHA2('12345', 256), 1),
-(2, 2, 'Gabriel', '', 'Ortiz', '', 'itzumi', SHA2('12345', 256), 1),
-(3, 3, 'Salvador', '', 'Butanda', '', 'python', SHA2('12345', 256), 1),
-(4, 4, 'Hola', '', 'Butanda', '', 'butanda', SHA2('12345', 256), 1);
+(1, 'Luis', '', 'Rivera', '', 'admin', SHA2('12345', 256), 1),
+(2, 'Luis', '', 'Rivera', '', 'Fur1us', SHA2('12345', 256), 1),
+(2, 'Gabriel', '', 'Ortiz', '', 'itzumi', SHA2('12345', 256), 1),
+(3, 'Salvador', '', 'Butanda', '', 'python', SHA2('12345', 256), 1),
+(4, 'Hola', '', 'Butanda', '', 'butanda', SHA2('12345', 256), 1);
 
 
 /* ====== 10. Alumnos ====== */
@@ -242,12 +238,17 @@ INSERT INTO Alumnos (nombre1, nombre2, Apellido1, Apellido2, Carrera, Matricula)
 
 /* ====== 11. Rol_Ventanilla ====== */
 INSERT INTO Rol_Ventanilla (ID_Rol, ID_Ventanilla) VALUES
-(2, 1),
-(2, 2),
-(2, 3),
-(2, 4),
-(3, 5),
-(3, 6),
-(3, 7),
-(3, 8),
-(4, 9);
+-- Operador Cajas (Rol 2) tiene acceso a las 4 cajas
+(2, 1),  -- Caja1
+(2, 2),  -- Caja2
+(2, 3),  -- Caja3
+(2, 4),  -- Caja4
+
+-- Operador Becas (Rol 3) tiene acceso solo a Beca1
+(3, 5),  -- Beca1
+
+-- Operador Servicios Escolares (Rol 4) tiene acceso a las 4 ventanillas
+(4, 6),  -- ServiciosEscolares1
+(4, 7),  -- ServiciosEscolares2
+(4, 8),  -- ServiciosEscolares3
+(4, 9);  -- ServiciosEscolares4
