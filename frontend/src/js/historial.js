@@ -1,3 +1,7 @@
+const API_BASE_URL = window.location.hostname === "localhost" 
+    ? "http://localhost:5000"
+    : "http://backend:5000";
+
 // Función para mostrar la fecha actual
 function mostrarFecha() {
     const fecha = new Date();
@@ -5,12 +9,24 @@ function mostrarFecha() {
     document.getElementById('fecha-actual').textContent = fecha.toLocaleDateString('es-ES', opciones);
 }
 
-// se va aquitar solamente lo estoy simulando pura simulacion
-function generarDatosSimulados() {
-    const total = Math.floor(Math.random() * 150) + 50;
-    return {
-        total: total
-    };
+// Mostrar total - CORREGIDA
+async function totalTickets() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/total_tickets`);
+            
+        if (!response.ok) {
+            throw new Error(`Error al obtener tickets: ${response.status}`);
+        }
+
+        const data = await response.json();
+        const datos = data[0].cantidad;
+        console.log("Tickets obtenidos:", datos); // Debug
+
+        return datos;
+    } catch (error) {
+        console.error("Error al cargar tickets:", error);
+        return 0; // Devuelve 0 si hay error
+    }
 }
 
 function animarNumero(elemento, valorFinal, duracion = 1000) {
@@ -24,17 +40,27 @@ function animarNumero(elemento, valorFinal, duracion = 1000) {
             valorActual = valorFinal;
             clearInterval(intervalo);
         }
-        elemento.textContent = Math.floor(valorActual);
+        elemento.textContent = Math.round(valorActual);
     }, 16);
 }
 
-function actualizarDatos() {
-    const datos = generarDatosSimulados();
-    
-    animarNumero(document.getElementById('total-tickets'), datos.total);
-;
+// Función actualizarDatos - CORREGIDA (ahora es async)
+async function actualizarDatos() {
+    try {
+        const datos = await totalTickets(); // Esperar a que se resuelva la Promise
+        const total = document.getElementById('total-tickets');
+        
+        // Usar animación o asignación directa
+        animarNumero(total, datos);
+        // O si prefieres sin animación:
+        // total.textContent = datos;
+        
+        console.log("Datos actualizados:", datos);
+    } catch (error) {
+        console.error("Error al actualizar datos:", error);
+        document.getElementById('total-tickets').textContent = "Error";
+    }
 }
-
 
 function dentroHorario() {
     const fecha = new Date();
@@ -47,18 +73,7 @@ function dentroHorario() {
     return false;
 }
 
-
-window.onload = function() {
-    mostrarFecha();
-    if (dentroHorario()) {
-        actualizarDatos();
-        setInterval(actualizarDatos, 30000);
-    } else {
-        document.getElementById('total-tickets').textContent = "-";
-        document.getElementById('tickets-espera').textContent = "-";
-        document.getElementById('ultimo-ticket').textContent = "-";
-    }
-};// Datos simulados para el historial
+// Datos simulados para el historial
 const sectores = ["Cajas", "Becas", "Servicios Escolares"];
 const estados = ["atendiendo", "cancelado", "completado", "pendiente"];
 let historial = [];
@@ -71,8 +86,14 @@ function generarHistorialSimulado(cantidad = 25) {
     for (let i = 0; i < cantidad; i++) {
         const sector = sectores[Math.floor(Math.random() * sectores.length)];
         const estado = estados[Math.floor(Math.random() * estados.length)];
-        const creado = new Date(hoy.getTime() - Math.random() * 3 * 24 * 60 * 60 * 1000); // últimos 3 días
-        const finalizado = estado !== "espera"
+        
+        // Crear fechas aleatorias en los últimos 30 días
+        const diasAtras = Math.floor(Math.random() * 30);
+        const creado = new Date(hoy);
+        creado.setDate(creado.getDate() - diasAtras);
+        creado.setHours(Math.floor(Math.random() * 24), Math.floor(Math.random() * 60), 0, 0);
+        
+        const finalizado = estado !== "pendiente" 
             ? new Date(creado.getTime() + Math.random() * 4 * 60 * 60 * 1000)
             : null;
 
@@ -86,16 +107,27 @@ function generarHistorialSimulado(cantidad = 25) {
     }
 }
 
-// Renderizar tabla
-function mostrarHistorial(filtroEstado = "todos", filtroSector = "todos") {
+// Función para mostrar el historial con todos los filtros
+function mostrarHistorial(filtroEstado = "todos", filtroSector = "todos", fechaInicio = null, fechaFin = null) {
     const cuerpo = document.getElementById("tabla-historial");
     cuerpo.innerHTML = "";
 
     let filtrado = historial.filter(ticket => {
         const estadoCoincide = filtroEstado === "todos" || ticket.estado === filtroEstado;
         const sectorCoincide = filtroSector === "todos" || ticket.sector.toLowerCase() === filtroSector;
-        return estadoCoincide && sectorCoincide;
+        
+        // Filtro por fecha
+        let fechaCoincide = true;
+        if (fechaInicio && fechaFin) {
+            const fechaTicket = new Date(ticket.creado);
+            fechaCoincide = fechaTicket >= fechaInicio && fechaTicket <= fechaFin;
+        }
+        
+        return estadoCoincide && sectorCoincide && fechaCoincide;
     });
+
+    // Ordenar por fecha de creación (más reciente primero)
+    filtrado.sort((a, b) => new Date(b.creado) - new Date(a.creado));
 
     filtrado.forEach(ticket => {
         const tr = document.createElement("tr");
@@ -110,6 +142,36 @@ function mostrarHistorial(filtroEstado = "todos", filtroSector = "todos") {
     });
 
     actualizarResumen(filtrado);
+}
+
+// Función para aplicar todos los filtros
+function aplicarFiltros() {
+    const filtroEstado = document.getElementById("filtro-status").value;
+    const filtroSector = document.getElementById("filtro-sector").value;
+    const fechaInicioInput = document.getElementById("filtro-fecha-inicio");
+    const fechaFinInput = document.getElementById("filtro-fecha-fin");
+    
+    let fechaInicio = null;
+    let fechaFin = null;
+    
+    if (fechaInicioInput.value) {
+        fechaInicio = new Date(fechaInicioInput.value);
+        fechaInicio.setHours(0, 0, 0, 0); // Inicio del día
+    }
+    
+    if (fechaFinInput.value) {
+        fechaFin = new Date(fechaFinInput.value);
+        fechaFin.setHours(23, 59, 59, 999); // Fin del día
+    }
+    
+    // Validar que la fecha de inicio no sea mayor que la de fin
+    if (fechaInicio && fechaFin && fechaInicio > fechaFin) {
+        alert("La fecha de inicio no puede ser mayor que la fecha de fin");
+        fechaFinInput.value = "";
+        fechaFin = null;
+    }
+    
+    mostrarHistorial(filtroEstado, filtroSector, fechaInicio, fechaFin);
 }
 
 // Actualizar estadísticas
@@ -137,17 +199,39 @@ function actualizarResumen(lista) {
     document.getElementById("total-pendientes").textContent = pendientes;
 }
 
-// Filtros
-document.getElementById("filtro-status").addEventListener("change", e => {
-    mostrarHistorial(e.target.value, document.getElementById("filtro-sector").value);
-});
-
-document.getElementById("filtro-sector").addEventListener("change", e => {
-    mostrarHistorial(document.getElementById("filtro-status").value, e.target.value);
-});
-
-// Inicializar historial al cargar la página
-window.addEventListener("DOMContentLoaded", () => {
+// Window onload - CORREGIDO (ahora es async)
+window.onload = async function() {
+    mostrarFecha();
+    
+    // Establecer fechas por defecto (últimos 7 días)
+    const hoy = new Date();
+    const hace7Dias = new Date();
+    hace7Dias.setDate(hoy.getDate() - 7);
+    
+    document.getElementById("filtro-fecha-inicio").value = hace7Dias.toISOString().split('T')[0];
+    document.getElementById("filtro-fecha-fin").value = hoy.toISOString().split('T')[0];
+    
+    if (dentroHorario()) {
+        await actualizarDatos();
+        setInterval(actualizarDatos, 30000);
+    } else {
+        document.getElementById('total-tickets').textContent = "-";
+        // Eliminadas las referencias a elementos que no existen
+    }
+    
     generarHistorialSimulado();
-    mostrarHistorial();
+    aplicarFiltros(); // Aplicar filtros iniciales
+};
+
+// Event listeners para los filtros
+document.getElementById("filtro-status").addEventListener("change", aplicarFiltros);
+document.getElementById("filtro-sector").addEventListener("change", aplicarFiltros);
+document.getElementById("filtro-fecha-inicio").addEventListener("change", aplicarFiltros);
+document.getElementById("filtro-fecha-fin").addEventListener("change", aplicarFiltros);
+
+// Botón para limpiar fechas
+document.getElementById("btn-limpiar-fechas").addEventListener("click", function() {
+    document.getElementById("filtro-fecha-inicio").value = "";
+    document.getElementById("filtro-fecha-fin").value = "";
+    aplicarFiltros();
 });
