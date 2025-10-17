@@ -23,8 +23,6 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-
-    // ✅ Envío del formulario
     form.addEventListener("submit", async (e) => {
         e.preventDefault();
 
@@ -85,4 +83,89 @@ document.addEventListener("DOMContentLoaded", () => {
         matriculaFolioLabel.textContent = "Matrícula";
         inputMatriculaFolio.placeholder = "Ingresa tu matrícula";
     };
+    
 });
+
+async function imprimir() {
+    // Obtener los datos visibles del ticket
+    const matricula = document.getElementById("result-matricula-o-folio").textContent.trim();
+    const sector = document.getElementById("result-sector").textContent.trim();
+    const numero_ticket = document.getElementById("result-ticket").textContent.trim();
+    const fecha = document.getElementById("result-fecha").textContent.trim();
+
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/ticket/download`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                matricula,
+                numero_ticket,
+                sector,
+                fecha
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error("Error al generar el PDF desde el servidor");
+        }
+
+        // Recibimos el PDF como Blob
+        const blob = await response.blob();
+
+        // Creamos una URL temporal para el PDF
+        const pdfURL = URL.createObjectURL(blob);
+
+        // Abrimos en una nueva pestaña
+        window.open(pdfURL, "_blank");
+    } catch (error) {
+        console.error("Error al imprimir:", error);
+        alert("No se pudo generar el ticket. Intenta de nuevo.");
+    }
+}
+
+async function descargar() {
+    // Obtener los datos visibles del ticket
+    const matricula = document.getElementById("result-matricula-o-folio").textContent.trim();
+    const sector = document.getElementById("result-sector").textContent.trim();
+    const numero_ticket = document.getElementById("result-ticket").textContent.trim();
+    const fecha = document.getElementById("result-fecha").textContent.trim();
+
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/ticket/download`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                matricula,
+                numero_ticket,
+                sector,
+                fecha
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error("Error al generar el PDF desde el servidor");
+        }
+
+        // Recibimos el PDF como Blob
+        const blob = await response.blob();
+        const pdfURL = URL.createObjectURL(blob);
+
+        // Crear un enlace temporal para forzar descarga
+        const a = document.createElement("a");
+        a.href = pdfURL;
+        a.download = `ticket_${numero_ticket}.pdf`; // nombre del archivo descargado
+        document.body.appendChild(a);
+        a.click();
+
+        // Limpieza
+        a.remove();
+        URL.revokeObjectURL(pdfURL);
+    } catch (error) {
+        console.error("Error al imprimir:", error);
+        alert("No se pudo generar el ticket. Intenta de nuevo.");
+    }
+}
