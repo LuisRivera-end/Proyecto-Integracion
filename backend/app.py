@@ -6,6 +6,7 @@ from datetime import datetime
 import random
 import string
 from hashlib import sha256
+from fpdf import FPDF
 
 app = Flask(__name__)
 CORS(app, 
@@ -699,6 +700,76 @@ def llamar_siguiente_ticket():
     except Exception as e:
         print(f"Error en llamar_siguiente_ticket: {e}")
         return jsonify({"error": "Error interno del servidor"}), 500
+
+    
+class TicketPDF(FPDF):
+    def header(self):
+        # Imagen (logo superior)
+        # Asegúrate de tener un archivo 'logo.png' en la misma carpeta
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        image_path = os.path.join(script_dir, "ual.png")
+        try:
+            self.image(image_path, x=14, y=5, w=30)  # centrado aprox. en 58mm
+        except Exception as e:
+            print(f"Error al cargar la imagen en Docker: {e}")
+            pass  # Evita error si no se encuentra la imagen
+        self.ln(20)  # Espacio después del logo
+
+    def footer(self):
+        self.set_y(-15)
+        self.set_font("Arial", "I", 8)
+        self.cell(0, 10, "Esfuerzo que trasciende", 0, 0, "C")
+
+def generar_ticket_PDF(matricula, numero_ticket, sector ,fecha):
+    pdf = TicketPDF("P", "mm", (58, 210))# 58mm de ancho (ticket estándar)
+    pdf.set_auto_page_break(auto=False)
+    pdf.set_margins(left=2, top=5, right=2)
+    pdf.add_page()
+
+    # Encabezado
+    pdf.set_font("Arial", "B", 13)
+    pdf.cell(0, 8, "TICKET", ln=True, align="C")
+    pdf.ln(2)
+
+    # Datos generales
+    pdf.set_font("Arial", "", 10)
+    pdf.cell(0, 6, f"N° Ticket: {numero_ticket}", ln=True)
+    pdf.cell(0, 6, f"Matricula: {matricula}", ln=True)
+    pdf.cell(0, 6, f"Sector: {sector}", ln=True)
+    pdf.cell(0, 6, f"Fecha: {fecha}", ln=True)
+    pdf.ln(3)
+
+    # Separador
+    pdf.cell(0, 0, "-" * 40, ln=True, align="C")
+    pdf.ln(3)
+
+    return pdf.output(dest='S').encode('latin-1')
+
+@app.route('/api/ticket/download', methods=['POST'])
+def download_ticket_pdf():
+    # Asume que el frontend envía la matrícula, folio y sector después de crear el ticket
+    data = request.get_json()
+    matricula = data.get('matricula', 'N/A')
+    numero_ticket = data.get('numero_ticket', 'N/A')
+    sector = data.get('sector', 'N/A')
+    fecha = data.get('fecha', 'N/A')
+    
+    try:
+        # Generar el PDF en bytes
+        pdf_bytes = generar_ticket_PDF(matricula, numero_ticket, sector,fecha)
+        
+        # Usar make_response para crear una respuesta HTTP con los bytes
+        response = make_response(pdf_bytes)
+        
+        # Configurar las cabeceras
+        response.headers['Content-Type'] = 'application/pdf'
+        # 'inline' para que se muestre en el navegador; 'attachment' para que se descargue
+        response.headers['Content-Disposition'] = f'inline; filename=ticket_{numero_ticket}.pdf'
+        
+        return response, 200
+    except Exception as e:
+        print(f"Error al generar PDF: {e}")
+        return jsonify({"error": "Error interno al generar el PDF"}), 500
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
