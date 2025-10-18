@@ -18,7 +18,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   let currentUser = null;
   let refreshInterval = null;
-
   // -----------------------------
   // LOGIN - CORREGIDO
   // -----------------------------
@@ -53,14 +52,40 @@ loginForm.addEventListener("submit", async (e) => {
             return;
         }
 
-        // Si no es admin, ir directamente a iniciar la ventanilla
+        // VERIFICAR SI YA TIENE VENTANILLA ASIGNADA Y ACTIVA
+        const ventanillaActivaRes = await fetch(`${API_BASE_URL}/api/empleado/${currentUser.id}/ventanilla-activa`);
+        
+        if (ventanillaActivaRes.ok) {
+            const ventanillaActiva = await ventanillaActivaRes.json();
+            
+            if (ventanillaActiva && ventanillaActiva.ID_Ventanilla) {
+                // YA TIENE VENTANILLA ASIGNADA - USAR ESA
+                console.log("Usando ventanilla asignada:", ventanillaActiva);
+                currentUser.ventanilla = {
+                    id: ventanillaActiva.ID_Ventanilla,
+                    nombre: ventanillaActiva.Ventanilla
+                };
+                
+                // Ir directamente a la pantalla de gestión
+                loginScreen.classList.add("hidden");
+                managementScreen.classList.remove("hidden");
+                backButton.classList.add("hidden");
+                loginError.classList.add("hidden");
+                
+                userSector.textContent = `${currentUser.sector} - ${currentUser.ventanilla.nombre}`;
+                userName.textContent = currentUser.username;
+                startTicketPolling();
+                return;
+            }
+        }
+
+        // SI NO TIENE VENTANILLA ASIGNADA, buscar una automáticamente
         loginScreen.classList.add("hidden");
-        managementScreen.classList.remove("hidden"); // Muestra directamente la gestión
+        managementScreen.classList.remove("hidden");
         backButton.classList.add("hidden");
         loginError.classList.add("hidden");
 
-        // Llama a iniciarVentanilla con ID 0 para asignación automática
-        await iniciarVentanilla(0, "Automática");
+        await iniciarVentanilla(); // Asignación automática
         
     } catch (err) {
         console.error("Error en login:", err);
@@ -78,14 +103,34 @@ loginForm.addEventListener("submit", async (e) => {
 // INICIAR VENTANILLA - CORREGIDO
 // -----------------------------
 // Se eliminó la línea "iniciarVentanilla(ventanilla.id, ventanilla.nombre);"
-async function iniciarVentanilla(idVentanilla, nombreVentanilla) {
+async function iniciarVentanilla() {
     try {
-        console.log("Intentando iniciar ventanilla:", {
+        console.log("Buscando ventanilla libre para empleado:", currentUser.id);
+
+        // PRIMERO: Obtener una ventanilla libre para este empleado
+        const ventanillasRes = await fetch(`${API_BASE_URL}/api/ventanillas/libres/${currentUser.id}`);
+        
+        if (!ventanillasRes.ok) {
+            throw new Error("No se pudieron obtener ventanillas libres");
+        }
+
+        const ventanillasLibres = await ventanillasRes.json();
+        console.log("Ventanillas libres:", ventanillasLibres);
+
+        if (!ventanillasLibres || ventanillasLibres.length === 0) {
+            throw new Error("No hay ventanillas disponibles para tu rol. Contacta al administrador.");
+        }
+
+        // Tomar la primera ventanilla libre disponible
+        const ventanillaAsignada = ventanillasLibres[0];
+        const idVentanilla = ventanillaAsignada.ID_Ventanilla;
+
+        console.log("Asignando ventanilla automáticamente:", {
             empleado: currentUser.id,
-            ventanilla: idVentanilla,
-            nombre: nombreVentanilla
+            ventanilla: idVentanilla
         });
 
+        // SEGUNDO: Iniciar la ventanilla seleccionada
         const res = await fetch(`${API_BASE_URL}/api/ventanilla/iniciar`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -95,29 +140,21 @@ async function iniciarVentanilla(idVentanilla, nombreVentanilla) {
             })
         });
         
-        if (!res.ok) {
-            const errorData = await res.json();
-            throw new Error(errorData.error || "No se pudo iniciar ventanilla");
-        }
-
         const data = await res.json();
-        console.log("Ventanilla iniciada:", data.message);
-
-        // **MODIFICACIÓN CLAVE: Obtener ID y Nombre de la ventanilla asignada del backend**
-        const assignedVentanillaId = data.ID_Ventanilla; 
-        const assignedVentanillaNombre = data.Nombre_Ventanilla; 
         
-        if (!assignedVentanillaId) {
-             throw new Error("El sistema no pudo asignar una ventanilla disponible. El backend no devolvió una asignación válida.");
+        if (!res.ok) {
+            throw new Error(data.error || "No se pudo iniciar ventanilla");
         }
-        
+
+        console.log("Ventanilla iniciada:", data);
+
+        // Usar la información que devuelve el backend
         currentUser.ventanilla = { 
-            id: assignedVentanillaId, 
-            nombre: assignedVentanillaNombre
+            id: data.ID_Ventanilla || idVentanilla, 
+            nombre: data.Nombre_Ventanilla || ventanillaAsignada.Ventanilla
         };
 
-        // Ya se mostró managementScreen en el login
-
+        // Actualizar la interfaz
         userSector.textContent = `${currentUser.sector} - ${currentUser.ventanilla.nombre}`;
         userName.textContent = currentUser.username;
 

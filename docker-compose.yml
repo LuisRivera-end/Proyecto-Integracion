@@ -33,5 +33,19 @@ services:
       - db_data:/var/lib/mysql
       - ./mariadb/init.sql:/docker-entrypoint-initdb.d/init.sql
 
+  nginx:
+    # ... otras configuraciones
+    image: nginx:alpine
+    ports:
+      - "80:80"    # Para la redirección HTTP -> HTTPS
+      - "443:443"  # **Este es el puerto HTTPS**
+    volumes:
+      # 1. Mapea el archivo de configuración de Nginx
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      # 2. Mapea la carpeta de certificados al contenedor Nginx
+      - ./certs:/etc/nginx/certs:ro 
+      # ... otros volúmenes (como tu frontend estático)
+    depends_on:
+      - backend
 volumes:
   db_data:

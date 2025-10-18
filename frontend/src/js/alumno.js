@@ -24,70 +24,79 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     form.addEventListener("submit", async (e) => {
-        e.preventDefault();
+    e.preventDefault();
 
-        const MatriculaOFolioIngresado = inputMatriculaFolio.value.trim();
-        const sector = document.getElementById("sector").value;
+    const MatriculaOFolioIngresado = inputMatriculaFolio.value.trim();
+    const sector = document.getElementById("sector").value;
 
-        if (!MatriculaOFolioIngresado || !sector) {
-            showError("Por favor, completa todos los campos.");
-            return;
-        }
+    if (!MatriculaOFolioIngresado || !sector) {
+        showError("Por favor, completa todos los campos.");
+        return;
+    }
 
+    try {   
+        console.log("Iniciando proceso de generación de ticket...");
+        
+        // 1. Primero obtener el tiempo estimado
+        let tiempoEstimado = 5; // Valor por defecto actualizado
         try {
-            // Obtener tiempo estimado de espera para el sector específico
-            let tiempoEstimado = 5; // Valor por defecto actualizado
+            console.log("Consultando tiempo estimado para sector:", sector);
+            const tiempoResponse = await fetch(`${API_BASE_URL}/api/tiempo_espera_promedio/${encodeURIComponent(sector)}`);
             
-            try {
-                const tiempoResponse = await fetch(`${API_BASE_URL}/api/tiempo_espera_promedio/${encodeURIComponent(sector)}`);
-                if (tiempoResponse.ok) {
-                    const tiempoData = await tiempoResponse.json();
-                    tiempoEstimado = tiempoData.tiempo_estimado;
-                }
-            } catch (tiempoError) {
-                console.warn("No se pudo obtener el tiempo estimado:", tiempoError);
-                // Usar valor por defecto si falla
+            if (tiempoResponse.ok) {
+                const tiempoData = await tiempoResponse.json();
+                tiempoEstimado = tiempoData.tiempo_estimado;
+                console.log("Tiempo estimado obtenido:", tiempoEstimado);
+            } else {
+                console.warn("No se pudo obtener tiempo estimado, usando valor por defecto");
             }
-
-            const response = await fetch(`${API_BASE_URL}/api/ticket`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ 
-                    matricula: MatriculaOFolioIngresado,
-                    sector 
-                })
-            });
-
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(data.error || "Error al generar el ticket");
-            }
-
-            // ✅ Actualizar campos visibles del ticket
-            const matriculaFolio = document.getElementById("matricula-o-folio");
-            matriculaFolio.textContent = noMatriculaCheckbox.checked ? "Folio:" : "Matrícula:";
-
-            document.getElementById("result-matricula-o-folio").textContent = MatriculaOFolioIngresado;
-            document.getElementById("result-sector").textContent = data.sector || sector;
-            document.getElementById("result-ticket").textContent = data.folio || ("T-" + Math.floor(Math.random() * 1000));
-            if (data.fecha) document.getElementById("result-fecha").textContent = data.fecha;
-
-            // ✅ Mostrar tiempo estimado de espera
-            const tiempoEstimadoElement = document.getElementById("tiempo-estimado-minutos");
-            if (tiempoEstimadoElement) {
-                tiempoEstimadoElement.textContent = tiempoEstimado;
-            }
-
-            // ✅ Cambiar vistas
-            formContainer.classList.add("hidden");
-            ticketResult.classList.remove("hidden");
-            errorMessage.classList.add("hidden");
-
-        } catch (err) {
-            showError(err.message);
+        } catch (tiempoError) {
+            console.warn("Error al obtener tiempo estimado:", tiempoError);
+            // Mantener el valor por defecto
         }
-    });
+
+        // 2. Luego generar el ticket
+        console.log("Generando ticket...");
+        const response = await fetch(`${API_BASE_URL}/api/ticket`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ 
+                matricula: MatriculaOFolioIngresado,
+                sector 
+            })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.error || "Error al generar el ticket");
+        }
+
+        // ✅ Actualizar campos visibles del ticket
+        const matriculaFolio = document.getElementById("matricula-o-folio");
+        matriculaFolio.textContent = noMatriculaCheckbox.checked ? "Folio:" : "Matrícula:";
+
+        document.getElementById("result-matricula-o-folio").textContent = MatriculaOFolioIngresado;
+        document.getElementById("result-sector").textContent = data.sector || sector;
+        document.getElementById("result-ticket").textContent = data.folio || ("T-" + Math.floor(Math.random() * 1000));
+        if (data.fecha) document.getElementById("result-fecha").textContent = data.fecha;
+
+        // ✅ Mostrar tiempo estimado de espera
+        const tiempoEstimadoElement = document.getElementById("tiempo-estimado-minutos");
+        if (tiempoEstimadoElement) {
+            tiempoEstimadoElement.textContent = tiempoEstimado;
+            console.log("Tiempo estimado mostrado en UI:", tiempoEstimado);
+        }
+
+        // ✅ Cambiar vistas
+        formContainer.classList.add("hidden");
+        ticketResult.classList.remove("hidden");
+        errorMessage.classList.add("hidden");
+
+    } catch (err) {
+        showError(err.message);
+    }
+});
 
     function showError(message) {
         errorText.textContent = message;
@@ -107,41 +116,56 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 async function imprimir() {
-    // Obtener los datos visibles del ticket
     const matricula = document.getElementById("result-matricula-o-folio").textContent.trim();
     const sector = document.getElementById("result-sector").textContent.trim();
     const numero_ticket = document.getElementById("result-ticket").textContent.trim();
     const fecha = document.getElementById("result-fecha").textContent.trim();
+    const tiempo_estimado = document.getElementById("tiempo-estimado-minutos").textContent.trim();
 
     try {
+        // 1️⃣ Pedimos el PDF al backend
         const response = await fetch(`${API_BASE_URL}/api/ticket/download`, {
             method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-                matricula,
-                numero_ticket,
-                sector,
-                fecha
-            })
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ matricula, numero_ticket, sector, fecha, tiempo_estimado })
         });
 
-        if (!response.ok) {
-            throw new Error("Error al generar el PDF desde el servidor");
-        }
+        if (!response.ok) throw new Error("Error al generar el PDF");
 
-        // Recibimos el PDF como Blob
         const blob = await response.blob();
 
-        // Creamos una URL temporal para el PDF
-        const pdfURL = URL.createObjectURL(blob);
+        // 2️⃣ Convertimos el PDF a base64 para QZ
+        const reader = new FileReader();
+        reader.onload = async function() {
+            const base64PDF = reader.result.split(",")[1]; // solo la parte base64
 
-        // Abrimos en una nueva pestaña
-        window.open(pdfURL, "_blank");
+            // 3️⃣ Conectamos con QZ Tray
+            await qz.websocket.connect();
+
+            // 4️⃣ Elegimos la impresora (predeterminada o específica)
+            const printer = await qz.printers.find("POS-58");
+            const config = qz.configs.create(printer);
+
+            // 5️⃣ Mandamos a imprimir
+            const printData = [{
+                type: 'pdf',
+                format: 'base64',
+                data: base64PDF
+            }];
+
+            await qz.print(config, printData);
+
+            // 6️⃣ Desconectamos
+            qz.websocket.disconnect();
+
+            console.log("Ticket impreso correctamente");
+        };
+
+        reader.readAsDataURL(blob);
+
     } catch (error) {
         console.error("Error al imprimir:", error);
-        alert("No se pudo generar el ticket. Intenta de nuevo.");
+        alert("No se pudo imprimir el ticket. Intenta de nuevo.");
     }
 }
 
@@ -151,6 +175,7 @@ async function descargar() {
     const sector = document.getElementById("result-sector").textContent.trim();
     const numero_ticket = document.getElementById("result-ticket").textContent.trim();
     const fecha = document.getElementById("result-fecha").textContent.trim();
+    const tiempo_estimado = document.getElementById("tiempo-estimado-minutos").textContent.trim();
 
     try {
         const response = await fetch(`${API_BASE_URL}/api/ticket/download`, {
@@ -162,7 +187,8 @@ async function descargar() {
                 matricula,
                 numero_ticket,
                 sector,
-                fecha
+                fecha,
+                tiempo_estimado
             })
         });
 

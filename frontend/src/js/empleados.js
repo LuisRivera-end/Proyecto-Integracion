@@ -6,31 +6,200 @@ document.addEventListener("DOMContentLoaded", () => {
   const empleadoForm = document.getElementById("empleadoForm");
   const tablaEmpleados = document.getElementById("tablaEmpleados");
 
-  // Cargar empleados existentes
+  // Cargar empleados con toda la información
   async function loadEmployees() {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/employees`);
+      const res = await fetch(`${API_BASE_URL}/api/employees/full`);
       if (!res.ok) throw new Error("Error al cargar empleados");
 
       const empleados = await res.json();
       renderEmployees(empleados);
     } catch (err) {
       console.error(err);
+      alert("Error al cargar empleados");
     }
   }
 
-  function renderEmployees(empleados) {
+  async function renderEmployees(empleados) {
     tablaEmpleados.innerHTML = "";
-    empleados.forEach((emp, i) => {
+    
+    for (const emp of empleados) {
+      // Construir nombre completo
+      const nombreCompleto = [
+        emp.nombre1,
+        emp.nombre2 || '',
+        emp.Apellido1,
+        emp.Apellido2 || ''
+      ].filter(n => n.trim() !== '').join(' ');
+
+      // Determinar clase de estado para el badge
+      const getEstadoClass = (idEstado) => {
+        switch(idEstado) {
+          case 1: return 'bg-green-100 text-green-800';      // Activo
+          case 2: return 'bg-yellow-100 text-yellow-800';    // Suspendido
+          case 3: return 'bg-red-100 text-red-800';          // Despedido
+          case 4: return 'bg-gray-100 text-gray-800';        // Inactivo
+          default: return 'bg-gray-100 text-gray-800';
+        }
+      };
+
+      const getEstadoNombre = (idEstado) => {
+        switch(idEstado) {
+          case 1: return 'Activo';
+          case 2: return 'Suspendido';
+          case 3: return 'Despedido';
+          case 4: return 'Inactivo';
+          default: return 'Desconocido';
+        }
+      };
+
+      // Es admin?
+      const esAdmin = emp.ID_ROL === 1;
+
+      // Construir celda de estado
+      let estadoCell = '';
+      
+      if (esAdmin) {
+        // Admin siempre activo, no editable
+        estadoCell = `
+          <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${getEstadoClass(1)}">
+            Activo
+          </span>
+        `;
+      } else {
+        // Otros empleados pueden cambiar de estado
+        estadoCell = `
+          <select 
+            onchange="cambiarEstado(${emp.ID_Empleado}, this.value)"
+            class="w-32 px-2 py-1 text-xs font-medium rounded-lg border focus:outline-none focus:ring-2 focus:ring-slate-500 ${getEstadoClass(emp.ID_Estado)}">
+            <option value="1" ${emp.ID_Estado === 1 ? 'selected' : ''}>Activo</option>
+            <option value="2" ${emp.ID_Estado === 2 ? 'selected' : ''}>Suspendido</option>
+            <option value="3" ${emp.ID_Estado === 3 ? 'selected' : ''}>Despedido</option>
+            <option value="4" ${emp.ID_Estado === 4 ? 'selected' : ''}>Inactivo</option>
+          </select>
+        `;
+      }
+
+      // Función para formatear nombres de ventanillas
+      const formatearNombreVentanilla = (nombre) => {
+        if (!nombre) return '';
+        if (nombre.startsWith('Caja')) {
+          return nombre; // Caja1, Caja2, etc.
+        } else if (nombre.startsWith('ServiciosEscolares')) {
+          const numero = nombre.replace('ServiciosEscolares', '');
+          return `Sev ${numero}`;
+        } else if (nombre.startsWith('Beca')) {
+          return 'Becas 1';
+        }
+        return nombre;
+      };
+
+      // Construir celda de ventanilla
+      let ventanillaCell = '';
+      
+      if (esAdmin) {
+        // Admin no tiene ventanilla
+        ventanillaCell = '<span class="text-gray-400 text-xs">N/A</span>';
+      } else if (emp.ID_ROL === 3) {
+        // Operador Becas - mostrar "Becas 1"
+        ventanillaCell = emp.Ventanilla 
+          ? `<span class="text-sm">${formatearNombreVentanilla(emp.Ventanilla)}</span>`
+          : '<span class="text-gray-400 text-xs">Sin asignar</span>';
+      } else {
+        // Operador Cajas o Servicios Escolares - select para elegir
+        const ventanillas = await cargarVentanillasParaRol(emp.ID_ROL);
+        
+        console.log(`Ventanillas para empleado ${emp.ID_Empleado} (Rol ${emp.ID_ROL}):`, ventanillas);
+        
+        ventanillaCell = `
+          <select 
+            onchange="asignarVentanilla(${emp.ID_Empleado}, this.value)"
+            class="w-32 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-slate-500">
+            <option value="">Seleccionar...</option>
+            ${ventanillas.map(v => `
+              <option value="${v.ID_Ventanilla}" ${emp.ID_Ventanilla === v.ID_Ventanilla ? 'selected' : ''}>
+                ${formatearNombreVentanilla(v.Ventanilla)}
+              </option>
+            `).join('')}
+          </select>
+        `;
+      }
+
       const tr = document.createElement("tr");
+      tr.className = "hover:bg-gray-50 transition-colors";
       tr.innerHTML = `
-        <td class="px-4 py-2 border border-gray-300">${i + 1}</td>
-        <td class="px-4 py-2 border border-gray-300">${emp.name}</td>
-        <td class="px-4 py-2 border border-gray-300">${emp.sector}</td>
+        <td class="px-4 py-3 border border-gray-300 text-center font-medium">${emp.ID_Empleado}</td>
+        <td class="px-4 py-3 border border-gray-300">${nombreCompleto}</td>
+        <td class="px-4 py-3 border border-gray-300">${emp.Usuario}</td>
+        <td class="px-4 py-3 border border-gray-300">${emp.Rol || 'N/A'}</td>
+        <td class="px-4 py-3 border border-gray-300 text-center">${ventanillaCell}</td>
+        <td class="px-4 py-3 border border-gray-300 text-center">${estadoCell}</td>
       `;
       tablaEmpleados.appendChild(tr);
-    });
+    }
   }
+
+  // Cargar ventanillas según el rol
+  async function cargarVentanillasParaRol(idRol) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/ventanillas/disponibles/${idRol}`);
+      if (!res.ok) return [];
+      return await res.json();
+    } catch (err) {
+      console.error("Error al cargar ventanillas:", err);
+      return [];
+    }
+  }
+
+  // Función global para asignar ventanilla
+  window.asignarVentanilla = async function(idEmpleado, idVentanilla) {
+    if (!idVentanilla) return;
+    
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/employees/${idEmpleado}/ventanilla`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id_ventanilla: parseInt(idVentanilla) })
+      });
+
+      if (!res.ok) throw new Error("Error al asignar ventanilla");
+
+      alert("Ventanilla asignada correctamente");
+      loadEmployees();
+    } catch (err) {
+      console.error(err);
+      alert("Error al asignar ventanilla");
+    }
+  };
+
+  // Función global para cambiar estado
+  window.toggleEstado = async function(idEmpleado, estadoActual) {
+    const nuevoEstado = estadoActual === 1 ? 2 : 1;
+    const accion = nuevoEstado === 1 ? 'activar' : 'desactivar';
+    
+    if (!confirm(`¿Está seguro de ${accion} este empleado?`)) return;
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/employees/${idEmpleado}/estado`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ estado: nuevoEstado })
+      });
+
+      const data = await res.json();
+      
+      if (!res.ok) {
+        alert(data.error || `Error al ${accion} empleado`);
+        return;
+      }
+
+      alert(`Empleado ${nuevoEstado === 1 ? 'activado' : 'desactivado'} correctamente`);
+      loadEmployees();
+    } catch (err) {
+      console.error(err);
+      alert(`Error al ${accion} empleado`);
+    }
+  };
 
   // Agregar empleado
   empleadoForm.addEventListener("submit", async (e) => {
@@ -47,6 +216,12 @@ document.addEventListener("DOMContentLoaded", () => {
       id_estado: parseInt(document.getElementById("estado").value)
     };
 
+    // Validaciones
+    if (!data.nombre1 || !data.apellido1 || !data.usuario || !data.passwd) {
+      alert("Por favor complete los campos obligatorios");
+      return;
+    }
+
     try {
       const res = await fetch(`${API_BASE_URL}/api/employees`, {
         method: "POST",
@@ -54,28 +229,27 @@ document.addEventListener("DOMContentLoaded", () => {
         body: JSON.stringify(data)
       });
 
-      if (!res.ok) throw new Error("No se pudo agregar empleado");
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || "No se pudo agregar empleado");
+      }
 
+      alert("Empleado agregado exitosamente");
       empleadoForm.reset();
       loadEmployees();
     } catch (err) {
       console.error(err);
-      alert("Error al agregar empleado");
+      alert(err.message || "Error al agregar empleado");
     }
   });
-
-  loadEmployees();
-});
-
-document.addEventListener("DOMContentLoaded", () => {
-  const rolSelect = document.getElementById("rol");
-  const estadoSelect = document.getElementById("estado");
 
   // Cargar roles
   async function cargarRoles() {
     try {
       const res = await fetch(`${API_BASE_URL}/api/roles`);
       const roles = await res.json();
+      const rolSelect = document.getElementById("rol");
+      
       roles.forEach(r => {
         const opt = document.createElement("option");
         opt.value = r.ID_Rol;
@@ -92,6 +266,8 @@ document.addEventListener("DOMContentLoaded", () => {
     try {
       const res = await fetch(`${API_BASE_URL}/api/estados_empleado`);
       const estados = await res.json();
+      const estadoSelect = document.getElementById("estado");
+      
       estados.forEach(e => {
         const opt = document.createElement("option");
         opt.value = e.ID_Estado;
@@ -103,7 +279,8 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // Ejecutar ambas al cargar la página
+  // Inicializar
   cargarRoles();
   cargarEstados();
+  loadEmployees();
 });
