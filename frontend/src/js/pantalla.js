@@ -1,7 +1,5 @@
 document.addEventListener("DOMContentLoaded", function() {
-    const API_BASE_URL = window.location.hostname === "localhost"
-        ? "http://localhost:5000"
-        : "http://backend:5000";
+    const API_BASE_URL = "https://localhost:4443";
 
     // Referencias a elementos del DOM
     const tickets = document.getElementById("tickets");

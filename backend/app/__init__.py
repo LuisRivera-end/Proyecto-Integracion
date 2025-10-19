@@ -1,8 +1,11 @@
 from flask import Flask
 from flask_cors import CORS
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 def create_app():
     app = Flask(__name__)
+    
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
     
     # Configuración CORS
     CORS(app, 

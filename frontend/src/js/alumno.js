@@ -1,6 +1,4 @@
-const API_BASE_URL = window.location.hostname === "localhost" 
-    ? "http://localhost:5000"
-    : "http://backend:5000"; 
+const API_BASE_URL = "https://localhost:4443";
 
 document.addEventListener("DOMContentLoaded", () => {
     const form = document.getElementById("ticket-form");
