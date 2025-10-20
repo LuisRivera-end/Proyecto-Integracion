@@ -2,9 +2,62 @@ from flask import Blueprint, request, jsonify, make_response
 from app.models.database import get_db_connection
 from app.utils.helpers import generar_folio_unico, obtener_fecha_actual, obtener_fecha_publico
 from app.models.pdf_generator import generar_ticket_PDF
-from datetime import datetime  
+from datetime import datetime
+import requests
+import base64
 
 bp = Blueprint('tickets', __name__, url_prefix='/api')
+
+@bp.route('/ticket/print', methods=['POST'])
+def print_ticket_via_service():
+    data = request.get_json()
+    
+    try:
+        # Generar PDF
+        pdf_bytes = generar_ticket_PDF(
+            data['matricula'],
+            data['numero_ticket'], 
+            data['sector'],
+            data['fecha'],
+            data['tiempo_estimado']
+        )
+        
+        # Convertir a base64
+        pdf_base64 = base64.b64encode(pdf_bytes).decode('utf-8')
+        
+        # Enviar al servicio de impresión en Windows
+        print_service_url = "http://host.docker.internal:3001/print"
+        
+        print("📤 Enviando PDF al servicio de impresión...")
+        
+        response = requests.post(
+            print_service_url,
+            json={
+                'pdfContent': pdf_base64,      # antes era pdfBase64
+                'printerName': 'POS-58',       # antes era printer
+                'ticketName': f'ticket_{data["numero_ticket"]}.pdf'  # antes filename
+            },
+            timeout=30
+        )
+        
+        print(f"📥 Respuesta del servicio: {response.status_code}")
+        
+        if response.status_code == 200:
+            return jsonify({"message": "Ticket enviado a impresora"}), 200
+        else:
+            error_msg = response.json().get('error', 'Error desconocido')
+            return jsonify({"error": f"❌ Servicio de impresión: {error_msg}"}), 500
+            
+    except requests.exceptions.ConnectionError:
+        print("❌ No se puede conectar al servicio de impresión")
+        return jsonify({"error": "No se puede conectar al servicio de impresión. Verifica que esté corriendo en Windows."}), 500
+    except requests.exceptions.Timeout:
+        print("❌ Timeout conectando al servicio")
+        return jsonify({"error": "El servicio de impresión no respondió a tiempo."}), 500
+    except Exception as e:
+        print(f"❌ Error general: {e}")
+        return jsonify({"error": f"Error interno: {str(e)}"}), 500
+
 
 @bp.route('/ticket', methods=['POST'])
 def generar_ticket():

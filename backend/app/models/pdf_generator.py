@@ -18,27 +18,36 @@ class TicketPDF(FPDF):
         self.cell(0, 10, "Esfuerzo que trasciende", 0, 0, "C")
 
 def generar_ticket_PDF(matricula, numero_ticket, sector, fecha, tiempo_estimado):
-    pdf = TicketPDF("P", "mm", (58, 210))
+    pdf = TicketPDF("P", "mm", (58, 150))  # Tamaño ajustado para ticket
     pdf.set_auto_page_break(auto=False)
-    pdf.set_margins(left=2, top=5, right=2)
+    pdf.set_margins(left=3, top=5, right=3)
     pdf.add_page()
 
-    # Encabezado
-    pdf.set_font("Arial", "B", 13)
-    pdf.cell(0, 8, "TICKET", ln=True, align="C")
+    # Encabezado (la imagen ya se coloca en header())
+    pdf.set_font("Arial", "B", 12)
+    pdf.cell(0, 6, "TICKET DE TURNO", ln=True, align="C")
     pdf.ln(2)
 
-    # Datos generales
-    pdf.set_font("Arial", "", 10)
-    pdf.cell(0, 6, f"N° Ticket: {numero_ticket}", ln=True)
-    pdf.cell(0, 6, f"Matricula: {matricula}", ln=True)
-    pdf.cell(0, 6, f"Sector: {sector}", ln=True)
-    pdf.cell(0, 6, f"Fecha: {fecha}", ln=True)
-    pdf.cell(0, 6, f"Tiempo Aproximado: {tiempo_estimado} minutos", ln=True)
+    # Datos del ticket
+    pdf.set_font("Arial", "", 9)
+    pdf.cell(0, 5, f"Folio: {numero_ticket}", ln=True)
+    pdf.cell(0, 5, f"Matrícula: {matricula}", ln=True)
+    pdf.cell(0, 5, f"Sector: {sector}", ln=True)
+    pdf.cell(0, 5, f"Fecha: {fecha}", ln=True)
+    pdf.cell(0, 5, f"Tiempo estimado: {tiempo_estimado} min", ln=True)
+    
     pdf.ln(3)
-
+    
     # Separador
-    pdf.cell(0, 0, "-" * 40, ln=True, align="C")
+    pdf.cell(0, 0, "-" * 35, ln=True, align="C")
     pdf.ln(3)
+    
+    # Información adicional
+    pdf.set_font("Arial", "I", 8)
+    pdf.cell(0, 4, "Conserve este ticket", ln=True, align="C")
+    pdf.cell(0, 4, "para su atención", ln=True, align="C")
+    
+    # Espacio para corte
+    pdf.ln(10)
 
     return pdf.output(dest='S').encode('latin-1')
