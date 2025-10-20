@@ -118,21 +118,40 @@ def get_tickets():
     cursor = conn.cursor(dictionary=True)
     
     try:
-        cursor.execute("""
-            SELECT 
-                t.Folio AS folio,
-                t.ID_Turno AS id_turno,
-                a.Matricula AS matricula,
-                s.Sector AS sector,
-                et.Nombre AS estado,
-                t.Fecha_Ticket AS fecha_ticket
-            FROM Turno t
-            JOIN Alumnos a ON t.ID_Alumno = a.ID_Alumno
-            JOIN Sectores s ON t.ID_Sector = s.ID_Sector
-            JOIN Estados_Turno et ON t.ID_Estados = et.ID_Estado
-            WHERE t.ID_Estados = 1 AND s.Sector = %s
-            ORDER BY t.Fecha_Ticket ASC
-        """, (sector,))
+        # Si no se envía sector, mostrar TODOS los tickets en espera
+        if not sector:
+            cursor.execute("""
+                SELECT 
+                    t.Folio AS folio,
+                    t.ID_Turno AS id_turno,
+                    a.Matricula AS matricula,
+                    s.Sector AS sector,
+                    et.Nombre AS estado,
+                    t.Fecha_Ticket AS fecha_ticket
+                FROM Turno t
+                JOIN Alumnos a ON t.ID_Alumno = a.ID_Alumno
+                JOIN Sectores s ON t.ID_Sector = s.ID_Sector
+                JOIN Estados_Turno et ON t.ID_Estados = et.ID_Estado
+                WHERE t.ID_Estados = 1
+                ORDER BY t.Fecha_Ticket ASC
+            """)
+        else:
+            # Si se envía sector, filtrar por ese sector
+            cursor.execute("""
+                SELECT 
+                    t.Folio AS folio,
+                    t.ID_Turno AS id_turno,
+                    a.Matricula AS matricula,
+                    s.Sector AS sector,
+                    et.Nombre AS estado,
+                    t.Fecha_Ticket AS fecha_ticket
+                FROM Turno t
+                JOIN Alumnos a ON t.ID_Alumno = a.ID_Alumno
+                JOIN Sectores s ON t.ID_Sector = s.ID_Sector
+                JOIN Estados_Turno et ON t.ID_Estados = et.ID_Estado
+                WHERE t.ID_Estados = 1 AND s.Sector = %s
+                ORDER BY t.Fecha_Ticket ASC
+            """, (sector,))
         
         tickets = cursor.fetchall()
         return jsonify(tickets), 200

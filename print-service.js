@@ -9,7 +9,7 @@ const PORT = 3001;
 
 app.use(express.json({ limit: '10mb' }));
 
-const sumatraPath = `"C:\\Users\\lelie\\AppData\\Local\\SumatraPDF\\SumatraPDF.exe"`; 
+const sumatraPath = `"C:\\Users\\itsum\\AppData\\Local\\SumatraPDF\\SumatraPDF.exe"`; 
 
 // Endpoint para imprimir PDF
 app.post("/print", (req, res) => {
