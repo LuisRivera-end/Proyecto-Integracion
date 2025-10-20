@@ -111,50 +111,48 @@ async function imprimir() {
     const fecha = document.getElementById("result-fecha").textContent.trim();
     const tiempo_estimado = document.getElementById("tiempo-estimado-minutos").textContent.trim();
 
+    console.log('🖨️ Enviando a impresión directa...');
+
     try {
-        // 1️⃣ Pedimos el PDF al backend
+        const response = await fetch(`${API_BASE_URL}/api/ticket/print`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ 
+                matricula, 
+                numero_ticket, 
+                sector, 
+                fecha, 
+                tiempo_estimado 
+            })
+        });
+
+        const result = await response.json();
+        
+        if (response.ok) {
+            console.log('✅ Ticket enviado a impresora:', result.message);
+            alert('Ticket enviado a impresora POS-58');
+        } else {
+            throw new Error(result.error || "Error al imprimir");
+        }
+
+    } catch (error) {
+        console.error('❌ Error impresión directa:', error);
+        
+        // Fallback a PDF normal
+        console.log('🔄 Usando fallback a PDF...');
         const response = await fetch(`${API_BASE_URL}/api/ticket/download`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ matricula, numero_ticket, sector, fecha, tiempo_estimado })
         });
-
-        if (!response.ok) throw new Error("Error al generar el PDF");
-
-        const blob = await response.blob();
-
-        // 2️⃣ Convertimos el PDF a base64 para QZ
-        const reader = new FileReader();
-        reader.onload = async function() {
-            const base64PDF = reader.result.split(",")[1]; // solo la parte base64
-
-            // 3️⃣ Conectamos con QZ Tray
-            await qz.websocket.connect();
-
-            // 4️⃣ Elegimos la impresora (predeterminada o específica)
-            const printer = await qz.printers.find("POS-58");
-            const config = qz.configs.create(printer);
-
-            // 5️⃣ Mandamos a imprimir
-            const printData = [{
-                type: 'pdf',
-                format: 'base64',
-                data: base64PDF
-            }];
-
-            await qz.print(config, printData);
-
-            // 6️⃣ Desconectamos
-            qz.websocket.disconnect();
-
-            console.log("Ticket impreso correctamente");
-        };
-
-        reader.readAsDataURL(blob);
-
-    } catch (error) {
-        console.error("Error al imprimir:", error);
-        alert("No se pudo imprimir el ticket. Intenta de nuevo.");
+        
+        if (response.ok) {
+            const blob = await response.blob();
+            const pdfURL = URL.createObjectURL(blob);
+            window.open(pdfURL, "_blank");
+        } else {
+            alert('Error: ' + error.message);
+        }
     }
 }
 

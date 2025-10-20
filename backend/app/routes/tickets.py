@@ -6,26 +6,6 @@ from datetime import datetime
 
 bp = Blueprint('tickets', __name__, url_prefix='/api')
 
-@bp.route('/qz-certificate', methods=['GET'])
-def get_qz_certificate():
-    """Endpoint para servir el certificado de QZ Tray"""
-    try:
-        # Ruta dentro del contenedor donde se montan los certificados
-        with open('/app/certs/cert.pem', 'r') as cert_file:
-            certificate = cert_file.read()
-        
-        response = make_response(certificate)
-        response.headers['Content-Type'] = 'application/x-pem-file'
-        response.headers['Content-Disposition'] = 'inline; filename="cert.pem"'
-        return response
-        
-    except FileNotFoundError:
-        print("Certificado QZ Tray no encontrado")
-        return jsonify({"error": "Certificado no encontrado"}), 404
-    except Exception as e:
-        print(f"Error al leer certificado: {e}")
-        return jsonify({"error": "Error del servidor"}), 500
-
 @bp.route('/ticket', methods=['POST'])
 def generar_ticket():
     data = request.get_json()
