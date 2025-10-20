@@ -20,7 +20,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   async function renderEmployees(empleados) {
     tablaEmpleados.innerHTML = "";
-    
+
     for (const emp of empleados) {
       // Construir nombre completo
       const nombreCompleto = [
@@ -34,7 +34,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const getEstadoClass = (idEstado) => {
         switch(idEstado) {
           case 1: return 'bg-green-100 text-green-800';      // Activo
-          case 2: return 'bg-yellow-100 text-yellow-800';    // Suspendido
+          case 2: return 'bg-yellow-100 text-yellow-800';    // Descanso
           case 3: return 'bg-red-100 text-red-800';          // Despedido
           case 4: return 'bg-gray-100 text-gray-800';        // Inactivo
           default: return 'bg-gray-100 text-gray-800';
@@ -44,7 +44,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const getEstadoNombre = (idEstado) => {
         switch(idEstado) {
           case 1: return 'Activo';
-          case 2: return 'Suspendido';
+          case 2: return 'Descanso';
           case 3: return 'Despedido';
           case 4: return 'Inactivo';
           default: return 'Desconocido';
@@ -64,14 +64,21 @@ document.addEventListener("DOMContentLoaded", () => {
             Activo
           </span>
         `;
+      } else if (emp.ID_Estado === 2) {
+        // 💤 Si está en descanso, solo mostrar la opción "Descanso" bloqueada
+        estadoCell = `
+          <select disabled 
+            class="w-32 px-2 py-1 text-xs font-medium rounded-lg border bg-yellow-100 text-yellow-800 cursor-not-allowed">
+            <option value="2" selected>Descanso</option>
+          </select>
+        `;
       } else {
-        // Otros empleados pueden cambiar de estado
+        // 🟢 Si no está en descanso, mostrar todas menos "Descanso"
         estadoCell = `
           <select 
-            onchange="cambiarEstado(${emp.ID_Empleado }, this.value)"
+            onchange="cambiarEstado(${emp.ID_Empleado}, this.value)"
             class="w-32 px-2 py-1 text-xs font-medium rounded-lg border focus:outline-none focus:ring-2 focus:ring-slate-500 ${getEstadoClass(emp.ID_Estado)}">
             <option value="1" ${emp.ID_Estado === 1 ? 'selected' : ''}>Activo</option>
-            <option value="2" ${emp.ID_Estado === 2 ? 'selected' : ''}>Suspendido</option>
             <option value="3" ${emp.ID_Estado === 3 ? 'selected' : ''}>Despedido</option>
             <option value="4" ${emp.ID_Estado === 4 ? 'selected' : ''}>Inactivo</option>
           </select>
@@ -174,7 +181,6 @@ document.addEventListener("DOMContentLoaded", () => {
   window.cambiarEstado = async function(idEmpleado, nuevoEstado) {
     const estadoNombre = {
       1: 'activar', 
-      2: 'suspender', 
       3: 'despedir', 
       4: 'desactivar'
     };
@@ -270,11 +276,14 @@ document.addEventListener("DOMContentLoaded", () => {
       const estados = await res.json();
       const estadoSelect = document.getElementById("estado");
       
+      // ❌ No mostrar "Descanso" al agregar empleado
       estados.forEach(e => {
-        const opt = document.createElement("option");
-        opt.value = e.ID_Estado;
-        opt.textContent = e.Nombre;
-        estadoSelect.appendChild(opt);
+        if (e.Nombre !== "Descanso") {
+          const opt = document.createElement("option");
+          opt.value = e.ID_Estado;
+          opt.textContent = e.Nombre;
+          estadoSelect.appendChild(opt);
+        }
       });
     } catch (err) {
       console.error("Error al cargar estados:", err);

@@ -178,7 +178,7 @@ INSERT INTO Sectores (Sector) VALUES
 /* ====== 3. Estado_Empleado ====== */
 INSERT INTO Estado_Empleado (Nombre) VALUES
 ('Activo'),
-('Suspendido'),
+('Descanso'),
 ('Despedido'),
 ('Inactivo');
 

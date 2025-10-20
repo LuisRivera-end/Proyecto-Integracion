@@ -53,9 +53,10 @@ def update_employee_status_auto():
                     FROM Empleado_Horario h
                     WHERE h.ID_Empleado = e.ID_Empleado
                       AND CURDATE() BETWEEN DATE(h.Fecha_Inicio_Ausencia) AND DATE(h.Fecha_Final_Ausencia)
-                ) THEN 4 -- Inactivo
+                ) THEN 2 -- Descanso
                 ELSE 1 -- Activo
             END
+            WHERE e.ID_Estado IN (1, 2) -- Solo actualizar si estaba Activo o en Descanso
         """)
         conn.commit()
         return jsonify({"message": "Estados actualizados correctamente"}), 200
@@ -66,6 +67,8 @@ def update_employee_status_auto():
     finally:
         cursor.close()
         conn.close()
+
+
 
 
 # --------------------------------------------------------
