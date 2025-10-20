@@ -137,22 +137,6 @@ async function imprimir() {
 
     } catch (error) {
         console.error('❌ Error impresión directa:', error);
-        
-        // Fallback a PDF normal
-        console.log('🔄 Usando fallback a PDF...');
-        const response = await fetch(`${API_BASE_URL}/api/ticket/download`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ matricula, numero_ticket, sector, fecha, tiempo_estimado })
-        });
-        
-        if (response.ok) {
-            const blob = await response.blob();
-            const pdfURL = URL.createObjectURL(blob);
-            window.open(pdfURL, "_blank");
-        } else {
-            alert('Error: ' + error.message);
-        }
     }
 }
 
