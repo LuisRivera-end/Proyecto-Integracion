@@ -1,8 +1,15 @@
 const API_BASE_URL = "https://localhost:4443";
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
   const loginScreen = document.getElementById("login-screen");
-  //const ventanillaSelectionScreen = document.getElementById("ventanilla-selection-screen"); // ELIMINADA
+   try {
+        // Llamada POST para actualizar los estados según descansos activos hoy
+        await fetch(`${API_BASE_URL}/api/employees/update-status`, { method: "POST" });
+        console.log("Estados de empleados actualizados al abrir login");
+    } catch (err) {
+        console.error("No se pudieron actualizar los estados al abrir login:", err);
+    }
+
   const managementScreen = document.getElementById("management-screen");
   const loginForm = document.getElementById("login-form");
   const loginError = document.getElementById("login-error");
