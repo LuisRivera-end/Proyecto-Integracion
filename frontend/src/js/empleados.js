@@ -68,7 +68,7 @@ document.addEventListener("DOMContentLoaded", () => {
         // Otros empleados pueden cambiar de estado
         estadoCell = `
           <select 
-            onchange="cambiarEstado(${emp.ID_Empleado}, this.value)"
+            onchange="cambiarEstado(${emp.ID_Empleado }, this.value)"
             class="w-32 px-2 py-1 text-xs font-medium rounded-lg border focus:outline-none focus:ring-2 focus:ring-slate-500 ${getEstadoClass(emp.ID_Estado)}">
             <option value="1" ${emp.ID_Estado === 1 ? 'selected' : ''}>Activo</option>
             <option value="2" ${emp.ID_Estado === 2 ? 'selected' : ''}>Suspendido</option>
@@ -171,31 +171,35 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   // Función global para cambiar estado
-  window.toggleEstado = async function(idEmpleado, estadoActual) {
-    const nuevoEstado = estadoActual === 1 ? 2 : 1;
-    const accion = nuevoEstado === 1 ? 'activar' : 'desactivar';
+  window.cambiarEstado = async function(idEmpleado, nuevoEstado) {
+    const estadoNombre = {
+      1: 'activar', 
+      2: 'suspender', 
+      3: 'despedir', 
+      4: 'desactivar'
+    };
     
-    if (!confirm(`¿Está seguro de ${accion} este empleado?`)) return;
+    if (!confirm(`¿Está seguro de ${estadoNombre[nuevoEstado]} este empleado?`)) return;
 
     try {
       const res = await fetch(`${API_BASE_URL}/api/employees/${idEmpleado}/estado`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ estado: nuevoEstado })
+        body: JSON.stringify({ estado: parseInt(nuevoEstado) })
       });
 
       const data = await res.json();
       
       if (!res.ok) {
-        alert(data.error || `Error al ${accion} empleado`);
+        alert(data.error || `Error al cambiar estado del empleado`);
         return;
       }
 
-      alert(`Empleado ${nuevoEstado === 1 ? 'activado' : 'desactivado'} correctamente`);
+      alert(`Estado del empleado actualizado correctamente`);
       loadEmployees();
     } catch (err) {
       console.error(err);
-      alert(`Error al ${accion} empleado`);
+      alert(`Error al cambiar estado del empleado`);
     }
   };
 
