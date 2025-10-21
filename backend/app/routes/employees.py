@@ -4,25 +4,76 @@ from app.models.database import get_db_connection
 
 bp = Blueprint('employees', __name__, url_prefix='/api')
 
+# --------------------------------------------------------
+# 1️⃣ LISTA GENERAL DE EMPLEADOS (sin actualizar estados)
+# --------------------------------------------------------
 @bp.route("/employees", methods=["GET"])
 def get_employees():
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
-    cursor.execute("""
-        SELECT 
-            e.ID_Empleado AS id, 
-            e.nombre1 AS name, 
-            r.Rol AS rol,
-            ee.Nombre AS estado
-        FROM Empleado e
-        LEFT JOIN Rol r ON e.ID_ROL = r.ID_Rol
-        LEFT JOIN Estado_Empleado ee ON e.ID_Estado = ee.ID_Estado
-    """)
-    empleados = cursor.fetchall()
-    cursor.close()
-    conn.close()
-    return jsonify(empleados), 200
 
+    try:
+        cursor.execute("""
+            SELECT 
+                e.ID_Empleado AS id, 
+                e.ID_ROL AS rol_id,
+                CONCAT(e.nombre1, ' ', e.nombre2, ' ', e.Apellido1, ' ', e.Apellido2) AS name,
+                r.Rol AS rol,
+                ee.Nombre AS estado
+            FROM Empleado e
+            LEFT JOIN Rol r ON e.ID_ROL = r.ID_Rol
+            LEFT JOIN Estado_Empleado ee ON e.ID_Estado = ee.ID_Estado
+        """)
+
+        empleados = cursor.fetchall()
+        return jsonify(empleados), 200
+
+    except Exception as e:
+        print(f"Error en get_employees: {e}")
+        return jsonify({"error": str(e)}), 500
+
+    finally:
+        cursor.close()
+        conn.close()
+
+
+# --------------------------------------------------------
+# 2️⃣ ACTUALIZAR ESTADOS AUTOMÁTICAMENTE (según descansos)
+# --------------------------------------------------------
+@bp.route("/employees/update-status", methods=["POST"])
+def update_employee_status_auto():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("""
+            UPDATE Empleado e
+            SET ID_Estado = CASE
+                WHEN EXISTS (
+                    SELECT 1
+                    FROM Empleado_Horario h
+                    WHERE h.ID_Empleado = e.ID_Empleado
+                      AND CURDATE() BETWEEN DATE(h.Fecha_Inicio_Ausencia) AND DATE(h.Fecha_Final_Ausencia)
+                ) THEN 2 -- Descanso
+                ELSE 1 -- Activo
+            END
+            WHERE e.ID_Estado IN (1, 2) -- Solo actualizar si estaba Activo o en Descanso
+        """)
+        conn.commit()
+        return jsonify({"message": "Estados actualizados correctamente"}), 200
+    except Exception as e:
+        conn.rollback()
+        print(f"Error en update_employee_status_auto: {e}")
+        return jsonify({"error": str(e)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+
+
+
+# --------------------------------------------------------
+# 3️⃣ EMPLEADOS CON INFORMACIÓN COMPLETA
+# --------------------------------------------------------
 @bp.route("/employees/full", methods=["GET"])
 def get_employees_full():
     conn = get_db_connection()
@@ -62,13 +113,15 @@ def get_employees_full():
         
     except Exception as e:
         print(f"Error en get_employees_full: {e}")
-        import traceback
-        print(traceback.format_exc())
         return jsonify({"error": str(e)}), 500
     finally:
         cursor.close()
         conn.close()
 
+
+# --------------------------------------------------------
+# 4️⃣ CAMBIAR ESTADO MANUAL DE UN EMPLEADO
+# --------------------------------------------------------
 @bp.route("/employees/<int:id_empleado>/estado", methods=["PUT"])
 def update_employee_status(id_empleado):
     data = request.get_json()
@@ -100,12 +153,16 @@ def update_employee_status(id_empleado):
         return jsonify({"message": "Estado actualizado correctamente"}), 200
         
     except Exception as e:
-        print(f"Error al actualizar estado: {e}")
+        print(f"Error al actualizar estado manual: {e}")
         return jsonify({"error": str(e)}), 500
     finally:
         cursor.close()
         conn.close()
 
+
+# --------------------------------------------------------
+# 5️⃣ VENTANILLA ACTIVA DE UN EMPLEADO
+# --------------------------------------------------------
 @bp.route("/empleado/<int:id_empleado>/ventanilla-activa", methods=["GET"])
 def get_ventanilla_activa_empleado(id_empleado):
     conn = get_db_connection()
@@ -136,6 +193,10 @@ def get_ventanilla_activa_empleado(id_empleado):
         cursor.close()
         conn.close()
 
+
+# --------------------------------------------------------
+# 6️⃣ AÑADIR NUEVO EMPLEADO
+# --------------------------------------------------------
 @bp.route("/employees", methods=["POST"])
 def add_employee():
     data = request.get_json()
@@ -162,6 +223,10 @@ def add_employee():
         cursor.close()
         conn.close()
 
+
+# --------------------------------------------------------
+# 7️⃣ GUARDAR DESCANSOS / AGENDA DEL EMPLEADO
+# --------------------------------------------------------
 @bp.route("/agenda", methods=["POST"])
 def save_agenda():
     data = request.get_json()
@@ -173,20 +238,26 @@ def save_agenda():
 
     conn = get_db_connection()
     cursor = conn.cursor()
-    
+
     try:
-        cursor.execute("DELETE FROM Descansos WHERE ID_Empleado = %s", (employee_id,))
-        
+        # Borrar descansos antiguos del empleado
+        cursor.execute("DELETE FROM Empleado_Horario WHERE ID_Empleado = %s", (employee_id,))
+
+        # Insertar descansos nuevos
         for d in descansos:
-            cursor.execute(
-                "INSERT INTO Descansos (ID_Empleado, Fecha_Inicio, Fecha_Fin) VALUES (%s, %s, %s)",
-                (employee_id, d.get("inicio"), d.get("fin"))
-            )
+            cursor.execute("""
+                INSERT INTO Empleado_Horario (ID_Horario, ID_Empleado, Fecha_Inicio_Ausencia, Fecha_Final_Ausencia)
+                VALUES (%s, %s, %s, %s)
+            """, (1, employee_id, d.get("inicio"), d.get("fin")))
+
         conn.commit()
         return jsonify({"message": "Agenda guardada correctamente"}), 201
+
     except Exception as e:
+        conn.rollback()
         print(f"Error en save_agenda: {e}")
-        return jsonify({"error": "Error interno del servidor"}), 500
+        return jsonify({"error": str(e)}), 500
+
     finally:
         cursor.close()
         conn.close()

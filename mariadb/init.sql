@@ -102,8 +102,8 @@ CREATE TABLE Empleado_Horario (
     ID_Registro INT(6) NOT NULL AUTO_INCREMENT PRIMARY KEY,
     ID_Horario INT(6) NOT NULL,
     ID_Empleado INT(6) NOT NULL,
-    Fecha_Inicio_Ausencia DATETIME NOT NULL,
-    Fecha_Final_Ausencia DATETIME NOT NULL,
+    Fecha_Inicio_Ausencia DATE NOT NULL,
+    Fecha_Final_Ausencia DATE NOT NULL,
     FOREIGN KEY (ID_Horario) REFERENCES Horarios(ID_Horario),
     FOREIGN KEY (ID_Empleado) REFERENCES Empleado(ID_Empleado)
 );
@@ -178,7 +178,7 @@ INSERT INTO Sectores (Sector) VALUES
 /* ====== 3. Estado_Empleado ====== */
 INSERT INTO Estado_Empleado (Nombre) VALUES
 ('Activo'),
-('Suspendido'),
+('Descanso'),
 ('Despedido'),
 ('Inactivo');
 
