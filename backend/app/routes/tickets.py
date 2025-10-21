@@ -491,3 +491,38 @@ def tiempo_espera_promedio_por_sector(sector_nombre):
     finally:
         cursor.close()
         conn.close()
+
+
+#Funcion Historial de Tickets 
+@bp.route('/tickets/historial', methods=['GET'])
+def get_historial_tickets():
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    
+    try:
+        cursor.execute("""
+            SELECT 
+                t.Folio AS folio,
+                t.ID_Turno AS id_turno,
+                a.Matricula AS matricula,
+                s.Sector AS sector,
+                et.Nombre AS estado,
+                t.Fecha_Ticket AS fecha_ticket,
+                t.Fecha_Ultimo_Estado AS fecha_ultimo_estado
+            FROM Turno t
+            JOIN Alumnos a ON t.ID_Alumno = a.ID_Alumno
+            JOIN Sectores s ON t.ID_Sector = s.ID_Sector
+            JOIN Estados_Turno et ON t.ID_Estados = et.ID_Estado
+            ORDER BY t.Fecha_Ticket DESC
+            LIMIT 100
+        """)
+        
+        tickets = cursor.fetchall()
+        return jsonify(tickets), 200
+        
+    except Exception as e:
+        print(f"Error en get_historial_tickets: {e}")
+        return jsonify({"error": f"Error interno del servidor: {str(e)}"}), 500
+    finally:
+        cursor.close()
+        conn.close()

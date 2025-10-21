@@ -61,7 +61,8 @@
         </div>
       </div>
     </div>
-        <!-- Pantalla de gestión de tickets -->
+
+    <!-- Pantalla de gestión de tickets -->
     <div id="management-screen" class="hidden min-h-screen p-8">
       <div class="max-w-6xl mx-auto">
         <div class="bg-white/95 backdrop-blur-sm rounded-3xl shadow-xl p-8 mb-8 flex justify-between items-center border border-slate-200">
@@ -85,14 +86,42 @@
         </div>
 
         <div class="bg-white/95 backdrop-blur-sm rounded-3xl shadow-xl p-8 border border-slate-200">
-          <h2 class="text-2xl font-bold text-slate-800 mb-6">Tickets en Espera</h2>
+          
+          <!-- Botón Llamar Siguiente -->
           <button id="call-next-btn"
               class="w-full bg-emerald-500 hover:bg-emerald-600 text-white text-lg font-bold py-3 mb-6 rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl">
               Llamar Siguiente Ticket
           </button>
-          <div id="tickets-container" class="space-y-4"></div>
 
-          <div id="no-tickets-message" class="hidden text-center py-16">
+          <!-- Área para mostrar el ticket actual en atención -->
+          <div id="current-ticket-section" class="hidden mb-6">
+            <div class="bg-blue-50 border border-blue-200 rounded-xl p-6 text-center">
+              <h3 class="text-lg font-semibold text-blue-800 mb-2">Ticket en Atención</h3>
+              <div class="flex items-center justify-center space-x-4">
+                <div class="text-center">
+                  <p class="text-2xl font-bold text-blue-600" id="current-ticket-folio">-</p>
+                  <p class="text-sm text-blue-500 mt-1">Folio</p>
+                </div>
+                <div class="text-center">
+                  <p class="text-lg font-medium text-blue-700" id="current-ticket-matricula">-</p>
+                  <p class="text-sm text-blue-500 mt-1">Matrícula</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Botón para completar ticket actual -->
+          <button id="complete-current-btn"
+              class="w-full bg-blue-500 hover:bg-blue-600 text-white text-lg font-bold py-3 mb-6 rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl hidden">
+              Completar Ticket Actual
+          </button>
+
+          <h2 class="text-2xl font-bold text-slate-800 mb-6">Tickets en Espera</h2>
+          <!-- CONTENEDOR DE TICKETS PENDIENTES - ESTE ES EL QUE FALTABA -->
+          <div id="tickets-container" class="space-y-4 mb-6"></div>
+
+          <!-- Mensaje de No Tickets -->
+          <div id="no-tickets-message" class="hidden text-center py-16 bg-white/80 backdrop-blur-sm rounded-2xl border border-slate-200">
             <div class="inline-flex items-center justify-center w-24 h-24 bg-slate-100 rounded-full mb-4">
               <svg class="w-12 h-12 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -113,7 +142,6 @@
     <script src="https://cdn.gtranslate.net/widgets/latest/float.js" defer></script>
     <script src="./js/idioma.js"></script>
   </div>
-
 
   <script src="./js/ventanilla.js"></script>
 </body>

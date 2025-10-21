@@ -65,51 +65,48 @@
             <p class="text-gray-900" id="fecha-actual"></p>
         </div>
 
-        <div class="bg-white rounded-lg shadow-lg p-8 mb-6">
-          <div class="relative"> <!-- Contenedor relativo para posicionamiento absoluto del botón -->
-        
-            <!-- Botón posicionado en esquina superior derecha -->
-            <button onclick="actualizarDatos()" class="absolute top-0 right-0 bg-gradient-to-r from-slate-600 to-emerald-600 hover:from-slate-700 hover:to-emerald-700 text-white font-semibold rounded-lg transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 text-5xl">
-              ⟳
-            </button>
-        
-            <!-- Contenido centrado -->
-            <div class="text-center">
-              <p class="text-gray-600 text-lg mb-2">Total de Tickets Atendidos Hoy</p>
-              <p class="text-6xl font-bold text-gray-600" id="total-tickets">0</p>
-            </div>
+        <div class="bg-white rounded-lg shadow-lg p-8 mb-6 relative">
+          <!-- Botón de recarga mejorado -->
+          <button onclick="actualizarDatos()" 
+                  class="absolute top-4 right-4 bg-gradient-to-r from-slate-600 to-emerald-600 hover:from-slate-700 hover:to-emerald-700 text-white p-3 rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105 active:scale-95">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+          </button>
+
+          <!-- Contenido centrado -->
+          <div class="text-center">
+            <p class="text-gray-600 text-lg mb-2">Total de Tickets Atendidos Hoy</p>
+            <p class="text-6xl font-bold text-gray-600" id="total-tickets">0</p>
           </div>
         </div>
     
         <div class="bg-white rounded-lg shadow p-6 mb-6">
             <h3 class="text-lg font-semibold text-gray-900 mb-4">Estado del Sistema</h3>
             <!-- Resumen -->
-            <div class="mt-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-center">
-              <div class="bg-slate-100 p-4 rounded-lg shadow">
-                <p class="text-gray-600 text-sm">Total Agregados</p>
-                <p id="total-agregados" class="text-3xl font-bold text-gray-900">0</p>
-              </div>
-              <div class="bg-slate-100 p-4 rounded-lg shadow">
-                <p class="text-gray-600 text-sm">Completados</p>
-                <p id="total-completados" class="text-3xl font-bold text-green-600">0</p>
-              </div>
-              <div class="bg-slate-100 p-4 rounded-lg shadow">
-                <p class="text-gray-600 text-sm">Cancelados</p>
-                <p id="total-cancelados" class="text-3xl font-bold text-red-600">0</p>
-              </div>
-              <div class="bg-slate-100 p-4 rounded-lg shadow">
-                <p class="text-gray-600 text-sm">Pendientes</p>
-                <p id="total-pendientes" class="text-3xl font-bold text-yellow-600">0</p>
-              </div>
-              <div class="bg-slate-100 p-4 rounded-lg shadow col-span-1 sm:col-span-2">
-                <p class="text-gray-600 text-sm">Sector con más tickets</p>
-                <p id="sector-mas" class="text-lg font-semibold text-gray-800">-</p>
-              </div>
-              <div class="bg-slate-100 p-4 rounded-lg shadow col-span-1 sm:col-span-2">
-                <p class="text-gray-600 text-sm">Sector con menos tickets</p>
-                <p id="sector-menos" class="text-lg font-semibold text-gray-800">-</p>
-              </div>
+          <div class="mt-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 text-center">
+            <div class="bg-slate-100 p-4 rounded-lg shadow">
+              <p class="text-gray-600 text-sm">Total Agregados</p>
+              <p id="total-agregados" class="text-3xl font-bold text-gray-900">0</p>
             </div>
+            <div class="bg-slate-100 p-4 rounded-lg shadow">
+              <p class="text-gray-600 text-sm">Completados</p>
+              <p id="total-completados" class="text-3xl font-bold text-green-600">0</p>
+            </div>
+            <div class="bg-slate-100 p-4 rounded-lg shadow">
+              <p class="text-gray-600 text-sm">Atendiendo</p>
+              <p id="total-atendiendo" class="text-3xl font-bold text-blue-600">0</p>
+            </div>
+            <div class="bg-slate-100 p-4 rounded-lg shadow">
+              <p class="text-gray-600 text-sm">Cancelados</p>
+              <p id="total-cancelados" class="text-3xl font-bold text-red-600">0</p>
+            </div>
+            <div class="bg-slate-100 p-4 rounded-lg shadow">
+              <p class="text-gray-600 text-sm">Pendientes</p>
+              <p id="total-pendientes" class="text-3xl font-bold text-yellow-600">0</p>
+            </div>
+          </div>
         </div>
 
 
