@@ -367,75 +367,124 @@ def tiempo_espera_promedio_por_sector(sector_nombre):
     cursor = conn.cursor(dictionary=True)
     
     try:
+        print(f"🔍 Buscando tiempo estimado para sector: {sector_nombre}")
+        
         # Buscar ID del sector
         cursor.execute("SELECT ID_Sector FROM Sectores WHERE Sector = %s", (sector_nombre,))
         sector_data = cursor.fetchone()
         
         if not sector_data:
-            # Si no encuentra el sector, usar valor por defecto
+            print(f"❌ Sector '{sector_nombre}' no encontrado en la base de datos")
             return jsonify({"tiempo_estimado": 5}), 200
             
         id_sector = sector_data["ID_Sector"]
+        print(f"✅ Sector encontrado - ID: {id_sector}")
         
-        # Calcular el tiempo promedio de atención para tickets completados del mismo sector
-        # Consideramos solo los tickets de las últimas 4 horas para mayor precisión
+        # PRIMERO: Verificar si hay datos en la tabla Turno
+        cursor.execute("""
+            SELECT COUNT(*) as total_tickets 
+            FROM Turno 
+            WHERE ID_Sector = %s AND ID_Estados = 3
+        """, (id_sector,))
+        
+        total_tickets = cursor.fetchone()["total_tickets"]
+        print(f"📊 Total de tickets completados en sector {sector_nombre}: {total_tickets}")
+        
+        # 1. Calcular el tiempo promedio con consulta más flexible
+        print("📊 Consultando tiempos históricos...")
         cursor.execute("""
             SELECT 
-                AVG(TIMESTAMPDIFF(MINUTE, t.Fecha_Ticket, t.Fecha_Ultimo_Estado)) as promedio_minutos,
+                AVG(TIMESTAMPDIFF(SECOND, t.Fecha_Ticket, t.Fecha_Ultimo_Estado)) as promedio_segundos,
                 COUNT(*) as total_tickets
             FROM Turno t
-            WHERE t.ID_Estados = 4  -- Tickets completados
+            WHERE t.ID_Estados = 3  -- Tickets completados
             AND t.ID_Sector = %s
-            AND t.Fecha_Ticket >= DATE_SUB(NOW(), INTERVAL 4 HOUR)
-            AND TIMESTAMPDIFF(MINUTE, t.Fecha_Ticket, t.Fecha_Ultimo_Estado) > 0  -- Excluir tiempos negativos/erróneos
-            AND TIMESTAMPDIFF(MINUTE, t.Fecha_Ticket, t.Fecha_Ultimo_Estado) < 120  -- Excluir tiempos muy largos (más de 2 horas)
+            AND t.Fecha_Ticket >= DATE_SUB(NOW(), INTERVAL 2 HOUR)  -- 2 horas
+            AND t.Fecha_Ultimo_Estado > t.Fecha_Ticket  -- Asegurar que la fecha final sea mayor
+            AND TIMESTAMPDIFF(SECOND, t.Fecha_Ticket, t.Fecha_Ultimo_Estado) 
         """, (id_sector,))
         
         resultado = cursor.fetchone()
+        print(f"📈 Resultado consulta 2 horas: {resultado}")
         
-        # Si no hay datos suficientes, ampliar el rango de tiempo
-        if not resultado or resultado["total_tickets"] < 3:
+        # Si no hay datos, intentar con rango aún más amplio
+        if not resultado or resultado["total_tickets"] == 0:
+            print("🕐 Consultando todos los tickets completados...")
             cursor.execute("""
                 SELECT 
-                    AVG(TIMESTAMPDIFF(MINUTE, t.Fecha_Ticket, t.Fecha_Ultimo_Estado)) as promedio_minutos
+                    AVG(TIMESTAMPDIFF(SECOND, t.Fecha_Ticket, t.Fecha_Ultimo_Estado)) as promedio_segundos,
+                    COUNT(*) as total_tickets
                 FROM Turno t
-                WHERE t.ID_Estados = 4  -- Tickets completados
+                WHERE t.ID_Estados = 3
                 AND t.ID_Sector = %s
-                AND t.Fecha_Ticket >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
-                AND TIMESTAMPDIFF(MINUTE, t.Fecha_Ticket, t.Fecha_Ultimo_Estado) > 0
-                AND TIMESTAMPDIFF(MINUTE, t.Fecha_Ticket, t.Fecha_Ultimo_Estado) < 120
+                AND t.Fecha_Ultimo_Estado > t.Fecha_Ticket
+                AND TIMESTAMPDIFF(SECOND, t.Fecha_Ticket, t.Fecha_Ultimo_Estado)
             """, (id_sector,))
             
             resultado = cursor.fetchone()
+            print(f"📈 Resultado consulta completa: {resultado}")
         
-        # Determinar el tiempo estimado
-        if resultado and resultado["promedio_minutos"]:
-            promedio = resultado["promedio_minutos"]
-            # Aplicar factores de ajuste según la hora del día
-            hora_actual = datetime.now().hour
-            if 11 <= hora_actual <= 14:  # Hora pico
-                promedio = promedio * 1.3  # 30% más de tiempo en horas pico
-            elif hora_actual >= 15:  # Tarde
-                promedio = promedio * 0.8  # 20% menos en la tarde
-            
-            tiempo_estimado = max(5, min(60, round(promedio)))  # Entre 5 y 60 minutos
+        # 2. Contar tickets pendientes por delante en el mismo sector
+        cursor.execute("""
+            SELECT COUNT(*) as tickets_pendientes
+            FROM Turno t
+            WHERE t.ID_Sector = %s 
+            AND t.ID_Estados = 1  -- Tickets pendientes
+        """, (id_sector,))
+        
+        pendientes_result = cursor.fetchone()
+        tickets_pendientes = pendientes_result["tickets_pendientes"] if pendientes_result else 0
+        print(f"🎫 Tickets pendientes en sector {sector_nombre}: {tickets_pendientes}")
+        
+        # 3. Determinar el tiempo estimado base
+        if resultado and resultado["promedio_segundos"] and resultado["total_tickets"] > 0:
+            promedio_segundos = float(resultado["promedio_segundos"])
+            tiempo_base = promedio_segundos / 60  # Convertir a minutos
+            print(f"⏱️  Tiempo base calculado: {tiempo_base:.1f} minutos (de {resultado['total_tickets']} tickets)")
         else:
-            # Valores por defecto según el sector si no hay datos históricos
+            # Valores por defecto según el sector
             tiempos_por_defecto = {
                 "Cajas": 5,
-                "Becas": 10,
+                "Becas": 5,
                 "Servicios Escolares": 5
             }
-            tiempo_estimado = tiempos_por_defecto.get(sector_nombre, 5)
+            tiempo_base = tiempos_por_defecto.get(sector_nombre, 5)
+            print(f"⚙️  Usando tiempo por defecto: {tiempo_base} minutos (sin datos históricos)")
         
-        return jsonify({"tiempo_estimado": int(tiempo_estimado)}), 200
+        # 4. Calcular tiempo total considerando tickets pendientes
+        factor_por_ticket = 0.85
+        tiempo_adicional = tickets_pendientes * (tiempo_base * factor_por_ticket)
+        tiempo_total = tiempo_base + tiempo_adicional
+        
+        print(f"📐 Cálculo: Base={tiempo_base:.1f} + Pendientes={tickets_pendientes}×({tiempo_base:.1f}×{factor_por_ticket}) = {tiempo_total:.1f}")
+        
+        # 5. Aplicar factores de ajuste según la hora del día
+        hora_actual = datetime.now().hour
+        print(f"🕒 Hora actual: {hora_actual}")
+        
+        if 11 <= hora_actual <= 14:  # Hora pico (medio día)
+            tiempo_total = tiempo_total * 1.4
+            print("⚡ Aplicando ajuste por hora pico (+40%)")
+        elif 15 <= hora_actual <= 17:  # Tarde
+            tiempo_total = tiempo_total * 1.2
+            print("🌅 Aplicando ajuste por tarde (+20%)")
+        
+        # Redondear y asegurar mínimo de 1 minuto
+        tiempo_estimado = max(1, int(tiempo_total))
+        
+        print(f"✅ Tiempo estimado final: {tiempo_estimado} minutos")
+        
+        return jsonify({"tiempo_estimado": tiempo_estimado}), 200
         
     except Exception as e:
-        print(f"Error en tiempo_espera_promedio_por_sector: {e}")
+        print(f"❌ Error en tiempo_espera_promedio_por_sector: {e}")
+        import traceback
+        traceback.print_exc()
+        
         # Valores por defecto en caso de error
         tiempos_por_defecto = {
             "Cajas": 5,
-            "Becas": 10,
+            "Becas": 5,
             "Servicios Escolares": 5
         }
         return jsonify({"tiempo_estimado": tiempos_por_defecto.get(sector_nombre, 5)}), 200

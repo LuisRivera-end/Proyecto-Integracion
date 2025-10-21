@@ -22,70 +22,79 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     form.addEventListener("submit", async (e) => {
-        e.preventDefault();
+    e.preventDefault();
 
-        const MatriculaOFolioIngresado = inputMatriculaFolio.value.trim();
-        const sector = document.getElementById("sector").value;
+    const MatriculaOFolioIngresado = inputMatriculaFolio.value.trim();
+    const sector = document.getElementById("sector").value;
 
-        if (!MatriculaOFolioIngresado || !sector) {
-            showError("Por favor, completa todos los campos.");
-            return;
-        }
+    if (!MatriculaOFolioIngresado || !sector) {
+        showError("Por favor, completa todos los campos.");
+        return;
+    }
 
+    try {   
+        console.log("Iniciando proceso de generación de ticket...");
+        
+        // 1. Primero obtener el tiempo estimado
+        let tiempoEstimado = 5; // Valor por defecto actualizado
         try {
-            // Obtener tiempo estimado de espera para el sector específico
-            let tiempoEstimado = 5; // Valor por defecto actualizado
+            console.log("Consultando tiempo estimado para sector:", sector);
+            const tiempoResponse = await fetch(`${API_BASE_URL}/api/tiempo_espera_promedio/${encodeURIComponent(sector)}`);
             
-            try {
-                const tiempoResponse = await fetch(`${API_BASE_URL}/api/tiempo_espera_promedio/${encodeURIComponent(sector)}`);
-                if (tiempoResponse.ok) {
-                    const tiempoData = await tiempoResponse.json();
-                    tiempoEstimado = tiempoData.tiempo_estimado;
-                }
-            } catch (tiempoError) {
-                console.warn("No se pudo obtener el tiempo estimado:", tiempoError);
-                // Usar valor por defecto si falla
+            if (tiempoResponse.ok) {
+                const tiempoData = await tiempoResponse.json();
+                tiempoEstimado = tiempoData.tiempo_estimado;
+                console.log("Tiempo estimado obtenido:", tiempoEstimado);
+            } else {
+                console.warn("No se pudo obtener tiempo estimado, usando valor por defecto");
             }
-
-            const response = await fetch(`${API_BASE_URL}/api/ticket`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ 
-                    matricula: MatriculaOFolioIngresado,
-                    sector 
-                })
-            });
-
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(data.error || "Error al generar el ticket");
-            }
-
-            // ✅ Actualizar campos visibles del ticket
-            const matriculaFolio = document.getElementById("matricula-o-folio");
-            matriculaFolio.textContent = noMatriculaCheckbox.checked ? "Folio:" : "Matrícula:";
-
-            document.getElementById("result-matricula-o-folio").textContent = MatriculaOFolioIngresado;
-            document.getElementById("result-sector").textContent = data.sector || sector;
-            document.getElementById("result-ticket").textContent = data.folio || ("T-" + Math.floor(Math.random() * 1000));
-            if (data.fecha) document.getElementById("result-fecha").textContent = data.fecha;
-
-            // ✅ Mostrar tiempo estimado de espera
-            const tiempoEstimadoElement = document.getElementById("tiempo-estimado-minutos");
-            if (tiempoEstimadoElement) {
-                tiempoEstimadoElement.textContent = tiempoEstimado;
-            }
-
-            // ✅ Cambiar vistas
-            formContainer.classList.add("hidden");
-            ticketResult.classList.remove("hidden");
-            errorMessage.classList.add("hidden");
-
-        } catch (err) {
-            showError(err.message);
+        } catch (tiempoError) {
+            console.warn("Error al obtener tiempo estimado:", tiempoError);
+            // Mantener el valor por defecto
         }
-    });
+
+        // 2. Luego generar el ticket
+        console.log("Generando ticket...");
+        const response = await fetch(`${API_BASE_URL}/api/ticket`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ 
+                matricula: MatriculaOFolioIngresado,
+                sector 
+            })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.error || "Error al generar el ticket");
+        }
+
+        // ✅ Actualizar campos visibles del ticket
+        const matriculaFolio = document.getElementById("matricula-o-folio");
+        matriculaFolio.textContent = noMatriculaCheckbox.checked ? "Folio:" : "Matrícula:";
+
+        document.getElementById("result-matricula-o-folio").textContent = MatriculaOFolioIngresado;
+        document.getElementById("result-sector").textContent = data.sector || sector;
+        document.getElementById("result-ticket").textContent = data.folio || ("T-" + Math.floor(Math.random() * 1000));
+        if (data.fecha) document.getElementById("result-fecha").textContent = data.fecha;
+
+        // ✅ Mostrar tiempo estimado de espera
+        const tiempoEstimadoElement = document.getElementById("tiempo-estimado-minutos");
+        if (tiempoEstimadoElement) {
+            tiempoEstimadoElement.textContent = tiempoEstimado;
+            console.log("Tiempo estimado mostrado en UI:", tiempoEstimado);
+        }
+
+        // ✅ Cambiar vistas
+        formContainer.classList.add("hidden");
+        ticketResult.classList.remove("hidden");
+        errorMessage.classList.add("hidden");
+
+    } catch (err) {
+        showError(err.message);
+    }
+});
 
     function showError(message) {
         errorText.textContent = message;
