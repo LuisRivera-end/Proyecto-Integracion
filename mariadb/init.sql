@@ -225,7 +225,8 @@ VALUES
 (2, 'Luis', '', 'Rivera', '', 'Fur1us', SHA2('12345', 256), 1),
 (2, 'Gabriel', '', 'Ortiz', '', 'itzumi', SHA2('12345', 256), 1),
 (3, 'Salvador', '', 'Butanda', '', 'python', SHA2('12345', 256), 1),
-(4, 'Hola', '', 'Butanda', '', 'butanda', SHA2('12345', 256), 1);
+(4, 'Hola', '', 'Butanda', '', 'butanda', SHA2('12345', 256), 1),
+(2, 'Jose', 'Antonio', 'Zenil', 'Ruiz', 'antoniozr', SHA2('12345', 256), 1);
 
 
 /* ====== 10. Alumnos ====== */
@@ -234,7 +235,8 @@ INSERT INTO Alumnos (nombre1, nombre2, Apellido1, Apellido2, Carrera, Matricula)
 ('Ana', 'Maria', 'Torres', 'Jimenez', 'LAE', '28381'),
 ('Jorge', '', 'Martinez', 'Santos', 'ARQ', '28313'),
 ('Lucia', 'Fernanda', 'Mendez', 'Perez', 'LANG', '24355'),
-('Salvador', '', 'Butanda', 'Fuentes', 'UAL', '21783');
+('Salvador', '', 'Butanda', 'Fuentes', 'UAL', '21783'),
+('Jose', 'Antonio', 'Zenil', 'Ruiz', 'ISC', '29509');
 
 /* ====== 11. Rol_Ventanilla ====== */
 INSERT INTO Rol_Ventanilla (ID_Rol, ID_Ventanilla) VALUES

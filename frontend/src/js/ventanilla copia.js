@@ -1,15 +1,9 @@
+/*
 const API_BASE_URL = "https://localhost:4443";
 
-document.addEventListener("DOMContentLoaded", async () => {
+document.addEventListener("DOMContentLoaded", () => {
+  // Elementos del DOM
   const loginScreen = document.getElementById("login-screen");
-   try {
-        // Llamada POST para actualizar los estados según descansos activos hoy
-        await fetch(`${API_BASE_URL}/api/employees/update-status`, { method: "POST" });
-        console.log("Estados de empleados actualizados al abrir login");
-    } catch (err) {
-        console.error("No se pudieron actualizar los estados al abrir login:", err);
-    }
-
   const managementScreen = document.getElementById("management-screen");
   const loginForm = document.getElementById("login-form");
   const loginError = document.getElementById("login-error");
@@ -47,79 +41,74 @@ document.addEventListener("DOMContentLoaded", async () => {
     return true;
   }
 
-
   // -----------------------------
-  // LOGIN - CORREGIDO
+  // LOGIN
   // -----------------------------
-loginForm.addEventListener("submit", async (e) => {
+  loginForm.addEventListener("submit", async (e) => {
     e.preventDefault();
     const username = document.getElementById("username").value.trim();
     const password = document.getElementById("password").value.trim();
 
     try {
-        const res = await fetch(`${API_BASE_URL}/api/login`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ username, password })
-        });
-        
-        if (!res.ok) {
-            const errorData = await res.json();
-            throw new Error(errorData.error || "Credenciales incorrectas");
-        }
-        
-        const data = await res.json();
-        currentUser = { 
-            id: data.id, 
-            username: data.nombre, 
-            rol: data.rol, 
-            sector: data.sector 
-        };
+      const res = await fetch(`${API_BASE_URL}/api/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password })
+      });
+      
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Credenciales incorrectas");
+      }
+      
+      const data = await res.json();
+      currentUser = { 
+        id: data.id, 
+        username: data.nombre, 
+        rol: data.rol, 
+        sector: data.sector 
+      };
 
-        // Admin va directo a admin.html
-        if (currentUser.rol === 1) {
-            window.location.href = "admin.html";
-            return;
-        }
+      if (currentUser.rol === 1) {
+        window.location.href = "admin.html";
+        return;
+      }
 
-        // VERIFICAR SI YA TIENE VENTANILLA ASIGNADA Y ACTIVA
-        const ventanillaActivaRes = await fetch(`${API_BASE_URL}/api/empleado/${currentUser.id}/ventanilla-activa`);
+      const ventanillaActivaRes = await fetch(`${API_BASE_URL}/api/empleado/${currentUser.id}/ventanilla-activa`);
+      
+      if (ventanillaActivaRes.ok) {
+        const ventanillaActiva = await ventanillaActivaRes.json();
         
-        if (ventanillaActivaRes.ok) {
-            const ventanillaActiva = await ventanillaActivaRes.json();
-            
-            if (ventanillaActiva && ventanillaActiva.ID_Ventanilla) {
-                // YA TIENE VENTANILLA ASIGNADA - USAR ESA
-                console.log("Usando ventanilla asignada:", ventanillaActiva);
-                currentUser.ventanilla = {
-                    id: ventanillaActiva.ID_Ventanilla,
-                    nombre: ventanillaActiva.Ventanilla
-                };
-                
-                // Ir directamente a la pantalla de gestión
-                loginScreen.classList.add("hidden");
-                managementScreen.classList.remove("hidden");
-                backButton.classList.add("hidden");
-                loginError.classList.add("hidden");
-                
-            // Inicializar elementos después de mostrar la pantalla
-            if (initializeManagementElements()) {
-              userSector.textContent = `${currentUser.sector} - ${currentUser.ventanilla.nombre}`;
-              userName.textContent = currentUser.username;
-              setupEventListeners();
-              startTicketPolling();
-            } else {
-              throw new Error("Error al inicializar la interfaz");
-            }
-            return;
+        if (ventanillaActiva && ventanillaActiva.ID_Ventanilla) {
+          currentUser.ventanilla = {
+            id: ventanillaActiva.ID_Ventanilla,
+            nombre: ventanillaActiva.Ventanilla
+          };
+          
+          // Mostrar pantalla de gestión
+          loginScreen.classList.add("hidden");
+          managementScreen.classList.remove("hidden");
+          backButton.classList.add("hidden");
+          loginError.classList.add("hidden");
+          
+          // Inicializar elementos después de mostrar la pantalla
+          if (initializeManagementElements()) {
+            userSector.textContent = `${currentUser.sector} - ${currentUser.ventanilla.nombre}`;
+            userName.textContent = currentUser.username;
+            setupEventListeners();
+            startTicketPolling();
+          } else {
+            throw new Error("Error al inicializar la interfaz");
           }
+          return;
         }
+      }
 
-        // SI NO TIENE VENTANILLA ASIGNADA, buscar una automáticamente
-        loginScreen.classList.add("hidden");
-        managementScreen.classList.remove("hidden");
-        backButton.classList.add("hidden");
-        loginError.classList.add("hidden");
+      // Si no tiene ventanilla asignada
+      loginScreen.classList.add("hidden");
+      managementScreen.classList.remove("hidden");
+      backButton.classList.add("hidden");
+      loginError.classList.add("hidden");
 
       if (initializeManagementElements()) {
         setupEventListeners();
@@ -127,92 +116,68 @@ loginForm.addEventListener("submit", async (e) => {
       } else {
         throw new Error("Error al inicializar la interfaz");
       }
-        
+      
     } catch (err) {
-        console.error("Error en login:", err);
-        loginError.textContent = err.message;
-        loginError.classList.remove("hidden");
+      console.error("Error en login:", err);
+      loginError.textContent = err.message;
+      loginError.classList.remove("hidden");
     }
-});
+  });
 
   // -----------------------------
-  // CARGAR VENTANILLAS LIBRES - ELIMINADA
+  // INICIAR VENTANILLA
   // -----------------------------
-  /* La función cargarVentanillas se elimina por completo */
-  
-// -----------------------------
-// INICIAR VENTANILLA - CORREGIDO
-// -----------------------------
-// Se eliminó la línea "iniciarVentanilla(ventanilla.id, ventanilla.nombre);"
-async function iniciarVentanilla() {
+  async function iniciarVentanilla() {
     try {
-        console.log("Buscando ventanilla libre para empleado:", currentUser.id);
+      const ventanillasRes = await fetch(`${API_BASE_URL}/api/ventanillas/libres/${currentUser.id}`);
+      
+      if (!ventanillasRes.ok) {
+        throw new Error("No se pudieron obtener ventanillas libres");
+      }
 
-        // PRIMERO: Obtener una ventanilla libre para este empleado
-        const ventanillasRes = await fetch(`${API_BASE_URL}/api/ventanillas/libres/${currentUser.id}`);
-        
-        if (!ventanillasRes.ok) {
-            throw new Error("No se pudieron obtener ventanillas libres");
-        }
+      const ventanillasLibres = await ventanillasRes.json();
 
-        const ventanillasLibres = await ventanillasRes.json();
-        console.log("Ventanillas libres:", ventanillasLibres);
+      if (!ventanillasLibres || ventanillasLibres.length === 0) {
+        throw new Error("No hay ventanillas disponibles para tu rol. Contacta al administrador.");
+      }
 
-        if (!ventanillasLibres || ventanillasLibres.length === 0) {
-            throw new Error("No hay ventanillas disponibles para tu rol. Contacta al administrador.");
-        }
+      const ventanillaAsignada = ventanillasLibres[0];
+      const idVentanilla = ventanillaAsignada.ID_Ventanilla;
 
-        // Tomar la primera ventanilla libre disponible
-        const ventanillaAsignada = ventanillasLibres[0];
-        const idVentanilla = ventanillaAsignada.ID_Ventanilla;
+      const res = await fetch(`${API_BASE_URL}/api/ventanilla/iniciar`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          id_empleado: currentUser.id, 
+          id_ventanilla: idVentanilla 
+        })
+      });
+      
+      const data = await res.json();
+      
+      if (!res.ok) {
+        throw new Error(data.error || "No se pudo iniciar ventanilla");
+      }
 
-        console.log("Asignando ventanilla automáticamente:", {
-            empleado: currentUser.id,
-            ventanilla: idVentanilla
-        });
+      currentUser.ventanilla = { 
+        id: data.ID_Ventanilla || idVentanilla, 
+        nombre: data.Nombre_Ventanilla || ventanillaAsignada.Ventanilla
+      };
 
-        // SEGUNDO: Iniciar la ventanilla seleccionada
-        const res = await fetch(`${API_BASE_URL}/api/ventanilla/iniciar`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ 
-                id_empleado: currentUser.id, 
-                id_ventanilla: idVentanilla 
-            })
-        });
-        
-        const data = await res.json();
-        
-        if (!res.ok) {
-            throw new Error(data.error || "No se pudo iniciar ventanilla");
-        }
+      userSector.textContent = `${currentUser.sector} - ${currentUser.ventanilla.nombre}`;
+      userName.textContent = currentUser.username;
 
-        console.log("Ventanilla iniciada:", data);
-
-        // Usar la información que devuelve el backend
-        currentUser.ventanilla = { 
-            id: data.ID_Ventanilla || idVentanilla, 
-            nombre: data.Nombre_Ventanilla || ventanillaAsignada.Ventanilla
-        };
-
-        // Actualizar la interfaz
-        userSector.textContent = `${currentUser.sector} - ${currentUser.ventanilla.nombre}`;
-        userName.textContent = currentUser.username;
-
-        // Iniciar polling para actualizar tickets automáticamente
-        startTicketPolling();
+      startTicketPolling();
 
     } catch (err) {
-        console.error("Error al iniciar ventanilla:", err);
-        alert(`Error al iniciar ventanilla: ${err.message}. Por favor, cierra sesión e intenta de nuevo.`);
-        
-        // Regresar a la pantalla de login si falla la inicialización
-        managementScreen.classList.add("hidden");
-        loginScreen.classList.remove("hidden");
-        backButton.classList.remove("hidden");
+      console.error("Error al iniciar ventanilla:", err);
+      alert(`Error al iniciar ventanilla: ${err.message}. Por favor, cierra sesión e intenta de nuevo.`);
+      
+      managementScreen.classList.add("hidden");
+      loginScreen.classList.remove("hidden");
+      backButton.classList.remove("hidden");
     }
-}
-
+  }
 
   // -----------------------------
   // CONFIGURAR EVENT LISTENERS
@@ -303,7 +268,6 @@ async function iniciarVentanilla() {
       return null;
     }
   }
-
 
   // -----------------------------
   // OBTENER INFORMACIÓN DEL TICKET
@@ -442,7 +406,7 @@ async function iniciarVentanilla() {
     }
   }
 
- // -----------------------------
+  // -----------------------------
   // RENDERIZAR TICKETS
   // -----------------------------
   function renderTickets(tickets, sector) {
@@ -533,3 +497,5 @@ async function iniciarVentanilla() {
     console.log("Sesión cerrada en el frontend");
   }
 });
+
+*/
