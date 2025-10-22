@@ -1,5 +1,22 @@
-document.addEventListener("DOMContentLoaded", function() {
+document.addEventListener("DOMContentLoaded", async function() {
     const API_BASE_URL = "https://localhost:4443";
+
+    async function actualizarTicketsFueraHorario() {
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/ticket/cancelar_fuera_horario`, {
+                method: "PUT"
+            });
+            const data = await response.json();
+
+            if (response.ok) {
+                console.log("Tickets fuera de horario actualizados:", data.mensaje);
+            } else {
+                console.warn("No se pudieron actualizar tickets fuera de horario:", data.error);
+            }
+        } catch (err) {
+            console.error("Error al actualizar tickets fuera de horario:", err);
+        }
+    }
 
     // Referencias a elementos del DOM
     const tickets = document.getElementById("tickets");
@@ -69,10 +86,9 @@ document.addEventListener("DOMContentLoaded", function() {
         });
     }
 
-    // Cargar los tickets al iniciar la página
+    await actualizarTicketsFueraHorario();
     cargarTickets();
 
-    // Exponer la función si deseas recargar externamente
     window.cargarTickets = cargarTickets;
 });
 

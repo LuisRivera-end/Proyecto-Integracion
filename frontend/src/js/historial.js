@@ -6,6 +6,22 @@ function mostrarFecha() {
     const opciones = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
     document.getElementById('fecha-actual').textContent = fecha.toLocaleDateString('es-ES', opciones);
 }
+async function actualizarTicketsFueraHorario() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/ticket/cancelar_fuera_horario`, {
+            method: "PUT"
+        });
+        const data = await response.json();
+
+        if (response.ok) {
+            console.log("Tickets fuera de horario actualizados:", data.mensaje);
+        } else {
+            console.warn("No se pudieron actualizar tickets fuera de horario:", data.error);
+        }
+    } catch (err) {
+        console.error("Error al actualizar tickets fuera de horario:", err);
+    }
+}
 
 // Mostrar total de tickets del día actual
 async function totalTickets() {
@@ -271,24 +287,28 @@ function actualizarResumen(lista) {
 // Window onload
 window.onload = async function() {
     mostrarFecha();
-    
+
+    // Primero, cancelar tickets fuera de horario
+    await actualizarTicketsFueraHorario();
+
     // Establecer fechas por defecto (últimos 7 días)
     const hoy = new Date();
     const hace7Dias = new Date();
     hace7Dias.setDate(hoy.getDate() - 7);
-    
+
     document.getElementById("filtro-fecha-inicio").value = hace7Dias.toISOString().split('T')[0];
     document.getElementById("filtro-fecha-fin").value = hoy.toISOString().split('T')[0];
-    
+
     if (dentroHorario()) {
         await actualizarDatos();
         setInterval(actualizarDatos, 30000);
     } else {
         document.getElementById('total-tickets').textContent = "-";
     }
-    
+
     await mostrarHistorial(); // Cargar historial real
 };
+
 
 // Event listeners para los filtros
 document.getElementById("filtro-status").addEventListener("change", aplicarFiltros);

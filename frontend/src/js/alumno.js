@@ -1,6 +1,24 @@
 const API_BASE_URL = "https://localhost:4443";
 
-document.addEventListener("DOMContentLoaded", () => {
+async function actualizarTicketsFueraHorario() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/ticket/cancelar_fuera_horario`, {
+            method: "PUT"
+        });
+        const data = await response.json();
+
+        if (response.ok) {
+            console.log("Tickets fuera de horario actualizados:", data.mensaje);
+        } else {
+            console.warn("No se pudieron actualizar tickets fuera de horario:", data.error);
+        }
+    } catch (err) {
+        console.error("Error al actualizar tickets fuera de horario:", err);
+    }
+}
+
+document.addEventListener("DOMContentLoaded", async () => {
+    await actualizarTicketsFueraHorario();
     const form = document.getElementById("ticket-form");
     const formContainer = document.getElementById("form-container");
     const ticketResult = document.getElementById("ticket-result");
@@ -22,79 +40,98 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     form.addEventListener("submit", async (e) => {
-    e.preventDefault();
+        e.preventDefault();
 
-    const MatriculaOFolioIngresado = inputMatriculaFolio.value.trim();
-    const sector = document.getElementById("sector").value;
+        const MatriculaOFolioIngresado = inputMatriculaFolio.value.trim();
+        const sector = document.getElementById("sector").value;
 
-    if (!MatriculaOFolioIngresado || !sector) {
-        showError("Por favor, completa todos los campos.");
-        return;
-    }
+        if (!MatriculaOFolioIngresado || !sector) {
+            showError("Por favor, completa todos los campos.");
+            return;
+        }
 
-    try {   
-        console.log("Iniciando proceso de generación de ticket...");
-        
-        // 1. Primero obtener el tiempo estimado
-        let tiempoEstimado = 5; // Valor por defecto actualizado
-        try {
-            console.log("Consultando tiempo estimado para sector:", sector);
-            const tiempoResponse = await fetch(`${API_BASE_URL}/api/tiempo_espera_promedio/${encodeURIComponent(sector)}`);
-            
-            if (tiempoResponse.ok) {
-                const tiempoData = await tiempoResponse.json();
-                tiempoEstimado = tiempoData.tiempo_estimado;
-                console.log("Tiempo estimado obtenido:", tiempoEstimado);
-            } else {
-                console.warn("No se pudo obtener tiempo estimado, usando valor por defecto");
+        const ahora = new Date();
+        const dia = ahora.getDay(); 
+        const hora = ahora.getHours();
+
+        if (dia === 0) {
+            showError("No se pueden generar tickets los domingos.");
+            return;
+        } else if (dia >= 1 && dia <= 5) { 
+            if (hora < 8 || hora >= 17) {
+                showError("Solo se pueden generar tickets de lunes a viernes de 8:00 a 17:00.");
+                return;
             }
-        } catch (tiempoError) {
-            console.warn("Error al obtener tiempo estimado:", tiempoError);
-            // Mantener el valor por defecto
+        } else if (dia === 6) { 
+            if (hora < 8 || hora >= 14) {
+                showError("Solo se pueden generar tickets los sábados de 8:00 a 14:00.");
+                return;
+            }
         }
 
-        // 2. Luego generar el ticket
-        console.log("Generando ticket...");
-        const response = await fetch(`${API_BASE_URL}/api/ticket`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ 
-                matricula: MatriculaOFolioIngresado,
-                sector 
-            })
-        });
+        try {   
+            console.log("Iniciando proceso de generación de ticket...");
+            
+            // 1. Primero obtener el tiempo estimado
+            let tiempoEstimado = 5; // Valor por defecto actualizado
+            try {
+                console.log("Consultando tiempo estimado para sector:", sector);
+                const tiempoResponse = await fetch(`${API_BASE_URL}/api/tiempo_espera_promedio/${encodeURIComponent(sector)}`);
+                
+                if (tiempoResponse.ok) {
+                    const tiempoData = await tiempoResponse.json();
+                    tiempoEstimado = tiempoData.tiempo_estimado;
+                    console.log("Tiempo estimado obtenido:", tiempoEstimado);
+                } else {
+                    console.warn("No se pudo obtener tiempo estimado, usando valor por defecto");
+                }
+            } catch (tiempoError) {
+                console.warn("Error al obtener tiempo estimado:", tiempoError);
+                // Mantener el valor por defecto
+            }
 
-        const data = await response.json();
+            // 2. Luego generar el ticket
+            console.log("Generando ticket...");
+            const response = await fetch(`${API_BASE_URL}/api/ticket`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ 
+                    matricula: MatriculaOFolioIngresado,
+                    sector 
+                })
+            });
 
-        if (!response.ok) {
-            throw new Error(data.error || "Error al generar el ticket");
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error || "Error al generar el ticket");
+            }
+
+            // ✅ Actualizar campos visibles del ticket
+            const matriculaFolio = document.getElementById("matricula-o-folio");
+            matriculaFolio.textContent = noMatriculaCheckbox.checked ? "Folio:" : "Matrícula:";
+
+            document.getElementById("result-matricula-o-folio").textContent = MatriculaOFolioIngresado;
+            document.getElementById("result-sector").textContent = data.sector || sector;
+            document.getElementById("result-ticket").textContent = data.folio || ("T-" + Math.floor(Math.random() * 1000));
+            if (data.fecha) document.getElementById("result-fecha").textContent = data.fecha;
+
+            // ✅ Mostrar tiempo estimado de espera
+            const tiempoEstimadoElement = document.getElementById("tiempo-estimado-minutos");
+            if (tiempoEstimadoElement) {
+                tiempoEstimadoElement.textContent = tiempoEstimado;
+                console.log("Tiempo estimado mostrado en UI:", tiempoEstimado);
+            }
+
+            // ✅ Cambiar vistas
+            formContainer.classList.add("hidden");
+            ticketResult.classList.remove("hidden");
+            errorMessage.classList.add("hidden");
+
+        } catch (err) {
+            showError(err.message);
         }
-
-        // ✅ Actualizar campos visibles del ticket
-        const matriculaFolio = document.getElementById("matricula-o-folio");
-        matriculaFolio.textContent = noMatriculaCheckbox.checked ? "Folio:" : "Matrícula:";
-
-        document.getElementById("result-matricula-o-folio").textContent = MatriculaOFolioIngresado;
-        document.getElementById("result-sector").textContent = data.sector || sector;
-        document.getElementById("result-ticket").textContent = data.folio || ("T-" + Math.floor(Math.random() * 1000));
-        if (data.fecha) document.getElementById("result-fecha").textContent = data.fecha;
-
-        // ✅ Mostrar tiempo estimado de espera
-        const tiempoEstimadoElement = document.getElementById("tiempo-estimado-minutos");
-        if (tiempoEstimadoElement) {
-            tiempoEstimadoElement.textContent = tiempoEstimado;
-            console.log("Tiempo estimado mostrado en UI:", tiempoEstimado);
-        }
-
-        // ✅ Cambiar vistas
-        formContainer.classList.add("hidden");
-        ticketResult.classList.remove("hidden");
-        errorMessage.classList.add("hidden");
-
-    } catch (err) {
-        showError(err.message);
-    }
-});
+    });
 
     function showError(message) {
         errorText.textContent = message;
@@ -194,4 +231,5 @@ async function descargar() {
         console.error("Error al imprimir:", error);
         alert("No se pudo generar el ticket. Intenta de nuevo.");
     }
+    
 }

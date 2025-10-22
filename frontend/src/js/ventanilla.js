@@ -1,4 +1,20 @@
 const API_BASE_URL = "https://localhost:4443";
+async function actualizarTicketsFueraHorario() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/ticket/cancelar_fuera_horario`, {
+            method: "PUT"
+        });
+        const data = await response.json();
+
+        if (response.ok) {
+            console.log("Tickets fuera de horario actualizados:", data.mensaje);
+        } else {
+            console.warn("No se pudieron actualizar tickets fuera de horario:", data.error);
+        }
+    } catch (err) {
+        console.error("Error al actualizar tickets fuera de horario:", err);
+    }
+}
 
 document.addEventListener("DOMContentLoaded", async () => {
   const loginScreen = document.getElementById("login-screen");
@@ -9,6 +25,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     } catch (err) {
         console.error("No se pudieron actualizar los estados al abrir login:", err);
     }
+    await actualizarTicketsFueraHorario();
 
   const managementScreen = document.getElementById("management-screen");
   const loginForm = document.getElementById("login-form");

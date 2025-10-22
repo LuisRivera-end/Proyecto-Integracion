@@ -526,3 +526,34 @@ def get_historial_tickets():
     finally:
         cursor.close()
         conn.close()
+    
+@bp.route('/ticket/cancelar_fuera_horario', methods=['PUT'])
+def cancelar_tickets_fuera_horario():
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    try:
+        cursor.execute("""
+            UPDATE Turno t
+            SET ID_Estados = 2, Fecha_Ultimo_Estado = NOW()
+            WHERE ID_Estados = 1
+              AND (
+                  (DAYOFWEEK(CONVERT_TZ(NOW(), '+00:00', '-06:00')) BETWEEN 2 AND 6
+                   AND (HOUR(CONVERT_TZ(NOW(), '+00:00', '-06:00')) < 8
+                        OR HOUR(CONVERT_TZ(NOW(), '+00:00', '-06:00')) >= 17))
+                  OR (DAYOFWEEK(CONVERT_TZ(NOW(), '+00:00', '-06:00')) = 7
+                      AND (HOUR(CONVERT_TZ(NOW(), '+00:00', '-06:00')) < 8
+                           OR HOUR(CONVERT_TZ(NOW(), '+00:00', '-06:00')) >= 14))
+              )
+        """)
+        conn.commit()
+
+        return jsonify({"mensaje": f"Tickets fuera de horario cancelados: {cursor.rowcount}"}), 200
+
+    except Exception as e:
+        print(f"Error en cancelar_tickets_fuera_horario: {e}")
+        return jsonify({"error": "Error interno del servidor"}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
