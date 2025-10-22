@@ -19,7 +19,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const backButton = document.getElementById("back-Button");
 
   // Estos elementos se inicializarán cuando managementScreen esté visible
-  let callNextBtn, completeCurrentBtn, currentTicketSection, currentTicketFolio, currentTicketMatricula, currentTicketAlumno, ticketsContainer, noTicketsMessage;
+  let callNextBtn, completeCurrentBtn, cancelCurrentBtn, currentTicketSection, currentTicketFolio, currentTicketMatricula, currentTicketAlumno, ticketsContainer, noTicketsMessage;
 
   let currentUser = null;
   let refreshInterval = null;
@@ -31,6 +31,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   function initializeManagementElements() {
     callNextBtn = document.getElementById("call-next-btn");
     completeCurrentBtn = document.getElementById("complete-current-btn");
+    cancelCurrentBtn = document.getElementById("cancel-current-btn"); // NUEVO BOTÓN
     currentTicketSection = document.getElementById("current-ticket-section");
     currentTicketFolio = document.getElementById("current-ticket-folio");
     currentTicketMatricula = document.getElementById("current-ticket-matricula");
@@ -39,7 +40,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     noTicketsMessage = document.getElementById("no-tickets-message");
 
     // Verificar que todos los elementos existan
-    if (!callNextBtn || !completeCurrentBtn || !currentTicketSection || 
+    if (!callNextBtn || !completeCurrentBtn || !cancelCurrentBtn || !currentTicketSection || 
         !currentTicketFolio || !currentTicketMatricula || !ticketsContainer || !currentTicketAlumno || !noTicketsMessage) {
       console.error("No se pudieron encontrar todos los elementos de management screen");
       return false;
@@ -47,7 +48,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     
     return true;
   }
-
 
   // -----------------------------
   // LOGIN - CORREGIDO
@@ -215,7 +215,7 @@ async function iniciarVentanilla() {
 }
 
 
-  // -----------------------------
+ // -----------------------------
   // CONFIGURAR EVENT LISTENERS
   // -----------------------------
   function setupEventListeners() {
@@ -227,73 +227,79 @@ async function iniciarVentanilla() {
       completeCurrentBtn.addEventListener("click", completarTicketActual);
     }
     
+    // NUEVO EVENT LISTENER PARA CANCELAR TICKET
+    if (cancelCurrentBtn) {
+      cancelCurrentBtn.addEventListener("click", cancelarTicketActual);
+    }
+    
     if (logoutBtn) {
       logoutBtn.addEventListener("click", cerrarSesion);
     }
   }
 
- // -----------------------------
-// LLAMAR SIGUIENTE TICKET - VERSIÓN CORREGIDA
-// -----------------------------
-async function llamarSiguienteTicket() {
-  if (!currentUser?.ventanilla) return;
-  
-  if (currentTicket) {
-    alert("Debes completar el ticket actual antes de llamar al siguiente.");
-    return;
-  }
-
-  try {
-    // PRIMERO: Obtener información del siguiente ticket ANTES de llamarlo
-    const nextTicketInfo = await getNextTicketInfo(); // Necesitamos crear esta función
-    if (!nextTicketInfo) {
-      alert("No hay tickets pendientes para atender.");
+   // -----------------------------
+  // LLAMAR SIGUIENTE TICKET - VERSIÓN CORREGIDA
+  // -----------------------------
+  async function llamarSiguienteTicket() {
+    if (!currentUser?.ventanilla) return;
+    
+    if (currentTicket) {
+      alert("Debes completar o cancelar el ticket actual antes de llamar al siguiente.");
       return;
     }
-    
-    console.log("Siguiente ticket encontrado:", nextTicketInfo);
 
-    // SEGUNDO: Llamar al ticket
-    const res = await fetch(`${API_BASE_URL}/api/tickets/llamar-siguiente`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ 
-        id_ventanilla: currentUser.ventanilla.id,
-        id_empleado: currentUser.id 
-      })
-    });
+    try {
+      // PRIMERO: Obtener información del siguiente ticket ANTES de llamarlo
+      const nextTicketInfo = await getNextTicketInfo();
+      if (!nextTicketInfo) {
+        alert("No hay tickets pendientes para atender.");
+        return;
+      }
+      
+      console.log("Siguiente ticket encontrado:", nextTicketInfo);
 
-    if (!res.ok) {
-      const errorData = await res.json();
-      throw new Error(errorData.error || "No se pudo llamar siguiente ticket");
+      // SEGUNDO: Llamar al ticket
+      const res = await fetch(`${API_BASE_URL}/api/tickets/llamar-siguiente`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          id_ventanilla: currentUser.ventanilla.id,
+          id_empleado: currentUser.id 
+        })
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || "No se pudo llamar siguiente ticket");
+      }
+      
+      const data = await res.json();
+      
+      // USAR LA INFORMACIÓN COMPLETA QUE YA OBTUVIMOS ANTES
+      currentTicket = {
+        folio: data.folio,
+        matricula: nextTicketInfo.matricula || 'N/A',
+        nombre_alumno: nextTicketInfo.nombre_alumno || 'N/A'
+      };
+      
+      console.log("Ticket actual establecido:", currentTicket);
+      
+      // Actualizar interfaz
+      updateCurrentTicketUI();
+      callNextBtn.disabled = true;
+      callNextBtn.classList.add("opacity-50", "cursor-not-allowed");
+      completeCurrentBtn.classList.remove("hidden");
+      cancelCurrentBtn.classList.remove("hidden"); // MOSTRAR BOTÓN CANCELAR
+      currentTicketSection.classList.remove("hidden");
+      
+      // Recargar lista de tickets pendientes
+      await fetchTickets();
+      
+    } catch (err) {
+      console.error("Error al llamar siguiente ticket:", err);
+      alert(err.message || "Error al llamar siguiente ticket");
     }
-    
-    const data = await res.json();
-    
-    // USAR LA INFORMACIÓN COMPLETA QUE YA OBTUVIMOS ANTES
-    currentTicket = {
-      folio: data.folio,
-      matricula: nextTicketInfo.matricula || 'N/A',
-      nombre_alumno: nextTicketInfo.nombre_alumno || 'N/A'
-    };
-    
-    console.log("Ticket actual establecido:", currentTicket);
-    
-    // Actualizar interfaz
-    updateCurrentTicketUI();
-    callNextBtn.disabled = true;
-    callNextBtn.classList.add("opacity-50", "cursor-not-allowed");
-    completeCurrentBtn.classList.remove("hidden");
-    currentTicketSection.classList.remove("hidden");
-    
-    // Recargar lista de tickets pendientes
-    await fetchTickets();
-    
-  } catch (err) {
-    console.error("Error al llamar siguiente ticket:", err);
-    alert(err.message || "Error al llamar siguiente ticket");
   }
-}
 
 // -----------------------------
 // OBTENER INFORMACIÓN DEL SIGUIENTE TICKET - NUEVA FUNCIÓN
@@ -385,11 +391,7 @@ async function getNextTicketInfo() {
       const completedFolio = currentTicket.folio;
       currentTicket = null;
       
-      callNextBtn.disabled = false;
-      callNextBtn.classList.remove("opacity-50", "cursor-not-allowed");
-      completeCurrentBtn.classList.add("hidden");
-      currentTicketSection.classList.add("hidden");
-      
+      resetCurrentTicketUI();
       await fetchTickets();
       
       alert(`Ticket ${completedFolio} completado exitosamente`);
@@ -399,6 +401,53 @@ async function getNextTicketInfo() {
       alert(err.message || "Error al completar el ticket");
     }
   }
+
+   // -----------------------------
+  // CANCELAR TICKET ACTUAL - NUEVA FUNCIÓN
+  // -----------------------------
+  async function cancelarTicketActual() {
+    if (!currentTicket) return;
+
+    if (!confirm(`¿Estás seguro de que deseas cancelar el ticket ${currentTicket.folio}?`)) {
+      return;
+    }
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/tickets/${currentTicket.folio}/cancel`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" }
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || "No se pudo cancelar el ticket");
+      }
+
+      const canceledFolio = currentTicket.folio;
+      currentTicket = null;
+      
+      resetCurrentTicketUI();
+      await fetchTickets();
+      
+      alert(`Ticket ${canceledFolio} cancelado exitosamente`);
+      
+    } catch (err) {
+      console.error("Error al cancelar ticket:", err);
+      alert(err.message || "Error al cancelar el ticket");
+    }
+  }
+
+  // -----------------------------
+  // RESET UI DEL TICKET ACTUAL - NUEVA FUNCIÓN
+  // -----------------------------
+  function resetCurrentTicketUI() {
+    callNextBtn.disabled = false;
+    callNextBtn.classList.remove("opacity-50", "cursor-not-allowed");
+    completeCurrentBtn.classList.add("hidden");
+    cancelCurrentBtn.classList.add("hidden");
+    currentTicketSection.classList.add("hidden");
+  }
+
 
   // -----------------------------
   // POLLING PARA TICKETS

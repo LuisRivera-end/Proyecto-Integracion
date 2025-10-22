@@ -224,6 +224,32 @@ def complete_ticket(folio):
         cursor.close()
         conn.close()
 
+@bp.route('/tickets/<folio>/cancel', methods=['PUT'])
+def cancel_ticket(folio):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        nueva_fecha = obtener_fecha_actual()
+        cursor.execute("""
+            UPDATE Turno
+            SET ID_Estados = %s, Fecha_Ultimo_Estado = %s
+            WHERE Folio = %s AND ID_Estados = 3
+        """, (2, nueva_fecha, folio))
+
+        if cursor.rowcount == 0:
+            return jsonify({"error": "Ticket no encontrado o no está siendo atendido"}), 404
+
+        conn.commit()
+        return jsonify({"message": f"Ticket {folio} cancelado exitosamente"}), 200
+        
+    except Exception as e:
+        print(f"Error en cancel_ticket: {e}")
+        return jsonify({"error": "Error interno del servidor"}), 500
+    finally:
+        cursor.close()
+        conn.close()
+        
 @bp.route("/tickets_count", methods=["GET"])
 def get_tickets_count():
     conn = get_db_connection()
