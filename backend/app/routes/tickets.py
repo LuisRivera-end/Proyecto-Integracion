@@ -528,3 +528,44 @@ def get_historial_tickets():
     finally:
         cursor.close()
         conn.close()
+
+@bp.route("/tickets/publico", methods=["GET"])
+def get_tickets_publico():
+    """Endpoint específico para la pantalla pública que muestra pendientes + atendiendo"""
+    
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    
+    try:
+        cursor.execute("""
+            SELECT 
+                t.Folio AS folio,
+                t.ID_Turno AS id_turno,
+                t.ID_Ventanilla AS id_ventanilla,
+                v.Ventanilla AS ventanilla,
+                a.Matricula AS matricula,
+                CONCAT(a.nombre1, ' ', a.Apellido1) AS nombre_alumno,
+                s.Sector AS sector,
+                et.Nombre AS estado,
+                et.ID_Estado AS estado_id,
+                t.Fecha_Ticket AS fecha_ticket
+            FROM Turno t
+            JOIN Alumnos a ON t.ID_Alumno = a.ID_Alumno
+            JOIN Sectores s ON t.ID_Sector = s.ID_Sector
+            JOIN Estados_Turno et ON t.ID_Estados = et.ID_Estado
+            LEFT JOIN Ventanillas v ON t.ID_Ventanilla = v.ID_Ventanilla
+            WHERE t.ID_Estados IN (1, 3)  -- Solo pendientes y atendiendo
+            ORDER BY 
+                CASE WHEN t.ID_Estados = 3 THEN 0 ELSE 1 END,  -- Atendiendo primero
+                t.Fecha_Ticket ASC  -- Luego pendientes por antigüedad
+        """)
+        
+        tickets = cursor.fetchall()
+        return jsonify(tickets), 200
+        
+    except Exception as e:
+        print(f"Error en get_tickets_publico: {e}")
+        return jsonify({"error": f"Error interno del servidor: {str(e)}"}), 500
+    finally:
+        cursor.close()
+        conn.close()

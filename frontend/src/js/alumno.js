@@ -31,7 +31,24 @@ document.addEventListener("DOMContentLoaded", () => {
         showError("Por favor, completa todos los campos.");
         return;
     }
+    const ahora = new Date();
+    const dia = ahora.getDay(); 
+    const hora = ahora.getHours();
 
+        if (dia === 0) {
+            showError("No se pueden generar tickets los domingos.");
+            return;
+        } else if (dia >= 1 && dia <= 5) { 
+            if (hora < 8 || hora >= 17) {
+                showError("Solo se pueden generar tickets de lunes a viernes de 8:00 a 17:00.");
+                return;
+            }
+        } else if (dia === 6) { 
+            if (hora < 8 || hora >= 14) {
+                showError("Solo se pueden generar tickets los sábados de 8:00 a 14:00.");
+                return;
+            }
+        }
     try {   
         console.log("Iniciando proceso de generación de ticket...");
         

@@ -1,5 +1,9 @@
 const API_BASE_URL = "https://localhost:4443";
 
+// Variables para controlar el refresh
+let refreshInterval;
+let estadoAnteriorHistorial = new Map();
+
 // Función para mostrar la fecha actual
 function mostrarFecha() {
     const fecha = new Date();
@@ -94,24 +98,40 @@ async function cargarHistorialReal() {
         return [];
     }
 }
-// Función para mostrar el historial con todos los filtros
-async function mostrarHistorial(filtroEstado = "todos", filtroSector = "todos", fechaInicio = null, fechaFin = null) {
+
+// Función para generar un hash único del ticket para comparación
+function generarHashTicket(ticket) {
+    return `${ticket.folio}-${ticket.estado}-${ticket.fecha_ultimo_estado || ''}`;
+}
+
+// Función para crear el HTML de una fila del historial
+function crearFilaHistorialHTML(ticket) {
+    return `
+        <tr class="hover:bg-gray-50 transition-colors duration-150" data-folio="${ticket.folio}">
+            <td class="py-3 px-4 border-b">${ticket.folio}</td>
+            <td class="py-3 px-4 border-b">${ticket.sector}</td>
+            <td class="py-3 px-4 border-b capitalize ${getEstadoColor(ticket.estado)}">${ticket.estado}</td>
+            <td class="py-3 px-4 border-b">${formatearFecha(ticket.creado)}</td>
+            <td class="py-3 px-4 border-b">${ticket.finalizado ? formatearFecha(ticket.finalizado) : "-"}</td>
+        </tr>
+    `;
+}
+
+// Función para mostrar el historial con actualización inteligente
+async function mostrarHistorialInteligente(filtroEstado = "todos", filtroSector = "todos", fechaInicio = null, fechaFin = null) {
     const cuerpo = document.getElementById("tabla-historial");
-    cuerpo.innerHTML = "";
 
     try {
-        // ✅ CORRECCIÓN: Cargar los datos primero
+        // Cargar datos actualizados
         let historial = await cargarHistorialReal();
         
+        // Aplicar filtros
         let filtrado = historial.filter(ticket => {
-            // Corregir comparación de estados (ignorar mayúsculas/minúsculas)
             const estadoCoincide = filtroEstado === "todos" || 
                                 ticket.estado.toLowerCase() === filtroEstado.toLowerCase();
             
-            // Corregir comparación de sectores
             let sectorCoincide = true;
             if (filtroSector !== "todos") {
-                // Mapear nombres de filtro a nombres de base de datos
                 const mapeoSectores = {
                     'cajas': 'Cajas',
                     'becas': 'Becas', 
@@ -121,7 +141,6 @@ async function mostrarHistorial(filtroEstado = "todos", filtroSector = "todos", 
                 sectorCoincide = ticket.sector === sectorBd;
             }
             
-            // Filtro por fecha
             let fechaCoincide = true;
             if (fechaInicio && fechaFin) {
                 const fechaTicket = new Date(ticket.creado);
@@ -131,40 +150,74 @@ async function mostrarHistorial(filtroEstado = "todos", filtroSector = "todos", 
             return estadoCoincide && sectorCoincide && fechaCoincide;
         });
 
-        console.log("🔍 Filtros aplicados:", {
-            filtroEstado,
-            filtroSector,
-            totalTickets: historial.length,
-            ticketsFiltrados: filtrado.length
-        });
-
         // Ordenar por fecha de creación (más reciente primero)
         filtrado.sort((a, b) => new Date(b.creado) - new Date(a.creado));
 
-        if (filtrado.length === 0) {
-            const tr = document.createElement("tr");
-            tr.innerHTML = `
-                <td colspan="5" class="py-4 px-4 text-center text-gray-500">
-                    No se encontraron tickets que coincidan con los filtros
-                </td>
-            `;
-            cuerpo.appendChild(tr);
-        } else {
-            filtrado.forEach(ticket => {
-                const tr = document.createElement("tr");
-                tr.className = "hover:bg-gray-50 transition-colors duration-150";
-                tr.innerHTML = `
-                    <td class="py-3 px-4 border-b">${ticket.folio}</td>
-                    <td class="py-3 px-4 border-b">${ticket.sector}</td>
-                    <td class="py-3 px-4 border-b capitalize ${getEstadoColor(ticket.estado)}">${ticket.estado}</td>
-                    <td class="py-3 px-4 border-b">${formatearFecha(ticket.creado)}</td>
-                    <td class="py-3 px-4 border-b">${ticket.finalizado ? formatearFecha(ticket.finalizado) : "-"}</td>
+        // Generar nuevo estado
+        const nuevoEstado = new Map();
+        filtrado.forEach(ticket => {
+            nuevoEstado.set(ticket.folio, {
+                html: crearFilaHistorialHTML(ticket),
+                hash: generarHashTicket(ticket)
+            });
+        });
+
+        // Si es la primera carga o hay cambios significativos, reconstruir toda la tabla
+        if (estadoAnteriorHistorial.size === 0 || 
+            filtrado.length !== estadoAnteriorHistorial.size ||
+            Array.from(nuevoEstado.keys()).some(folio => !estadoAnteriorHistorial.has(folio))) {
+            
+            // Reconstruir tabla completa
+            if (filtrado.length === 0) {
+                cuerpo.innerHTML = `
+                    <tr>
+                        <td colspan="5" class="py-4 px-4 text-center text-gray-500">
+                            No se encontraron tickets que coincidan con los filtros
+                        </td>
+                    </tr>
                 `;
-                cuerpo.appendChild(tr);
+            } else {
+                let htmlCompleto = '';
+                filtrado.forEach(ticket => {
+                    htmlCompleto += crearFilaHistorialHTML(ticket);
+                });
+                cuerpo.innerHTML = htmlCompleto;
+            }
+            
+        } else {
+            // Actualización incremental - solo modificar lo que cambió
+            nuevoEstado.forEach((nuevo, folio) => {
+                const anterior = estadoAnteriorHistorial.get(folio);
+                
+                if (!anterior || anterior.hash !== nuevo.hash) {
+                    // Encontrar la fila existente y actualizarla
+                    const filaExistente = cuerpo.querySelector(`[data-folio="${folio}"]`);
+                    if (filaExistente) {
+                        filaExistente.outerHTML = nuevo.html;
+                    } else {
+                        // Agregar nueva fila
+                        cuerpo.innerHTML += nuevo.html;
+                    }
+                }
+            });
+
+            // Eliminar tickets que ya no existen
+            estadoAnteriorHistorial.forEach((_, folio) => {
+                if (!nuevoEstado.has(folio)) {
+                    const filaEliminar = cuerpo.querySelector(`[data-folio="${folio}"]`);
+                    if (filaEliminar) {
+                        filaEliminar.remove();
+                    }
+                }
             });
         }
 
+        // Actualizar estado anterior
+        estadoAnteriorHistorial = nuevoEstado;
+
+        // Actualizar estadísticas
         actualizarResumen(filtrado);
+
     } catch (error) {
         console.error("Error al mostrar historial:", error);
         cuerpo.innerHTML = `
@@ -230,7 +283,7 @@ function aplicarFiltros() {
         fechaFin = null;
     }
     
-    mostrarHistorial(filtroEstado, filtroSector, fechaInicio, fechaFin);
+    mostrarHistorialInteligente(filtroEstado, filtroSector, fechaInicio, fechaFin);
 }
 
 // Actualizar estadísticas - Versión robusta
@@ -268,6 +321,23 @@ function actualizarResumen(lista) {
     if (sectorMenos) sectorMenos.textContent = menos;
 }
 
+// Iniciar sistema de refresh automático
+function iniciarRefreshAutomatico() {
+    // Actualizar cada 5 segundos (puedes ajustar este tiempo)
+    refreshInterval = setInterval(() => {
+        console.log("🔄 Actualizando automáticamente historial...");
+        aplicarFiltros(); // Esto aplicará los filtros actuales y actualizará la tabla
+    }, 5000);
+}
+
+// Detener el refresh automático
+function detenerRefreshAutomatico() {
+    if (refreshInterval) {
+        clearInterval(refreshInterval);
+        refreshInterval = null;
+    }
+}
+
 // Window onload
 window.onload = async function() {
     mostrarFecha();
@@ -287,7 +357,11 @@ window.onload = async function() {
         document.getElementById('total-tickets').textContent = "-";
     }
     
-    await mostrarHistorial(); // Cargar historial real
+    // Cargar historial inicial
+    await mostrarHistorialInteligente();
+    
+    // Iniciar refresh automático
+    iniciarRefreshAutomatico();
 };
 
 // Event listeners para los filtros
@@ -301,4 +375,13 @@ document.getElementById("btn-limpiar-fechas").addEventListener("click", function
     document.getElementById("filtro-fecha-inicio").value = "";
     document.getElementById("filtro-fecha-fin").value = "";
     aplicarFiltros();
+});
+
+// Pausar refresh cuando la pestaña no está visible
+document.addEventListener('visibilitychange', function() {
+    if (document.hidden) {
+        detenerRefreshAutomatico();
+    } else {
+        iniciarRefreshAutomatico();
+    }
 });
