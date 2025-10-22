@@ -12,7 +12,7 @@
 
     <a href="index.html"
        id="back-Button"
-       class="fixed top-6 right-6 bg-slate-600 hover:bg-slate-700 text-white p-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 z-50">
+       class="fixed top-6 right-6 bg-slate-600 hover:bg-slate-700 text-white p-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 z-50" title="Regresar a Generación de Tickets">
       <svg xmlns="http://www.w3.org/2000/svg"
            class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
@@ -89,22 +89,26 @@
           
           <!-- Botón Llamar Siguiente -->
           <button id="call-next-btn"
-              class="w-full bg-emerald-500 hover:bg-emerald-600 text-white text-lg font-bold py-3 mb-6 rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl">
+              class="w-full bg-gradient-to-r from-slate-500 to-emerald-600 hover:from-slate-700 hover:to-emerald-700 text-white text-lg font-bold py-3 mb-6 rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl">
               Llamar Siguiente Ticket
           </button>
 
           <!-- Área para mostrar el ticket actual en atención -->
           <div id="current-ticket-section" class="hidden mb-6">
             <div class="bg-blue-50 border border-blue-200 rounded-xl p-6 text-center">
-              <h3 class="text-lg font-semibold text-blue-800 mb-2">Ticket en Atención</h3>
+              <h3 class="text-lg font-semibold text-emerald-800 mb-2">Ticket en Atención</h3>
               <div class="flex items-center justify-center space-x-4">
                 <div class="text-center">
-                  <p class="text-2xl font-bold text-blue-600" id="current-ticket-folio">-</p>
-                  <p class="text-sm text-blue-500 mt-1">Folio</p>
+                  <p class="text-2xl font-bold text-emerald-600" id="current-ticket-folio">-</p>
+                  <p class="text-sm text-emerald-500 mt-1">Folio</p>
                 </div>
                 <div class="text-center">
-                  <p class="text-lg font-medium text-blue-700" id="current-ticket-matricula">-</p>
-                  <p class="text-sm text-blue-500 mt-1">Matrícula</p>
+                  <p class="text-lg font-medium text-emerald-700" id="current-ticket-matricula">-</p>
+                  <p class="text-sm text-emerald-500 mt-1">Matrícula</p>
+                </div>
+                <div class="text-center">
+                  <p class="text-lg font-medium text-emerald-700" id="current-ticket-alumno">-</p>
+                  <p class="text-sm text-emerald-500 mt-1">Alumno</p>
                 </div>
               </div>
             </div>
@@ -112,7 +116,7 @@
 
           <!-- Botón para completar ticket actual -->
           <button id="complete-current-btn"
-              class="w-full bg-blue-500 hover:bg-blue-600 text-white text-lg font-bold py-3 mb-6 rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl hidden">
+              class="w-full bg-slate-600 hover:bg-slate-700 text-white text-lg font-bold py-3 mb-6 rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl hidden">
               Completar Ticket Actual
           </button>
 
@@ -138,7 +142,7 @@
     </div>
 
     <!-- idiomas -->
-    <div class="gtranslate_wrapper"></div>
+    <div class="gtranslate_wrapper" title="Cambiar idioma"></div>
     <script src="https://cdn.gtranslate.net/widgets/latest/float.js" defer></script>
     <script src="./js/idioma.js"></script>
   </div>

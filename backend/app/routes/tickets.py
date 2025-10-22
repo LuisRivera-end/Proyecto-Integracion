@@ -84,7 +84,7 @@ def generar_ticket():
             return jsonify({"error": "No se encontró el sector especificado"}), 404
         ID_Sector = sector["ID_Sector"]
 
-        Folio = generar_folio_unico()
+        Folio = generar_folio_unico(sector_nombre) 
         Fecha_Ticket = obtener_fecha_actual()
         Fecha_Ticket_publico = obtener_fecha_publico()
 
@@ -97,7 +97,7 @@ def generar_ticket():
 
         return jsonify({
             "mensaje": "Ticket generado exitosamente",
-            "folio": Folio,
+            "folio": Folio, # Este 'folio' ya es el folio completo de 6 caracteres (ej. C6H2S9)
             "fecha": Fecha_Ticket_publico,
             "alumno": matricula,
             "sector": sector_nombre
@@ -125,6 +125,7 @@ def get_tickets():
                     t.Folio AS folio,
                     t.ID_Turno AS id_turno,
                     a.Matricula AS matricula,
+                    CONCAT(a.nombre1, ' ', a.Apellido1) AS nombre_alumno,  -- AÑADIR ESTA LÍNEA
                     s.Sector AS sector,
                     et.Nombre AS estado,
                     t.Fecha_Ticket AS fecha_ticket
@@ -142,6 +143,7 @@ def get_tickets():
                     t.Folio AS folio,
                     t.ID_Turno AS id_turno,
                     a.Matricula AS matricula,
+                    CONCAT(a.nombre1, ' ', a.Apellido1) AS nombre_alumno,  -- AÑADIR ESTA LÍNEA
                     s.Sector AS sector,
                     et.Nombre AS estado,
                     t.Fecha_Ticket AS fecha_ticket

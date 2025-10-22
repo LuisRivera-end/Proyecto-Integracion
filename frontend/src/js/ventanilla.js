@@ -19,7 +19,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const backButton = document.getElementById("back-Button");
 
   // Estos elementos se inicializarán cuando managementScreen esté visible
-  let callNextBtn, completeCurrentBtn, currentTicketSection, currentTicketFolio, currentTicketMatricula, ticketsContainer, noTicketsMessage;
+  let callNextBtn, completeCurrentBtn, currentTicketSection, currentTicketFolio, currentTicketMatricula, currentTicketAlumno, ticketsContainer, noTicketsMessage;
 
   let currentUser = null;
   let refreshInterval = null;
@@ -34,12 +34,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     currentTicketSection = document.getElementById("current-ticket-section");
     currentTicketFolio = document.getElementById("current-ticket-folio");
     currentTicketMatricula = document.getElementById("current-ticket-matricula");
+    currentTicketAlumno = document.getElementById("current-ticket-alumno");
     ticketsContainer = document.getElementById("tickets-container");
     noTicketsMessage = document.getElementById("no-tickets-message");
 
     // Verificar que todos los elementos existan
     if (!callNextBtn || !completeCurrentBtn || !currentTicketSection || 
-        !currentTicketFolio || !currentTicketMatricula || !ticketsContainer || !noTicketsMessage) {
+        !currentTicketFolio || !currentTicketMatricula || !ticketsContainer || !currentTicketAlumno || !noTicketsMessage) {
       console.error("No se pudieron encontrar todos los elementos de management screen");
       return false;
     }
@@ -231,79 +232,82 @@ async function iniciarVentanilla() {
     }
   }
 
-  // -----------------------------
-  // LLAMAR SIGUIENTE TICKET - VERSIÓN CORREGIDA
-  // -----------------------------
-  async function llamarSiguienteTicket() {
-    if (!currentUser?.ventanilla) return;
-    
-    if (currentTicket) {
-      alert("Debes completar el ticket actual antes de llamar al siguiente.");
+ // -----------------------------
+// LLAMAR SIGUIENTE TICKET - VERSIÓN CORREGIDA
+// -----------------------------
+async function llamarSiguienteTicket() {
+  if (!currentUser?.ventanilla) return;
+  
+  if (currentTicket) {
+    alert("Debes completar el ticket actual antes de llamar al siguiente.");
+    return;
+  }
+
+  try {
+    // PRIMERO: Obtener información del siguiente ticket ANTES de llamarlo
+    const nextTicketInfo = await getNextTicketInfo(); // Necesitamos crear esta función
+    if (!nextTicketInfo) {
+      alert("No hay tickets pendientes para atender.");
       return;
     }
+    
+    console.log("Siguiente ticket encontrado:", nextTicketInfo);
 
-    try {
-      // PRIMERO: Obtener información del siguiente ticket ANTES de llamarlo
-      const nextTicketInfo = await getNextTicketInfo();
-      if (!nextTicketInfo) {
-        alert("No hay tickets pendientes para atender.");
-        return;
-      }
-      
-      console.log("Siguiente ticket encontrado:", nextTicketInfo);
+    // SEGUNDO: Llamar al ticket
+    const res = await fetch(`${API_BASE_URL}/api/tickets/llamar-siguiente`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ 
+        id_ventanilla: currentUser.ventanilla.id,
+        id_empleado: currentUser.id 
+      })
+    });
 
-      // SEGUNDO: Llamar al ticket
-      const res = await fetch(`${API_BASE_URL}/api/tickets/llamar-siguiente`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          id_ventanilla: currentUser.ventanilla.id,
-          id_empleado: currentUser.id 
-        })
-      });
-
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error || "No se pudo llamar siguiente ticket");
-      }
-      
-      const data = await res.json();
-      
-      // USAR LA INFORMACIÓN QUE YA OBTUVIMOS ANTES (cuando el ticket estaba en estado 1)
-      currentTicket = {
-        folio: data.folio,
-        matricula: nextTicketInfo.matricula || 'N/A'
-      };
-      
-      console.log("Ticket actual establecido:", currentTicket);
-      
-      // Actualizar interfaz
-      updateCurrentTicketUI();
-      callNextBtn.disabled = true;
-      callNextBtn.classList.add("opacity-50", "cursor-not-allowed");
-      completeCurrentBtn.classList.remove("hidden");
-      currentTicketSection.classList.remove("hidden");
-      
-      // Recargar lista de tickets pendientes
-      await fetchTickets();
-      
-    } catch (err) {
-      console.error("Error al llamar siguiente ticket:", err);
-      alert(err.message || "Error al llamar siguiente ticket");
+    if (!res.ok) {
+      const errorData = await res.json();
+      throw new Error(errorData.error || "No se pudo llamar siguiente ticket");
     }
+    
+    const data = await res.json();
+    
+    // USAR LA INFORMACIÓN COMPLETA QUE YA OBTUVIMOS ANTES
+    currentTicket = {
+      folio: data.folio,
+      matricula: nextTicketInfo.matricula || 'N/A',
+      nombre_alumno: nextTicketInfo.nombre_alumno || 'N/A'
+    };
+    
+    console.log("Ticket actual establecido:", currentTicket);
+    
+    // Actualizar interfaz
+    updateCurrentTicketUI();
+    callNextBtn.disabled = true;
+    callNextBtn.classList.add("opacity-50", "cursor-not-allowed");
+    completeCurrentBtn.classList.remove("hidden");
+    currentTicketSection.classList.remove("hidden");
+    
+    // Recargar lista de tickets pendientes
+    await fetchTickets();
+    
+  } catch (err) {
+    console.error("Error al llamar siguiente ticket:", err);
+    alert(err.message || "Error al llamar siguiente ticket");
   }
+}
 
-  async function getNextTicketInfo() {
-    try {
-      const tickets = await getAllTickets();
-      // El primer ticket de la lista es el siguiente en ser atendido (ordenado por fecha más antigua)
-      return tickets.length > 0 ? tickets[0] : null;
-    } catch (err) {
-      console.error("Error al obtener siguiente ticket:", err);
-      return null;
-    }
+// -----------------------------
+// OBTENER INFORMACIÓN DEL SIGUIENTE TICKET - NUEVA FUNCIÓN
+// -----------------------------
+async function getNextTicketInfo() {
+  try {
+    const allTickets = await getAllTickets();
+    // El primer ticket de la lista es el siguiente en ser atendido (ordenado por fecha más antigua)
+    return allTickets.length > 0 ? allTickets[0] : null;
+  } catch (err) {
+    console.error("Error al obtener siguiente ticket:", err);
+    return null;
   }
-
+}
 
   // -----------------------------
   // OBTENER INFORMACIÓN DEL TICKET
@@ -351,12 +355,13 @@ async function iniciarVentanilla() {
   }
 
   // -----------------------------
-  // ACTUALIZAR UI DEL TICKET ACTUAL
+  // ACTUALIZAR UI DEL TICKET ACTUAL - CORREGIDO
   // -----------------------------
   function updateCurrentTicketUI() {
-    if (currentTicket && currentTicketFolio && currentTicketMatricula) {
+    if (currentTicket && currentTicketFolio && currentTicketMatricula && currentTicketAlumno) {
       currentTicketFolio.textContent = currentTicket.folio;
       currentTicketMatricula.textContent = currentTicket.matricula;
+      currentTicketAlumno.textContent = currentTicket.nombre_alumno; // CORREGIDO: usar currentTicket en lugar de ticket
     }
   }
 
