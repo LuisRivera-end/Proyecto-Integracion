@@ -1,7 +1,14 @@
-from app import create_app
+from app import create_app, socketio
 from app.config import Config
 
-app = create_app()
+app, socketio_instance = create_app()
 
 if __name__ == '__main__':
-    app.run(host=Config.HOST, port=Config.PORT, debug=Config.DEBUG)
+    
+    socketio_instance.run(
+        app, 
+        host=Config.HOST, 
+        port=Config.PORT, 
+        debug=Config.DEBUG,
+        allow_unsafe_werkzeug=True
+    )

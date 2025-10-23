@@ -1,6 +1,17 @@
 from flask import Flask
 from flask_cors import CORS
+from flask_socketio import SocketIO
 from werkzeug.middleware.proxy_fix import ProxyFix
+
+from app.routes.health import bp as health_bp
+from app.routes.auth import bp as auth_bp
+from app.routes.tickets import bp as tickets_bp
+from app.routes.employees import bp as employees_bp
+from app.routes.ventanillas import bp as ventanillas_bp
+
+from app.websocket.print_handlers import register_socket_handlers
+
+socketio = SocketIO(cors_allowed_origins="*", async_mode='eventlet')
 
 def create_app():
     app = Flask(__name__)
@@ -17,17 +28,17 @@ def create_app():
         }}
     )
     
-    # Registrar blueprints
-    from app.routes.health import bp as health_bp
-    from app.routes.auth import bp as auth_bp
-    from app.routes.tickets import bp as tickets_bp
-    from app.routes.employees import bp as employees_bp
-    from app.routes.ventanillas import bp as ventanillas_bp
+    socketio.init_app(app)
+    send_print_job = register_socket_handlers(socketio)
     
+    # Hacer disponible la función para otros módulos
+    app.config['SEND_PRINT_JOB'] = send_print_job
+    
+    # Registrar blueprints    
     app.register_blueprint(health_bp)
     app.register_blueprint(auth_bp)
     app.register_blueprint(tickets_bp)
     app.register_blueprint(employees_bp)
     app.register_blueprint(ventanillas_bp)
     
-    return app
+    return app, socketio

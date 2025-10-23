@@ -4,3 +4,6 @@ mysql-connector-python
 flask_cors
 FPDF
 requests
+Flask-SocketIO
+python-socketio
+eventlet

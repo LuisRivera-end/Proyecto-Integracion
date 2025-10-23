@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify, make_response
+from flask import Blueprint, request, jsonify, make_response, current_app
 from app.models.database import get_db_connection
 from app.utils.helpers import generar_folio_unico, obtener_fecha_actual, obtener_fecha_publico
 from app.models.pdf_generator import generar_ticket_PDF
@@ -9,7 +9,7 @@ import base64
 bp = Blueprint('tickets', __name__, url_prefix='/api')
 
 @bp.route('/ticket/print', methods=['POST'])
-def print_ticket_via_service():
+def request_ticket_print():
     data = request.get_json()
     
     try:
@@ -22,40 +22,31 @@ def print_ticket_via_service():
             data['tiempo_estimado']
         )
         
-        # Convertir a base64
         pdf_base64 = base64.b64encode(pdf_bytes).decode('utf-8')
         
-        # Enviar al servicio de impresión en Windows
-        print_service_url = "http://host.docker.internal:3001/print"
+        # Obtener la función de impresión desde la configuración de la app
+        send_print_job = current_app.config.get('SEND_PRINT_JOB')
         
-        print("📤 Enviando PDF al servicio de impresión...")
+        if not send_print_job:
+            return jsonify({"error": "Servicio de impresión no disponible"}), 500
         
-        response = requests.post(
-            print_service_url,
-            json={
-                'pdfContent': pdf_base64,      # antes era pdfBase64
-                'printerName': 'POS-58',       # antes era printer
-                'ticketName': f'ticket_{data["numero_ticket"]}.pdf'  # antes filename
-            },
-            timeout=30
+        # Enviar trabajo de impresión via WebSocket
+        success, message = send_print_job(
+            pdf_content=pdf_base64,
+            ticket_number=data['numero_ticket'],
+            sector=data['sector']
         )
         
-        print(f"📥 Respuesta del servicio: {response.status_code}")
-        
-        if response.status_code == 200:
-            return jsonify({"message": "Ticket enviado a impresora"}), 200
+        if success:
+            return jsonify({
+                "message": message,
+                "ticket_number": data['numero_ticket']
+            }), 200
         else:
-            error_msg = response.json().get('error', 'Error desconocido')
-            return jsonify({"error": f"❌ Servicio de impresión: {error_msg}"}), 500
-            
-    except requests.exceptions.ConnectionError:
-        print("❌ No se puede conectar al servicio de impresión")
-        return jsonify({"error": "No se puede conectar al servicio de impresión. Verifica que esté corriendo en Windows."}), 500
-    except requests.exceptions.Timeout:
-        print("❌ Timeout conectando al servicio")
-        return jsonify({"error": "El servicio de impresión no respondió a tiempo."}), 500
+            return jsonify({"error": message}), 500
+        
     except Exception as e:
-        print(f"❌ Error general: {e}")
+        print(f"Error en impresión WebSocket: {e}")
         return jsonify({"error": f"Error interno: {str(e)}"}), 500
 
 
