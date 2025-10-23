@@ -2,12 +2,11 @@
 const Config = (() => {
   const host = window.location.hostname;
 
+  const LOCAL_HOSTS = ["localhost", "127.0.0.1"];
+  
   return {
-    // API base URL
-    API_BASE_URL: (host === "localhost" || host === "127.0.0.1")
-      ? "https://localhost:4443"        // pruebas locales
-      : "https://192.168.17.1:4443",   // acceso desde LAN
+    API_BASE_URL: LOCAL_HOSTS.includes(host)
+      ? "https://localhost:4443"      // pruebas locales
+      : `https://${host}:4443`,       // IP o DNS
   };
 })();
-
-export default Config;
