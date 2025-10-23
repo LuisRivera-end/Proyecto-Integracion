@@ -1,6 +1,7 @@
 from flask import Flask
 from flask_cors import CORS
 from flask_socketio import SocketIO
+from flask_session import Session
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 from app.routes.health import bp as health_bp
@@ -17,6 +18,9 @@ def create_app():
     app = Flask(__name__)
     
     app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
+    app.config['SECRET_KEY'] = 'B7v!q9#pLz2&XkR8@fH4$yT1*mN6^sD0'
+    app.config['SESSION_TYPE'] = 'filesystem'  # opcional: 'redis' para producción
+    Session(app)
     
     # Configuración CORS
     CORS(app, 

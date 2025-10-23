@@ -10,3 +10,5 @@ const Config = (() => {
       : `https://${host}:4443`,       // IP o DNS
   };
 })();
+
+export default Config;

@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify
 from hashlib import sha256
 from app.models.database import get_db_connection
+from flask import session
 
 bp = Blueprint('auth', __name__, url_prefix='/api')
 
@@ -53,6 +54,11 @@ def login():
         }
         
         sector = rol_a_sector.get(user["ID_ROL"], "Desconocido")
+        
+        session['user_id'] = user["ID_Empleado"]
+        session['username'] = user["Usuario"]
+        session['rol'] = user["ID_ROL"]
+        session['sector'] = sector
 
         return jsonify({
             "id": user["ID_Empleado"],
@@ -71,6 +77,11 @@ def login():
     finally:
         cursor.close()
         conn.close()
+        
+@bp.route('/logout', methods=['POST'])
+def logout():
+    session.clear()  # borra toda la sesión
+    return jsonify({"message": "Sesión cerrada"}), 200
 
 @bp.route('/roles', methods=['GET'])
 def get_roles():

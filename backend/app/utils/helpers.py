@@ -2,6 +2,8 @@ import random
 import string
 from datetime import datetime
 from app.models.database import get_db_connection
+from functools import wraps
+from flask import session, jsonify
 
 def get_sector_prefix_and_length(sector_nombre):
     """Mapea el nombre del sector a su prefijo y la longitud de la parte aleatoria."""
@@ -53,3 +55,11 @@ def obtener_fecha_actual():
 
 def obtener_fecha_publico():
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+def login_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if 'user_id' not in session:
+            return jsonify({"error": "No autenticado"}), 401
+        return f(*args, **kwargs)
+    return decorated
