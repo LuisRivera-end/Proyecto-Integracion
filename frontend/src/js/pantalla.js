@@ -1,5 +1,7 @@
+import Config from './config.js';
+
 document.addEventListener("DOMContentLoaded", function() {
-    const API_BASE_URL = "https://localhost:4443";
+    const API_BASE_URL = Config.API_BASE_URL;
 
     // Referencias a elementos del DOM
     const tickets = document.getElementById("tickets");

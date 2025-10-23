@@ -1,4 +1,5 @@
-const API_BASE_URL = "https://localhost:4443";
+import Config from './config.js';
+const API_BASE_URL = Config.API_BASE_URL;
 
 async function actualizarConteos() {
     try {
