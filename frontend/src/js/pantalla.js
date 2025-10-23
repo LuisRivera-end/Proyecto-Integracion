@@ -7,6 +7,7 @@ document.addEventListener("DOMContentLoaded", function() {
     const tickets = document.getElementById("tickets");
     const contenedor = document.getElementById("contenedor");
     const sinTickets = document.getElementById("sinTickets");
+    const alertaAudio = document.getElementById("alertaAudio");
 
     // Variable para almacenar el estado anterior
     let estadoAnterior = new Map();
@@ -149,7 +150,15 @@ document.addEventListener("DOMContentLoaded", function() {
                     const anterior = estadoAnterior.get(folio);
                     
                     if (!anterior || anterior.hash !== nuevo.hash) {
-                        // Encontrar la fila existente y actualizarla
+                        const ticketActual = ticketsValidos.find(t => t.folio === folio);
+                        const estadoActual = ticketActual.estado_id || ticketActual.ID_Estados || ticketActual.estado;
+                        const estadoAnteriorTicket = anterior ? anterior.hash.split('-')[1] : null;
+                        
+                        if ((estadoActual === 3 || estadoActual === 'Atendiendo') &&
+                            estadoAnteriorTicket !== '3' && estadoAnteriorTicket !== 'Atendiendo') {
+                            alertaAudio.play().catch(err => console.warn("No se pudo reproducir audio:", err));
+                        }
+                        
                         const filaExistente = contenedor.querySelector(`[data-folio="${folio}"]`);
                         if (filaExistente) {
                             // Reemplazar solo si cambió
@@ -186,7 +195,6 @@ document.addEventListener("DOMContentLoaded", function() {
     // Cargar los tickets al iniciar la página
     cargarTicketsInteligente();
 
-    // Actualizar automáticamente cada 3 segundos con transición suave
     setInterval(() => {
         cargarTicketsInteligente();
     }, 1000);
