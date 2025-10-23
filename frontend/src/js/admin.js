@@ -202,3 +202,5 @@ document.addEventListener("DOMContentLoaded", () => {
   // -----------------------------
   loadEmployees();
 });
+window.logout = logout;
+window.selectSector = selectSector;

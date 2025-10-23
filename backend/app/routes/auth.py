@@ -83,6 +83,12 @@ def logout():
     session.clear()  # borra toda la sesión
     return jsonify({"message": "Sesión cerrada"}), 200
 
+@bp.route('/check_session', methods=['GET'])
+def check_session():
+    if 'user_id' in session:
+        return jsonify({"logged_in": True}), 200
+    return jsonify({"logged_in": False}), 401
+
 @bp.route('/roles', methods=['GET'])
 def get_roles():
     conn = get_db_connection()

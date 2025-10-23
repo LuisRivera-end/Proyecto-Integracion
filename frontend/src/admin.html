@@ -1,3 +1,22 @@
+<script type="module">
+import Config from './js/config.js';
+
+async function verificarSesion() {
+    try {
+        const res = await fetch(`${Config.API_BASE_URL}/api/check_session`, {
+            credentials: 'include' // para enviar cookies de sesión
+        });
+        if (!res.ok) {
+            window.location.href = 'login.html';
+        }
+    } catch (err) {
+        window.location.href = 'login.html';
+    }
+}
+
+verificarSesion();
+</script>
+
 <!DOCTYPE html>
 <html lang="es">
 
@@ -86,18 +105,15 @@
                         <h1 class="text-3xl font-bold text-slate-800">Panel de Administración</h1>
                         <p class="text-slate-600 mt-2">Configura las agendas de turnos y tickets</p>
                     </div>
-                    <a href="login.html">
-                        <button onclick="logout()"
-                            class="flex items-center gap-2 bg-gradient-to-r from-slate-600 to-slate-800 text-white px-5 sm:px-5 py-2.5 sm:py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl hover:scale-105 hover:brightness-110 active:scale-95 transition-all duration-300 ease-in-out text-sm sm:text-base">
-                            <svg class="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 
-                        01-3 3H6a3 3 0 01-3-3V7a3 3 0 
-                        013-3h4a3 3 0 013 3v1"></path>
-                            </svg>
-                            <span>Cerrar sesión</span>
-                        </button>
-                    </a>
-
+                    <button onclick="logout()"
+                        class="flex items-center gap-2 bg-gradient-to-r from-slate-600 to-slate-800 text-white px-5 sm:px-5 py-2.5 sm:py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl hover:scale-105 hover:brightness-110 active:scale-95 transition-all duration-300 ease-in-out text-sm sm:text-base">
+                        <svg class="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 
+                    01-3 3H6a3 3 0 01-3-3V7a3 3 0 
+                    013-3h4a3 3 0 013 3v1"></path>
+                        </svg>
+                        <span>Cerrar sesión</span>
+                    </button>
                 </div>
 
                 <div class="bg-white/95 backdrop-blur-sm rounded-3xl shadow-xl p-8 mb-8 border border-slate-200">
