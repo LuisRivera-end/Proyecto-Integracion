@@ -213,3 +213,5 @@ async function descargar() {
         alert("No se pudo generar el ticket. Intenta de nuevo.");
     }
 }
+window.imprimir = imprimir;
+window.descargar = descargar;
