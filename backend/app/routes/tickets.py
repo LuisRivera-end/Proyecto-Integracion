@@ -271,7 +271,7 @@ def total_tickets():
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
     try:
-        cursor.execute("SELECT COUNT(ID_Turno) AS cantidad FROM Turno")
+        cursor.execute("SELECT COUNT(ID_Turno) AS cantidad FROM Turno WHERE DATE(Fecha_Ticket) = CURDATE()")
         Total = cursor.fetchall()
         return jsonify(Total), 200
     except Exception as e:
@@ -280,7 +280,7 @@ def total_tickets():
     finally:
         cursor.close()
         conn.close()
-
+        
 @bp.route('/tickets/llamar-siguiente', methods=['POST'])
 def llamar_siguiente_ticket():
     try:

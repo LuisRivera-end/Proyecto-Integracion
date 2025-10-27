@@ -222,7 +222,6 @@ document.addEventListener("DOMContentLoaded", () => {
       usuario: document.getElementById("usuario").value.trim(),
       passwd: document.getElementById("password").value.trim(),
       id_rol: parseInt(document.getElementById("rol").value),
-      id_estado: parseInt(document.getElementById("estado").value)
     };
 
     // Validaciones
@@ -293,6 +292,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Inicializar
   cargarRoles();
-  cargarEstados();
+  //cargarEstados();
   loadEmployees();
 });
