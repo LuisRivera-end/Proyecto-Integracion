@@ -386,3 +386,4 @@ document.addEventListener('visibilitychange', function() {
         iniciarRefreshAutomatico();
     }
 });
+window.actualizarDatos=actualizarDatos;

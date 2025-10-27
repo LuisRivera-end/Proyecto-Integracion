@@ -3,6 +3,7 @@ services:
     build: ./frontend
     depends_on:
       - backend
+    restart: unless-stopped
 
   backend:
     build: ./backend
@@ -13,6 +14,7 @@ services:
       - DB_USER=turnoadmin
       - DB_PASSWORD=13Demayo!
       - DB_NAME=TurnosUal
+    restart: unless-stopped
 
   mariadb:
     image: mariadb:11.4

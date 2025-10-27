@@ -202,3 +202,26 @@ document.addEventListener("DOMContentLoaded", function() {
     // Exponer la función si deseas recargar externamente
     window.cargarTickets = cargarTicketsInteligente;
 });
+document.addEventListener("DOMContentLoaded", async () => {
+    const dropdownMenu = document.getElementById("dropdownMenu");
+    const dropdownButton = document.getElementById("dropdownButton");
+
+    try {
+        const res = await fetch("/api/check_session");
+        if (!res.ok) throw new Error("No autenticado");
+
+        const data = await res.json();
+        if (!data.logged_in) {
+            // Oculta y deshabilita
+            dropdownMenu.style.display = "none"; 
+            dropdownButton.disabled = true;
+            dropdownButton.style.pointerEvents = "none";
+        }
+    } catch (err) {
+        // En caso de error, aplicamos la misma medida
+        dropdownMenu.style.display = "none";
+        dropdownButton.disabled = true;
+        dropdownButton.style.pointerEvents = "none";
+        console.log("Usuario no autenticado:", err);
+    }
+});
