@@ -18,7 +18,7 @@ class TicketPDF(FPDF):
         self.cell(0, 10, "Esfuerzo que trasciende", 0, 0, "C")
 
 def generar_ticket_PDF(matricula, numero_ticket, sector, fecha, tiempo_estimado):
-    pdf = TicketPDF("P", "mm", (58, 150))  # Tamaño ajustado para ticket
+    pdf = TicketPDF("P", "mm", (58, 100))  # Tamaño ajustado para ticket
     pdf.set_auto_page_break(auto=False)
     pdf.set_margins(left=3, top=5, right=3)
     pdf.add_page()
