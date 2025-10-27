@@ -22,6 +22,7 @@ const socket = io(SERVER_URL, {
     reconnectionAttempts: 20,
     reconnectionDelay: 2000,
     timeout: 10000,
+    rejectUnauthorized: false,
 });
 
 // Conexión al servidor
@@ -35,6 +36,11 @@ socket.on('connect', () => {
         client_type: 'windows_print_service'
     });
 });
+
+socket.on('connection_ack', (data) => {
+    console.log('🔗 Conexión establecida con el servidor:', data);
+});
+
 
 // Registro exitoso
 socket.on('registration_success', (data) => {

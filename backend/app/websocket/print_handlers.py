@@ -11,7 +11,7 @@ def register_socket_handlers(socketio):
     @socketio.on('connect')
     def handle_connect():
         print(f'✅ Cliente WebSocket conectado: {request.sid}')
-        emit('connected', {'message': 'Conectado al servicio de impresión'})
+        emit('connection_ack', {'status': 'connected', 'sid': request.sid})
 
     @socketio.on('register_printer')
     def handle_register_printer(data):
