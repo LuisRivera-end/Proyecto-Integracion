@@ -197,7 +197,7 @@ def get_ventanilla_activa_empleado(id_empleado):
 # --------------------------------------------------------
 # 6️⃣ AÑADIR NUEVO EMPLEADO
 # --------------------------------------------------------
-@bp.route("/employees", methods=["POST"])
+@bp.route("/employees/add", methods=["POST"])
 def add_employee():
     data = request.get_json()
     conn = get_db_connection()
