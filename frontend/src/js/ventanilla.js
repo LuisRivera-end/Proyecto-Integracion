@@ -53,6 +53,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   // -----------------------------
   // LOGIN - CORREGIDO
   // -----------------------------
+  const originalTitle = document.title;
   loginForm.addEventListener("submit", async (e) => {
       e.preventDefault();
       const username = document.getElementById("username").value.trim();
@@ -77,6 +78,10 @@ document.addEventListener("DOMContentLoaded", async () => {
               rol: data.rol, 
               sector: data.sector 
           };
+
+          if (currentUser.rol !== 1) {
+            document.title = `${currentUser.sector} - ${currentUser.username}`;
+          }
 
           // Admin va directo a admin.html
           if (currentUser.rol === 1) {
@@ -114,7 +119,6 @@ document.addEventListener("DOMContentLoaded", async () => {
               return;
           }
 
-          // 🚫 No tiene ventanilla asignada
           alert("No tienes una ventanilla asignada. Contacta al administrador.");
           return;
 
@@ -522,7 +526,7 @@ async function getNextTicketInfo() {
               Ticket: <span class="text-blue-600">${ticketId}</span>
             </p>
             <p class="text-sm text-gray-600 mt-1">
-              Matrícula: ${ticket.matricula || 'N/A'}
+              Matrícula: ${ticket.matricula || 'Invitado'}
             </p>
             <p class="text-xs text-gray-500 mt-1">
               Estado: <span class="text-orange-500">${ticket.estado || 'Pendiente'}</span>
@@ -540,6 +544,7 @@ async function getNextTicketInfo() {
   // -----------------------------
   async function cerrarSesion() {
     stopTicketPolling();
+    document.title = originalTitle;
 
     currentUser = null;
     currentTicket = null;
