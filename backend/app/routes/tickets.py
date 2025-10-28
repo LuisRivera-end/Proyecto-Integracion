@@ -104,12 +104,26 @@ def generar_ticket():
 @bp.route("/tickets", methods=["GET"])
 def get_tickets():
     sector = request.args.get("sector")
+    id_empleado = request.args.get("id_empleado")
     
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
     
     try:
-        # Si no se envía sector, mostrar TODOS los tickets en espera
+        # Si se proporciona id_empleado, validar que solo vea tickets de su sector
+        if id_empleado:
+            cursor.execute("""
+                SELECT DISTINCT s.Sector 
+                FROM Empleado e
+                JOIN Rol_Ventanilla rv ON e.ID_ROL = rv.ID_Rol
+                JOIN Ventanillas v ON rv.ID_Ventanilla = v.ID_Ventanilla
+                JOIN Sectores s ON v.ID_Sector = s.ID_Sector
+                WHERE e.ID_Empleado = %s
+            """, (id_empleado,))
+            
+            sector_empleado = cursor.fetchone()
+            if sector_empleado:
+                sector = sector_empleado["Sector"]
         if not sector:
             cursor.execute("""
                 SELECT 
@@ -294,38 +308,74 @@ def llamar_siguiente_ticket():
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
         
+        # 🔥 CONSULTA CORREGIDA - Obtener sector del empleado usando Rol_Ventanilla
         cursor.execute("""
-            SELECT Folio, ID_Turno 
-            FROM Turno 
-            WHERE ID_Estados = 1 
-            ORDER BY Fecha_Ticket ASC 
+            SELECT DISTINCT s.ID_Sector, s.Sector
+            FROM Empleado e
+            JOIN Rol_Ventanilla rv ON e.ID_ROL = rv.ID_Rol
+            JOIN Ventanillas v ON rv.ID_Ventanilla = v.ID_Ventanilla
+            JOIN Sectores s ON v.ID_Sector = s.ID_Sector
+            WHERE e.ID_Empleado = %s
+        """, (id_empleado,))
+        
+        sector_empleado = cursor.fetchone()
+        if not sector_empleado:
+            return jsonify({"error": "Empleado no tiene ventanillas/sectores asignados"}), 400
+        
+        id_sector = sector_empleado["ID_Sector"]
+        nombre_sector = sector_empleado["Sector"]
+        
+        print(f"🔍 Empleado {id_empleado} puede atender sector: {nombre_sector} (ID: {id_sector})")
+        
+        # 🔥 Buscar el siguiente ticket PENDIENTE del MISMO SECTOR
+        cursor.execute("""
+            SELECT t.Folio, t.ID_Turno, a.Matricula, 
+                   CONCAT(a.nombre1, ' ', a.Apellido1) AS nombre_alumno
+            FROM Turno t
+            JOIN Alumnos a ON t.ID_Alumno = a.ID_Alumno
+            WHERE t.ID_Estados = 1  -- Pendiente
+            AND t.ID_Sector = %s    -- Mismo sector que el empleado
+            ORDER BY t.Fecha_Ticket ASC 
             LIMIT 1
-        """)
+        """, (id_sector,))
         
         siguiente_ticket = cursor.fetchone()
         
         if not siguiente_ticket:
-            return jsonify({"message": "No hay tickets pendientes"}), 404
+            return jsonify({"message": "No hay tickets pendientes en tu sector"}), 404
         
         folio = siguiente_ticket["Folio"]
+        matricula = siguiente_ticket["Matricula"]
+        nombre_alumno = siguiente_ticket["nombre_alumno"]
         
+        print(f"🎯 Llamando ticket: {folio} - Alumno: {nombre_alumno}")
+        
+        # Actualizar el ticket a "Atendiendo"
         nueva_fecha = obtener_fecha_actual()
         cursor.execute("""
             UPDATE Turno
             SET ID_Estados = 3, 
                 Fecha_Ultimo_Estado = %s, 
                 ID_Ventanilla = %s
-            WHERE Folio = %s
+            WHERE Folio = %s AND ID_Estados = 1
         """, (nueva_fecha, id_ventanilla, folio))
 
+        if cursor.rowcount == 0:
+            return jsonify({"error": "El ticket ya fue tomado por otro operador"}), 409
+
         conn.commit()
+        
         return jsonify({
             "message": f"Ticket {folio} llamado para atención",
-            "folio": folio
+            "folio": folio,
+            "matricula": matricula,
+            "nombre_alumno": nombre_alumno
         }), 200
 
     except Exception as e:
-        print(f"Error en llamar_siguiente_ticket: {e}")
+        print(f"❌ Error en llamar_siguiente_ticket: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({"error": "Error interno del servidor"}), 500
     finally:
         cursor.close()
