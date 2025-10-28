@@ -212,7 +212,7 @@ def add_employee():
             VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
         """, (
             data['id_rol'], data['nombre1'], data['nombre2'], data['apellido1'],
-            data['apellido2'], data['usuario'], passwd_hash, data['id_estado']
+            data['apellido2'], data['usuario'], passwd_hash, 1
         ))
         conn.commit()
         return jsonify({"message": "Empleado agregado"}), 201

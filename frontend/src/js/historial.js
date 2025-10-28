@@ -287,39 +287,38 @@ function aplicarFiltros() {
     mostrarHistorialInteligente(filtroEstado, filtroSector, fechaInicio, fechaFin);
 }
 
-// Actualizar estadísticas - Versión robusta
+// Actualizar estadísticas - Versión corregida
 function actualizarResumen(lista) {
-    const elementos = {
-        "total-agregados": lista.length,
-        "total-completados": lista.filter(t => t.estado === "completado").length,
-        "total-cancelados": lista.filter(t => t.estado === "cancelado").length,
-        "total-atendiendo": lista.filter(t => t.estado === "atendiendo").length,
-        "total-pendientes": lista.filter(t => t.estado === "pendiente").length
+    // Contar por estado
+    const conteoEstados = {
+        "completado": 0,
+        "cancelado": 0,
+        "atendiendo": 0,
+        "pendiente": 0
     };
 
-    // Actualizar elementos numéricos
-    Object.entries(elementos).forEach(([id, valor]) => {
-        const elemento = document.getElementById(id);
-        if (elemento) {
-            elemento.textContent = valor;
+    // Contar tickets por estado
+    lista.forEach(ticket => {
+        const estado = ticket.estado.toLowerCase();
+        if (conteoEstados.hasOwnProperty(estado)) {
+            conteoEstados[estado]++;
         }
     });
 
-    // Actualizar sectores
-    const conteoSectores = {};
-    lista.forEach(t => {
-        conteoSectores[t.sector] = (conteoSectores[t.sector] || 0) + 1;
+    // Actualizar elementos en el DOM
+    document.getElementById("total-agregados").textContent = lista.length;
+    document.getElementById("total-completados").textContent = conteoEstados.completado;
+    document.getElementById("total-cancelados").textContent = conteoEstados.cancelado;
+    document.getElementById("total-atendiendo").textContent = conteoEstados.atendiendo;
+    document.getElementById("total-pendientes").textContent = conteoEstados.pendiente;
+
+    console.log("📊 Estadísticas actualizadas:", {
+        total: lista.length,
+        completados: conteoEstados.completado,
+        cancelados: conteoEstados.cancelado,
+        atendiendo: conteoEstados.atendiendo,
+        pendientes: conteoEstados.pendiente
     });
-
-    const sectoresOrdenados = Object.entries(conteoSectores).sort((a,b) => b[1]-a[1]);
-    const mas = sectoresOrdenados[0]?.[0] || "-";
-    const menos = sectoresOrdenados[sectoresOrdenados.length - 1]?.[0] || "-";
-
-    const sectorMas = document.getElementById("sector-mas");
-    const sectorMenos = document.getElementById("sector-menos");
-    
-    if (sectorMas) sectorMas.textContent = mas;
-    if (sectorMenos) sectorMenos.textContent = menos;
 }
 
 // Iniciar sistema de refresh automático
