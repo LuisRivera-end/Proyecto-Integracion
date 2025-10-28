@@ -725,7 +725,7 @@ def total_tickets():
         invitados = cursor.fetchone()
         
         Total = (normales["cantidad"] if normales else 0) + (invitados["cantidad"] if invitados else 0)
-        return jsonify(Total), 200
+        return jsonify({"cantidad": Total}), 200
     except Exception as e:
         print(f"Error en total_tickets: {e}")
         return jsonify({"error": str(e)}), 500

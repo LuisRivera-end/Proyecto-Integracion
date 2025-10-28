@@ -4,6 +4,7 @@ const API_BASE_URL = Config.API_BASE_URL;
 // Variables para controlar el refresh
 let refreshInterval;
 let estadoAnteriorHistorial = new Map();
+let primeraCargaCompletada = false; // ✅ Nueva variable para controlar
 
 // Función para mostrar la fecha actual
 function mostrarFecha() {
@@ -22,10 +23,21 @@ async function totalTickets() {
         }
 
         const data = await response.json();
-        const datos = data[0].cantidad;
-        console.log("Tickets obtenidos:", datos);
-
-        return datos;
+        console.log("📊 Respuesta de total_tickets:", data);
+        
+        let cantidad = 0;
+        
+        if (Array.isArray(data) && data.length > 0) {
+            cantidad = data[0].cantidad || 0;
+        } else if (typeof data === 'object' && data.cantidad !== undefined) {
+            cantidad = data.cantidad;
+        } else if (typeof data === 'number') {
+            cantidad = data;
+        }
+        
+        console.log("🎫 Tickets obtenidos:", cantidad);
+        return cantidad;
+        
     } catch (error) {
         console.error("Error al cargar tickets:", error);
         return 0;
@@ -118,18 +130,34 @@ function crearFilaHistorialHTML(ticket) {
     `;
 }
 
-// Función para mostrar el historial con actualización inteligente
+// Función para mostrar el historial con actualización inteligente - CORREGIDA
 async function mostrarHistorialInteligente(filtroEstado = "todos", filtroSector = "todos", fechaInicio = null, fechaFin = null) {
     const cuerpo = document.getElementById("tabla-historial");
 
     try {
-        // Cargar datos actualizados
+        // Cargar datos actualizados primero
         let historial = await cargarHistorialReal();
         
+        console.log("🔍 ESTADOS ENCONTRADOS EN EL HISTORIAL:");
+        const estadosUnicos = [...new Set(historial.map(t => t.estado))];
+        console.log(estadosUnicos);
+
+        console.log("🔍 SECTORES ENCONTRADOS EN EL HISTORIAL:");
+        const sectoresUnicos = [...new Set(historial.map(t => t.sector))];
+        console.log(sectoresUnicos);
+
+        // ✅ CORRECCIÓN: Debuggear los filtros aplicados
+        console.log("🔍 FILTROS APLICADOS:", {
+            filtroEstado,
+            filtroSector, 
+            fechaInicio,
+            fechaFin
+        });
+
         // Aplicar filtros
         let filtrado = historial.filter(ticket => {
             const estadoCoincide = filtroEstado === "todos" || 
-                                ticket.estado.toLowerCase() === filtroEstado.toLowerCase();
+                                ticket.estado === filtroEstado;
             
             let sectorCoincide = true;
             if (filtroSector !== "todos") {
@@ -148,8 +176,28 @@ async function mostrarHistorialInteligente(filtroEstado = "todos", filtroSector 
                 fechaCoincide = fechaTicket >= fechaInicio && fechaTicket <= fechaFin;
             }
             
-            return estadoCoincide && sectorCoincide && fechaCoincide;
+            const coincide = estadoCoincide && sectorCoincide && fechaCoincide;
+            
+            // ✅ DEBUG: Ver por qué un ticket no coincide
+            if (!coincide) {
+                console.log(`❌ Ticket ${ticket.folio} no coincide:`, {
+                    estado: ticket.estado,
+                    filtroEstado,
+                    estadoCoincide,
+                    sector: ticket.sector,
+                    filtroSector,
+                    sectorCoincide,
+                    fechaTicket: ticket.creado,
+                    fechaInicio,
+                    fechaFin,
+                    fechaCoincide
+                });
+            }
+            
+            return coincide;
         });
+
+        console.log("🔍 RESULTADO FILTRADO:", filtrado.length, "tickets");
 
         // Ordenar por fecha de creación (más reciente primero)
         filtrado.sort((a, b) => new Date(b.creado) - new Date(a.creado));
@@ -163,10 +211,9 @@ async function mostrarHistorialInteligente(filtroEstado = "todos", filtroSector 
             });
         });
 
-        // Si es la primera carga o hay cambios significativos, reconstruir toda la tabla
-        if (estadoAnteriorHistorial.size === 0 || 
-            filtrado.length !== estadoAnteriorHistorial.size ||
-            Array.from(nuevoEstado.keys()).some(folio => !estadoAnteriorHistorial.has(folio))) {
+        // ✅ CORRECCIÓN: Siempre reconstruir en la primera carga
+        if (!primeraCargaCompletada || estadoAnteriorHistorial.size === 0 || 
+            filtrado.length !== estadoAnteriorHistorial.size) {
             
             // Reconstruir tabla completa
             if (filtrado.length === 0) {
@@ -185,18 +232,19 @@ async function mostrarHistorialInteligente(filtroEstado = "todos", filtroSector 
                 cuerpo.innerHTML = htmlCompleto;
             }
             
+            // ✅ Marcar primera carga como completada
+            primeraCargaCompletada = true;
+            
         } else {
             // Actualización incremental - solo modificar lo que cambió
             nuevoEstado.forEach((nuevo, folio) => {
                 const anterior = estadoAnteriorHistorial.get(folio);
                 
                 if (!anterior || anterior.hash !== nuevo.hash) {
-                    // Encontrar la fila existente y actualizarla
                     const filaExistente = cuerpo.querySelector(`[data-folio="${folio}"]`);
                     if (filaExistente) {
                         filaExistente.outerHTML = nuevo.html;
                     } else {
-                        // Agregar nueva fila
                         cuerpo.innerHTML += nuevo.html;
                     }
                 }
@@ -233,16 +281,17 @@ async function mostrarHistorialInteligente(filtroEstado = "todos", filtroSector 
 
 // Función auxiliar para obtener color según estado
 function getEstadoColor(estado) {
-    switch(estado.toLowerCase()) {
-        case 'cancelado':
-            return 'text-red-600 font-semibold';
-        case 'completado':
+    switch(estado) {
+        case 'Completado':
             return 'text-green-600 font-semibold';
-        case 'atendiendo':
+        case 'Cancelado':
+            return 'text-red-600 font-semibold';
+        case 'Atendiendo':
             return 'text-blue-600 font-semibold';
-        case 'pendiente':
+        case 'Pendiente':
             return 'text-yellow-600 font-semibold';
         default:
+            console.warn(`🎨 Estado no reconocido para color: "${estado}"`);
             return 'text-gray-600';
     }
 }
@@ -268,6 +317,7 @@ function aplicarFiltros() {
     let fechaInicio = null;
     let fechaFin = null;
     
+    // ✅ CORRECCIÓN: Solo aplicar fechas si tienen valor
     if (fechaInicioInput.value) {
         fechaInicio = new Date(fechaInicioInput.value);
         fechaInicio.setHours(0, 0, 0, 0);
@@ -278,56 +328,83 @@ function aplicarFiltros() {
         fechaFin.setHours(23, 59, 59, 999);
     }
     
+    // ✅ CORRECCIÓN: Solo validar si ambas fechas tienen valor
     if (fechaInicio && fechaFin && fechaInicio > fechaFin) {
         alert("La fecha de inicio no puede ser mayor que la fecha de fin");
         fechaFinInput.value = "";
         fechaFin = null;
     }
     
+    console.log("🎯 Aplicando filtros:", {
+        filtroEstado,
+        filtroSector,
+        fechaInicio: fechaInicioInput.value,
+        fechaFin: fechaFinInput.value
+    });
+    
     mostrarHistorialInteligente(filtroEstado, filtroSector, fechaInicio, fechaFin);
 }
 
-// Actualizar estadísticas - Versión corregida
+// Actualizar estadísticas - VERSIÓN DEFINITIVAMENTE CORREGIDA
 function actualizarResumen(lista) {
-    // Contar por estado
+    console.log("🔍 Datos recibidos para estadísticas:", lista);
+    
+    // Contar por estado - INICIALIZAR CORRECTAMENTE
     const conteoEstados = {
-        "completado": 0,
-        "cancelado": 0,
-        "atendiendo": 0,
-        "pendiente": 0
+        "Pendiente": 0,
+        "Cancelado": 0,
+        "Atendiendo": 0,
+        "Completado": 0
     };
 
     // Contar tickets por estado
     lista.forEach(ticket => {
-        const estado = ticket.estado.toLowerCase();
+        const estado = ticket.estado;
+        console.log(`🔍 Ticket ${ticket.folio} - Estado: "${estado}"`);
+        
         if (conteoEstados.hasOwnProperty(estado)) {
             conteoEstados[estado]++;
+        } else {
+            console.warn(`⚠️ Estado no reconocido: "${estado}" (${ticket.folio})`);
         }
     });
 
-    // Actualizar elementos en el DOM
-    document.getElementById("total-agregados").textContent = lista.length;
-    document.getElementById("total-completados").textContent = conteoEstados.completado;
-    document.getElementById("total-cancelados").textContent = conteoEstados.cancelado;
-    document.getElementById("total-atendiendo").textContent = conteoEstados.atendiendo;
-    document.getElementById("total-pendientes").textContent = conteoEstados.pendiente;
+    // ✅ CORRECCIÓN DEFINITIVA: Usar valores directos del objeto
+    const totalAgregados = lista.length;
+    const totalCompletados = conteoEstados.Completado;
+    const totalCancelados = conteoEstados.Cancelado;
+    const totalAtendiendo = conteoEstados.Atendiendo;
+    const totalPendientes = conteoEstados.Pendiente;
+
+    console.log("🔍 Valores calculados:", {
+        totalAgregados, totalCompletados, totalCancelados, totalAtendiendo, totalPendientes
+    });
+
+    // Actualizar DOM
+    document.getElementById("total-agregados").textContent = totalAgregados;
+    document.getElementById("total-completados").textContent = totalCompletados;
+    document.getElementById("total-cancelados").textContent = totalCancelados;
+    document.getElementById("total-atendiendo").textContent = totalAtendiendo;
+    document.getElementById("total-pendientes").textContent = totalPendientes;
 
     console.log("📊 Estadísticas actualizadas:", {
-        total: lista.length,
-        completados: conteoEstados.completado,
-        cancelados: conteoEstados.cancelado,
-        atendiendo: conteoEstados.atendiendo,
-        pendientes: conteoEstados.pendiente
+        total: totalAgregados,
+        completados: totalCompletados,
+        cancelados: totalCancelados,
+        atendiendo: totalAtendiendo,
+        pendientes: totalPendientes
     });
 }
 
-// Iniciar sistema de refresh automático
+// Iniciar sistema de refresh automático - CORREGIDO
 function iniciarRefreshAutomatico() {
-    // Actualizar cada 5 segundos (puedes ajustar este tiempo)
-    refreshInterval = setInterval(() => {
-        console.log("🔄 Actualizando automáticamente historial...");
-        aplicarFiltros(); // Esto aplicará los filtros actuales y actualizará la tabla
-    }, 5000);
+    // ✅ Esperar 2 segundos antes de iniciar el refresh automático
+    setTimeout(() => {
+        refreshInterval = setInterval(() => {
+            console.log("🔄 Actualizando automáticamente historial...");
+            aplicarFiltros();
+        }, 10000); // 10 segundos
+    }, 2000);
 }
 
 // Detener el refresh automático
@@ -338,17 +415,12 @@ function detenerRefreshAutomatico() {
     }
 }
 
-// Window onload
+// Window onload - CORREGIDO
 window.onload = async function() {
     mostrarFecha();
     
-    // Establecer fechas por defecto (últimos 7 días)
-    const hoy = new Date();
-    const hace7Dias = new Date();
-    hace7Dias.setDate(hoy.getDate() - 7);
-    
-    document.getElementById("filtro-fecha-inicio").value = hace7Dias.toISOString().split('T')[0];
-    document.getElementById("filtro-fecha-fin").value = hoy.toISOString().split('T')[0];
+    // ✅ CORRECCIÓN: NO establecer fechas por defecto inicialmente
+    // Dejar los campos de fecha vacíos para mostrar todos los tickets
     
     if (dentroHorario()) {
         await actualizarDatos();
@@ -357,10 +429,10 @@ window.onload = async function() {
         document.getElementById('total-tickets').textContent = "-";
     }
     
-    // Cargar historial inicial
+    // ✅ Cargar historial inicial SIN filtros
     await mostrarHistorialInteligente();
     
-    // Iniciar refresh automático
+    // ✅ Iniciar refresh automático después de que todo esté cargado
     iniciarRefreshAutomatico();
 };
 
@@ -385,4 +457,5 @@ document.addEventListener('visibilitychange', function() {
         iniciarRefreshAutomatico();
     }
 });
-window.actualizarDatos=actualizarDatos;
+
+window.actualizarDatos = actualizarDatos;
