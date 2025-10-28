@@ -12,26 +12,39 @@ document.addEventListener("DOMContentLoaded", () => {
     const matriculaFolioLabel = document.getElementById("matricula-folio-label");
     const inputMatriculaFolio = document.getElementById("input-matricula-folio");
 
-    noMatriculaCheckbox.addEventListener("click", () => {
-        if (noMatriculaCheckbox.checked) {
-            matriculaFolioLabel.textContent = "Folio";
-            inputMatriculaFolio.placeholder = "Ingresa tu folio";
-        } else {
-            matriculaFolioLabel.textContent = "Matrícula";
-            inputMatriculaFolio.placeholder = "Ingresa tu matrícula";
-        }
-    });
+    // Manejar cambios en el checkbox de invitado
+noMatriculaCheckbox.addEventListener('change', function(e) {
+    const inputMatricula = document.getElementById('input-matricula-folio');
+    const invitadoInfo = document.getElementById('invitado-info');
+    
+    if (this.checked) {
+        matriculaFolioLabel.textContent = "Tipo";
+        inputMatricula.placeholder = "No requerido para invitados";
+        inputMatricula.value = "";
+        inputMatricula.setAttribute('disabled', 'disabled');
+        inputMatricula.classList.add('bg-slate-100', 'text-slate-400');
+        invitadoInfo.classList.remove('hidden');
+    } else {
+        matriculaFolioLabel.textContent = "Matrícula";
+        inputMatricula.placeholder = "Ingresa tu matrícula";
+        inputMatricula.removeAttribute('disabled');
+        inputMatricula.classList.remove('bg-slate-100', 'text-slate-400');
+        invitadoInfo.classList.add('hidden');
+    }
+});
 
     form.addEventListener("submit", async (e) => {
     e.preventDefault();
 
     const MatriculaOFolioIngresado = inputMatriculaFolio.value.trim();
     const sector = document.getElementById("sector").value;
+    const esInvitado = noMatriculaCheckbox.checked;
 
-    if (!MatriculaOFolioIngresado || !sector) {
-        showError("Por favor, completa todos los campos.");
-        return;
-    }
+    if ((!esInvitado && !MatriculaOFolioIngresado) || !sector) {
+            showError("Por favor, completa todos los campos.");
+            return;
+        }
+        
     const ahora = new Date();
     const dia = ahora.getDay(); 
     const hora = ahora.getHours();
@@ -73,36 +86,61 @@ document.addEventListener("DOMContentLoaded", () => {
 
         // 2. Luego generar el ticket
         console.log("Generando ticket...");
-        const response = await fetch(`${API_BASE_URL}/api/ticket`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ 
-                matricula: MatriculaOFolioIngresado,
-                sector 
-            })
-        });
+        let response, data;
+        if (esInvitado) {
+                // GENERAR TICKET INVITADO
+                console.log("Generando ticket para INVITADO");
+                response = await fetch(`${API_BASE_URL}/api/ticket/invitado`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ 
+                        sector 
+                    })
+                });
+            } else {
+                // GENERAR TICKET NORMAL (alumno)
+                console.log("Generando ticket para ALUMNO");
+                response = await fetch(`${API_BASE_URL}/api/ticket`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ 
+                        matricula: MatriculaOFolioIngresado,
+                        sector 
+                    })
+                });
+            }
 
-        const data = await response.json();
+        data = await response.json();
 
         if (!response.ok) {
             throw new Error(data.error || "Error al generar el ticket");
         }
 
-        // ✅ Actualizar campos visibles del ticket
         const matriculaFolio = document.getElementById("matricula-o-folio");
-        matriculaFolio.textContent = noMatriculaCheckbox.checked ? "Folio:" : "Matrícula:";
+        if (esInvitado) {
+                matriculaFolio.textContent = "Tipo:";
+                document.getElementById("result-matricula-o-folio").textContent = "Invitado";
+                document.getElementById("result-matricula-o-folio").style.fontWeight = "bold";
+            } else {
+                matriculaFolio.textContent = "Matrícula:";
+                document.getElementById("result-matricula-o-folio").textContent = MatriculaOFolioIngresado;
+                document.getElementById("result-matricula-o-folio").style.fontWeight = "normal";
+            }
 
-        document.getElementById("result-matricula-o-folio").textContent = MatriculaOFolioIngresado;
-        document.getElementById("result-sector").textContent = data.sector || sector;
-        document.getElementById("result-ticket").textContent = data.folio || ("T-" + Math.floor(Math.random() * 1000));
-        if (data.fecha) document.getElementById("result-fecha").textContent = data.fecha;
+            document.getElementById("result-sector").textContent = data.sector || sector;
+            document.getElementById("result-ticket").textContent = data.folio;
+            if (data.fecha) document.getElementById("result-fecha").textContent = data.fecha;
 
-        // ✅ Mostrar tiempo estimado de espera
-        const tiempoEstimadoElement = document.getElementById("tiempo-estimado-minutos");
-        if (tiempoEstimadoElement) {
-            tiempoEstimadoElement.textContent = tiempoEstimado;
-            console.log("Tiempo estimado mostrado en UI:", tiempoEstimado);
-        }
+            // Guardar el tipo de ticket en un atributo para usar en impresión/descarga
+            document.getElementById("ticket-result").setAttribute("data-ticket-type", esInvitado ? "invitado" : "normal");
+
+            // ✅ Mostrar tiempo estimado de espera
+            const tiempoEstimadoElement = document.getElementById("tiempo-estimado-minutos");
+            if (tiempoEstimadoElement) {
+                tiempoEstimadoElement.textContent = tiempoEstimado;
+                console.log("Tiempo estimado mostrado en UI:", tiempoEstimado);
+            }
+
 
         // ✅ Cambiar vistas
         formContainer.classList.add("hidden");
@@ -125,8 +163,8 @@ document.addEventListener("DOMContentLoaded", () => {
         ticketResult.classList.add("hidden");
         errorMessage.classList.add("hidden");
         // Restablecer texto y placeholder
-        matriculaFolioLabel.textContent = "Matrícula";
-        inputMatriculaFolio.placeholder = "Ingresa tu matrícula";
+        noMatriculaCheckbox.checked = false;
+        noMatriculaCheckbox.dispatchEvent(new Event('change'));
     };
     
 });
@@ -137,6 +175,7 @@ async function imprimir() {
     const numero_ticket = document.getElementById("result-ticket").textContent.trim();
     const fecha = document.getElementById("result-fecha").textContent.trim();
     const tiempo_estimado = document.getElementById("tiempo-estimado-minutos").textContent.trim();
+    const esInvitado = document.getElementById("ticket-result").getAttribute("data-ticket-type") === "invitado";
 
     console.log('🖨️ Enviando a impresión directa...');
 
@@ -145,13 +184,14 @@ async function imprimir() {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ 
-                matricula, 
+                matricula: esInvitado ? null : matricula, // Para invitados, enviar null
                 numero_ticket, 
                 sector, 
                 fecha, 
                 tiempo_estimado 
             })
         });
+
 
         const result = await response.json();
         
@@ -169,11 +209,13 @@ async function imprimir() {
 
 async function descargar() {
     // Obtener los datos visibles del ticket
+    const GOOGLE_LOGIN_URL = `${API_BASE_URL}/api/login_google`; 
     const matricula = document.getElementById("result-matricula-o-folio").textContent.trim();
     const sector = document.getElementById("result-sector").textContent.trim();
     const numero_ticket = document.getElementById("result-ticket").textContent.trim();
     const fecha = document.getElementById("result-fecha").textContent.trim();
     const tiempo_estimado = document.getElementById("tiempo-estimado-minutos").textContent.trim();
+    const esInvitado = document.getElementById("ticket-result").getAttribute("data-ticket-type") === "invitado";
 
     try {
         const response = await fetch(`${API_BASE_URL}/api/ticket/download`, {
@@ -182,7 +224,7 @@ async function descargar() {
                 "Content-Type": "application/json",
             },
             body: JSON.stringify({
-                matricula,
+                matricula: esInvitado ? null : matricula, // Para invitados, enviar null
                 numero_ticket,
                 sector,
                 fecha,
@@ -190,28 +232,35 @@ async function descargar() {
             })
         });
 
-        if (!response.ok) {
-            throw new Error("Error al generar el PDF desde el servidor");
+        if (response.status === 401) {
+            alert("⚠️ Autenticación de Google Drive requerida. Serás redirigido para iniciar sesión y autorizar a la aplicación.");
+            window.location.href = GOOGLE_LOGIN_URL;
+            return; 
         }
 
-        // Recibimos el PDF como Blob
-        const blob = await response.blob();
-        const pdfURL = URL.createObjectURL(blob);
+        const data = await response.json();
+        if (!response.ok) {
+            // Manejar otros errores (ej. 500, 400, o fallos de subida a Drive)
+            const errorMessage = data.error || "Error desconocido en el servidor";
+            throw new Error(errorMessage);
+        }
 
-        // Crear un enlace temporal para forzar descarga
-        const a = document.createElement("a");
-        a.href = pdfURL;
-        a.download = `ticket_${numero_ticket}.pdf`; // nombre del archivo descargado
-        document.body.appendChild(a);
-        a.click();
+        // Éxito: El PDF fue subido exitosamente a Google Drive
+        console.log("✅ Subida exitosa - Respuesta completa:", data);
 
-        // Limpieza
-        a.remove();
-        URL.revokeObjectURL(pdfURL);
+        if (data.drive_info && data.drive_info.view_link) {
+            alert(`✅ Ticket subido a Google Drive\n\n📁 Ver en Drive: ${data.drive_info.view_link}\n\nHaz clic en OK para abrir el archivo.`);
+
+            // Abrir automáticamente en nueva pestaña
+            window.open(data.drive_info.view_link, '_blank');
+        } else {
+            alert("✅ Ticket procesado, pero no se obtuvo link de Drive");
+        }
     } catch (error) {
-        console.error("Error al imprimir:", error);
-        alert("No se pudo generar el ticket. Intenta de nuevo.");
+        console.error("Error al generar/subir ticket:", error);
+        alert(`❌ No se pudo subir el ticket: ${error.message}.`);
     }
 }
+
 window.imprimir = imprimir;
 window.descargar = descargar;

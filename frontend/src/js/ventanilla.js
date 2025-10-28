@@ -552,23 +552,6 @@ async function getNextTicketInfo() {
   async function cerrarSesion() {
     stopTicketPolling();
 
-    if (currentUser?.ventanilla) {
-      try {
-        const res = await fetch(`${API_BASE_URL}/api/ventanilla/cerrar`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id_empleado: currentUser.id })
-        });
-
-        if (!res.ok) {
-          const errorData = await res.json();
-          console.error("Error del servidor al cerrar ventanilla:", errorData);
-        }
-      } catch (err) {
-        console.error("Error al liberar ventanilla:", err);
-      }
-    }
-
     currentUser = null;
     currentTicket = null;
     loginForm.reset();

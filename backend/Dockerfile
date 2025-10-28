@@ -9,6 +9,11 @@ RUN apk add --no-cache \
     netcat-openbsd
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir \
+    google-auth \
+    google-auth-oauthlib \
+    google-auth-httplib2 \
+    google-api-python-client
 COPY . .
 RUN apk add --no-cache netcat-openbsd
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh

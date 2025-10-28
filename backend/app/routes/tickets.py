@@ -1,25 +1,327 @@
-from flask import Blueprint, request, jsonify, make_response, current_app
+from flask import Blueprint, request, session, redirect, jsonify, make_response, current_app
 from app.models.database import get_db_connection
-from app.utils.helpers import generar_folio_unico, obtener_fecha_actual, obtener_fecha_publico
+from app.utils.helpers import generar_folio_unico, obtener_fecha_actual, obtener_fecha_publico, generar_folio_invitado, es_turno_invitado
 from app.models.pdf_generator import generar_ticket_PDF, generar_ticket_invitado_PDF
 from datetime import datetime
 import base64
+from google_auth_oauthlib.flow import Flow
+from google.auth.transport.requests import Request
+from google.oauth2.credentials import Credentials
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaInMemoryUpload
+import json
 
 bp = Blueprint('tickets', __name__, url_prefix='/api')
+
+
+CLIENT_ID = "261213902739-l54b36b00cb3a933msoe4sq96q0g3jc9.apps.googleusercontent.com"
+CLIENT_SECRET = "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"
+REDIRECT_URI = "https://localhost:4443/api/google_callback"
+AUTH_SCOPE = ['https://www.googleapis.com/auth/drive.file']
+TOKEN_URI = 'https://oauth2.googleapis.com/token'
+GOOGLE_DRIVE_FOLDER_ID = None
+
+# Archivo de tokens
+TOKEN_FILE = "token.json"
+TOKEN_STORE = {}
+
+# Funciones de persistencia
+def save_tokens():
+    """Guardar tokens en un archivo para que persistan entre reinicios"""
+    with open(TOKEN_FILE, "w") as f:
+        json.dump(TOKEN_STORE, f)
+
+def load_tokens():
+    """Cargar tokens desde archivo"""
+    global TOKEN_STORE
+    try:
+        with open(TOKEN_FILE) as f:
+            TOKEN_STORE = json.load(f)
+    except FileNotFoundError:
+        TOKEN_STORE = {}
+
+# Función para obtener credenciales válidas
+def get_valid_credentials():
+    """
+    Obtiene credenciales válidas, refrescando si es necesario
+    """
+    load_tokens()  # Cargar tokens actuales
+
+    if not TOKEN_STORE.get('access_token'):
+        return None
+
+    # Crear objeto Credentials de Google
+    creds = Credentials(
+        token=TOKEN_STORE['access_token'],
+        refresh_token=TOKEN_STORE.get('refresh_token'),
+        token_uri=TOKEN_URI,
+        client_id=CLIENT_ID,
+        client_secret=CLIENT_SECRET,
+        scopes=AUTH_SCOPE
+    )
+
+    # Verificar si el token expiró y refrescar si es necesario
+    if creds.expired and creds.refresh_token:
+        try:
+            creds.refresh(Request())
+            # Actualizar almacenamiento
+            TOKEN_STORE['access_token'] = creds.token
+            TOKEN_STORE['expires_at'] = creds.expiry.timestamp() if creds.expiry else None
+            save_tokens()
+        except Exception as e:
+            print(f"Error refrescando token: {e}")
+            return None
+
+    return creds
+
+# Función para subir PDF a Google Drive
+def subir_pdf_a_drive(pdf_bytes, nombre_archivo, folder_id=None):
+    """
+    Sube un PDF a Google Drive y retorna la URL de visualización
+    """
+    creds = get_valid_credentials()
+
+    if not creds:
+        raise Exception("No hay credenciales válidas de Google Drive. Autentica primero.")
+
+    try:
+        # Crear servicio de Google Drive
+        service = build('drive', 'v3', credentials=creds)
+
+        # Metadata del archivo
+        file_metadata = {
+            'name': nombre_archivo,
+            'mimeType': 'application/pdf'
+        }
+
+        # Si se especifica una carpeta, asignarla
+        if folder_id:
+            file_metadata['parents'] = [folder_id]
+
+        # Crear objeto de medios para la subida
+        media = MediaInMemoryUpload(
+            pdf_bytes,
+            mimetype='application/pdf',
+            resumable=True
+        )
+
+        # Subir archivo
+        file = service.files().create(
+            body=file_metadata,
+            media_body=media,
+            fields='id, webViewLink, webContentLink'
+        ).execute()
+
+        print(f"✅ PDF subido exitosamente a Google Drive: {file.get('id')}")
+
+        return {
+            'file_id': file.get('id'),
+            'view_link': file.get('webViewLink'),
+            'download_link': file.get('webContentLink')
+        }
+
+    except Exception as e:
+        print(f"❌ Error subiendo a Google Drive: {e}")
+        raise Exception(f"Error al subir a Google Drive: {str(e)}")
+
+# Endpoints de autenticación Google
+@bp.route('/login_google')
+def login_google():
+    """Endpoint 1: Inicia el flujo OAuth2"""
+    flow = Flow.from_client_config(
+        {'web': {
+            'client_id': CLIENT_ID, 
+            'client_secret': CLIENT_SECRET, 
+            'auth_uri': 'https://accounts.google.com/o/oauth2/v2/auth', 
+            'token_uri': TOKEN_URI
+        }},
+        scopes=AUTH_SCOPE,
+        redirect_uri=REDIRECT_URI
+    )
+
+    authorization_url, state = flow.authorization_url(
+        access_type='offline',
+        include_granted_scopes='true',
+        prompt='consent'
+    )
+    session['google_oauth_state'] = state
+
+    return redirect(authorization_url)
+
+@bp.route('/google_callback')
+def google_auth_callback():
+    """Endpoint 2: Recibe el código de Google y realiza el intercambio por tokens"""
+    flow = Flow.from_client_config(
+        {
+            'web': {
+                'client_id': CLIENT_ID,
+                'client_secret': CLIENT_SECRET,
+                'auth_uri': 'https://accounts.google.com/o/oauth2/v2/auth',
+                'token_uri': TOKEN_URI
+            }
+        },
+        scopes=AUTH_SCOPE,
+        redirect_uri=REDIRECT_URI
+    )
+
+    try:
+        flow.fetch_token(
+            authorization_response=request.url,
+            state=session.pop('google_oauth_state', None)
+        )
+    except Exception as e:
+        return jsonify({"error": f"Error en la autenticación: {e}"}), 400
+
+    # Almacenamiento
+    TOKEN_STORE['access_token'] = flow.credentials.token
+    TOKEN_STORE['refresh_token'] = flow.credentials.refresh_token
+    TOKEN_STORE['expires_at'] = flow.credentials.expiry.timestamp() if flow.credentials.expiry else None
+
+    save_tokens()
+
+    return jsonify({
+        "message": "✅ Autenticación con Google Drive completada.",
+        "access_token": TOKEN_STORE['access_token'],
+        "refresh_token": TOKEN_STORE['refresh_token'],
+        "expira_en": TOKEN_STORE['expires_at']
+    }), 200
+
+# Endpoint para verificar estado de autenticación
+@bp.route('/auth_status')
+def auth_status():
+    """Verifica si estamos autenticados y el estado del token"""
+    creds = get_valid_credentials()
+
+    if not creds:
+        return jsonify({
+            "authenticated": False,
+            "message": "No autenticado. Visita /login_google"
+        }), 401
+
+    return jsonify({
+        "authenticated": True,
+        "expires_at": TOKEN_STORE.get('expires_at'),
+        "has_refresh_token": bool(TOKEN_STORE.get('refresh_token'))
+    }), 200
+
+# Endpoint para verificar estado de Google Drive
+@bp.route('/drive/status', methods=['GET'])
+def drive_status():
+    """Verifica el estado de la conexión con Google Drive"""
+    try:
+        creds = get_valid_credentials()
+
+        if not creds:
+            return jsonify({
+                "authenticated": False,
+                "message": "No autenticado con Google Drive"
+            }), 401
+
+        # Probar la conexión listando archivos (solo 1 para verificar)
+        service = build('drive', 'v3', credentials=creds)
+        results = service.files().list(
+            pageSize=1,
+            fields="files(id, name)"
+        ).execute()
+
+        return jsonify({
+            "authenticated": True,
+            "message": "Conexión con Google Drive activa",
+            "files_count": len(results.get('files', [])),
+            "expires_at": TOKEN_STORE.get('expires_at')
+        }), 200
+
+    except Exception as e:
+        return jsonify({
+            "authenticated": False,
+            "error": f"Error en la conexión: {str(e)}"
+        }), 401
+
+# Endpoint principal para generar y subir tickets
+@bp.route('/ticket/download', methods=['POST'])
+def download_ticket_pdf():
+    data = request.get_json()
+    matricula = data.get('matricula', 'N/A')
+    numero_ticket = data.get('numero_ticket', 'N/A')
+    sector = data.get('sector', 'N/A')
+    fecha = data.get('fecha', 'N/A')
+    tiempo_estimado = data.get('tiempo_estimado', 'N/A')
+
+    try:
+        # 1. Generar el PDF
+        pdf_bytes = generar_ticket_PDF(matricula, numero_ticket, sector, fecha, tiempo_estimado)
+
+        # 2. Verificar autenticación con Google Drive
+        creds = get_valid_credentials()
+        if not creds:
+            return jsonify({
+                "error": "Autenticación de Google Drive requerida",
+                "auth_url": f"{request.host_url}api/login_google"
+            }), 401
+
+        # 3. Subir a Google Drive
+        nombre_archivo = f"Ticket_{numero_ticket}_{matricula}_{fecha.replace(' ', '_').replace(':', '-')}.pdf"
+
+        drive_result = subir_pdf_a_drive(
+            pdf_bytes=pdf_bytes,
+            nombre_archivo=nombre_archivo,
+            folder_id=GOOGLE_DRIVE_FOLDER_ID
+        )
+
+        # 4. Retornar éxito con información de Drive
+        return jsonify({
+            "message": "✅ Ticket generado y subido a Google Drive exitosamente",
+            "drive_info": {
+                "file_id": drive_result['file_id'],
+                "view_link": drive_result['view_link'],
+                "download_link": drive_result['download_link']
+            },
+            "ticket_info": {
+                "matricula": matricula,
+                "numero_ticket": numero_ticket,
+                "sector": sector,
+                "fecha": fecha,
+                "tiempo_estimado": tiempo_estimado
+            }
+        }), 200
+
+    except Exception as e:
+        print(f"❌ Error en download_ticket_pdf: {e}")
+
+        # Si el error es de autenticación, retornar 401
+        if "No hay credenciales válidas" in str(e) or "autentica primero" in str(e):
+            return jsonify({
+                "error": "Autenticación de Google Drive requerida",
+                "auth_url": f"{request.host_url}api/login_google"
+            }), 401
+
+        return jsonify({"error": f"Error interno: {str(e)}"}), 500
 
 @bp.route('/ticket/print', methods=['POST'])
 def request_ticket_print():
     data = request.get_json()
     
     try:
+        
+        es_invitado = es_turno_invitado(data['numero_ticket'])
         # Generar PDF
-        pdf_bytes = generar_ticket_PDF(
-            data['matricula'],
-            data['numero_ticket'], 
-            data['sector'],
-            data['fecha'],
-            data['tiempo_estimado']
-        )
+        if es_invitado:
+            # Usar función específica para invitados
+            pdf_bytes = generar_ticket_invitado_PDF(
+                data['numero_ticket'],
+                data['sector'],
+                data['fecha'],
+                data['tiempo_estimado']
+            )
+        else:
+            # Ticket normal con datos de alumno
+            pdf_bytes = generar_ticket_PDF(
+                data['matricula'],
+                data['numero_ticket'], 
+                data['sector'],
+                data['fecha'],
+                data['tiempo_estimado']
+            )
         
         pdf_base64 = base64.b64encode(pdf_bytes).decode('utf-8')
         
@@ -99,6 +401,51 @@ def generar_ticket():
     finally:
         cursor.close()
         conn.close()
+        
+
+@bp.route('/ticket/invitado', methods=['POST'])
+def generar_ticket_invitado():
+    data = request.get_json()
+    sector_nombre = data.get('sector')
+
+    if not sector_nombre:
+        return jsonify({"error": "sector es requerido"}), 400
+
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    try:
+        cursor.execute("SELECT ID_Sector FROM Sectores WHERE Sector = %s", (sector_nombre,))
+        sector = cursor.fetchone()
+        if not sector:
+            return jsonify({"error": "No se encontró el sector especificado"}), 404
+        ID_Sector = sector["ID_Sector"]
+
+        Folio_Invitado = generar_folio_invitado(sector_nombre)
+        Fecha_Ticket = obtener_fecha_actual()
+        Fecha_Ticket_publico = obtener_fecha_publico()
+
+        cursor.execute("""
+            INSERT INTO Turno_Invitado (ID_Sector, ID_Ventanilla, Fecha_Ticket, Folio_Invitado, ID_Estados, Fecha_Ultimo_Estado)
+            VALUES (%s, NULL, %s, %s, 1, %s)
+        """, (ID_Sector, Fecha_Ticket, Folio_Invitado, Fecha_Ticket))
+
+        conn.commit()
+
+        return jsonify({
+            "mensaje": "Ticket invitado generado exitosamente",
+            "folio": Folio_Invitado,
+            "fecha": Fecha_Ticket_publico,
+            "sector": sector_nombre,
+            "tipo": "invitado"
+        }), 201
+
+    except Exception as e:
+        print(f"Error en generar_ticket_invitado: {e}")
+        return jsonify({"error": "Error interno del servidor"}), 500
+    finally:
+        cursor.close()
+        conn.close()
 
 @bp.route("/tickets", methods=["GET"])
 def get_tickets():
@@ -124,51 +471,93 @@ def get_tickets():
             if sector_empleado:
                 sector = sector_empleado["Sector"]
         if not sector:
+            # Turnos normales
             cursor.execute("""
                 SELECT 
                     t.Folio AS folio,
                     t.ID_Turno AS id_turno,
                     a.Matricula AS matricula,
-                    CONCAT(a.nombre1, ' ', a.Apellido1) AS nombre_alumno,  -- AÑADIR ESTA LÍNEA
+                    CONCAT(a.nombre1, ' ', a.Apellido1) AS nombre_alumno,
                     s.Sector AS sector,
                     et.Nombre AS estado,
-                    t.Fecha_Ticket AS fecha_ticket
+                    t.Fecha_Ticket AS fecha_ticket,
+                    'normal' AS tipo
                 FROM Turno t
                 JOIN Alumnos a ON t.ID_Alumno = a.ID_Alumno
                 JOIN Sectores s ON t.ID_Sector = s.ID_Sector
                 JOIN Estados_Turno et ON t.ID_Estados = et.ID_Estado
                 WHERE t.ID_Estados = 1
-                ORDER BY t.Fecha_Ticket ASC
             """)
+            tickets_normales = cursor.fetchall()
+            
+            # Turnos invitados
+            cursor.execute("""
+                SELECT 
+                    ti.Folio_Invitado AS folio,
+                    ti.ID_TurnoInvitado AS id_turno,
+                    NULL AS matricula,
+                    'Invitado' AS nombre_alumno,
+                    s.Sector AS sector,
+                    et.Nombre AS estado,
+                    ti.Fecha_Ticket AS fecha_ticket,
+                    'invitado' AS tipo
+                FROM Turno_Invitado ti
+                JOIN Sectores s ON ti.ID_Sector = s.ID_Sector
+                JOIN Estados_Turno et ON ti.ID_Estados = et.ID_Estado
+                WHERE ti.ID_Estados = 1
+            """)
+            tickets_invitados = cursor.fetchall()
+            
         else:
-            # Si se envía sector, filtrar por ese sector
+            # Turnos normales filtrados por sector
             cursor.execute("""
                 SELECT 
                     t.Folio AS folio,
                     t.ID_Turno AS id_turno,
                     a.Matricula AS matricula,
-                    CONCAT(a.nombre1, ' ', a.Apellido1) AS nombre_alumno,  -- AÑADIR ESTA LÍNEA
+                    CONCAT(a.nombre1, ' ', a.Apellido1) AS nombre_alumno,
                     s.Sector AS sector,
                     et.Nombre AS estado,
-                    t.Fecha_Ticket AS fecha_ticket
+                    t.Fecha_Ticket AS fecha_ticket,
+                    'normal' AS tipo
                 FROM Turno t
                 JOIN Alumnos a ON t.ID_Alumno = a.ID_Alumno
                 JOIN Sectores s ON t.ID_Sector = s.ID_Sector
                 JOIN Estados_Turno et ON t.ID_Estados = et.ID_Estado
                 WHERE t.ID_Estados = 1 AND s.Sector = %s
-                ORDER BY t.Fecha_Ticket ASC
             """, (sector,))
-        
-        tickets = cursor.fetchall()
-        return jsonify(tickets), 200
-        
+            tickets_normales = cursor.fetchall()
+            
+            # Turnos invitados filtrados por sector
+            cursor.execute("""
+                SELECT 
+                    ti.Folio_Invitado AS folio,
+                    ti.ID_TurnoInvitado AS id_turno,
+                    NULL AS matricula,
+                    'Invitado' AS nombre_alumno,
+                    s.Sector AS sector,
+                    et.Nombre AS estado,
+                    ti.Fecha_Ticket AS fecha_ticket,
+                    'invitado' AS tipo
+                FROM Turno_Invitado ti
+                JOIN Sectores s ON ti.ID_Sector = s.ID_Sector
+                JOIN Estados_Turno et ON ti.ID_Estados = et.ID_Estado
+                WHERE ti.ID_Estados = 1 AND s.Sector = %s
+            """, (sector,))
+            tickets_invitados = cursor.fetchall()
+        #Combinar todos los tickets
+        todos_tickets = tickets_normales + tickets_invitados
+        todos_tickets.sort(key=lambda x: x['fecha_ticket'])
+        return jsonify(todos_tickets), 200
+    
     except Exception as e:
         print(f"Error en get_tickets: {e}")
         return jsonify({"error": f"Error interno del servidor: {str(e)}"}), 500
     finally:
         cursor.close()
         conn.close()
-
+            
+            
 @bp.route('/tickets/<folio>/attend', methods=['PUT'])
 def attend_ticket(folio):
     try:
@@ -183,13 +572,24 @@ def attend_ticket(folio):
         
         nueva_fecha = obtener_fecha_actual()
         
-        cursor.execute("""
-            UPDATE Turno
-            SET ID_Estados = 3, 
-                Fecha_Ultimo_Estado = %s, 
-                ID_Ventanilla = %s
-            WHERE Folio = %s AND ID_Estados = 1
-        """, (nueva_fecha, id_ventanilla, folio))
+        if es_turno_invitado(folio):
+            # Atender turno invitado
+            cursor.execute("""
+                UPDATE Turno_Invitado
+                SET ID_Estados = 3, 
+                    Fecha_Ultimo_Estado = %s, 
+                    ID_Ventanilla = %s
+                WHERE Folio_Invitado = %s AND ID_Estados = 1
+            """, (nueva_fecha, id_ventanilla, folio))
+        else:
+            # Atender turno normal
+            cursor.execute("""
+                UPDATE Turno
+                SET ID_Estados = 3, 
+                    Fecha_Ultimo_Estado = %s, 
+                    ID_Ventanilla = %s
+                WHERE Folio = %s AND ID_Estados = 1
+            """, (nueva_fecha, id_ventanilla, folio))
 
         if cursor.rowcount == 0:
             return jsonify({"error": "Ticket no encontrado o ya atendido"}), 404
@@ -213,11 +613,19 @@ def complete_ticket(folio):
 
     try:
         nueva_fecha = obtener_fecha_actual()
-        cursor.execute("""
-            UPDATE Turno
-            SET ID_Estados = %s, Fecha_Ultimo_Estado = %s
-            WHERE Folio = %s
-        """, (4, nueva_fecha, folio))
+        
+        if es_turno_invitado(folio):
+            cursor.execute("""
+                UPDATE Turno_Invitado
+                SET ID_Estados = %s, Fecha_Ultimo_Estado = %s
+                WHERE Folio_Invitado = %s
+            """, (4, nueva_fecha, folio))
+        else:
+            cursor.execute("""
+                UPDATE Turno
+                SET ID_Estados = %s, Fecha_Ultimo_Estado = %s
+                WHERE Folio = %s
+            """, (4, nueva_fecha, folio))
 
         conn.commit()
         return jsonify({"message": f"Ticket {folio} marcado como 'Completado'"}), 200
@@ -235,11 +643,19 @@ def cancel_ticket(folio):
 
     try:
         nueva_fecha = obtener_fecha_actual()
-        cursor.execute("""
-            UPDATE Turno
-            SET ID_Estados = %s, Fecha_Ultimo_Estado = %s
-            WHERE Folio = %s AND ID_Estados = 3
-        """, (2, nueva_fecha, folio))
+        
+        if es_turno_invitado(folio):
+            cursor.execute("""
+                UPDATE Turno_Invitado
+                SET ID_Estados = %s, Fecha_Ultimo_Estado = %s
+                WHERE Folio_Invitado = %s AND ID_Estados = 3
+            """, (2, nueva_fecha, folio))
+        else:
+            cursor.execute("""
+                UPDATE Turno
+                SET ID_Estados = %s, Fecha_Ultimo_Estado = %s
+                WHERE Folio = %s AND ID_Estados = 3
+            """, (2, nueva_fecha, folio))
 
         if cursor.rowcount == 0:
             return jsonify({"error": "Ticket no encontrado o no está siendo atendido"}), 404
@@ -259,6 +675,7 @@ def get_tickets_count():
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
     try:
+        # Contar turnos normales
         cursor.execute("""
             SELECT 
                 s.Sector AS nombre_sector,
@@ -268,10 +685,28 @@ def get_tickets_count():
             WHERE t.ID_Estados = 1
             GROUP BY s.Sector
         """)
-        resultados = cursor.fetchall()
+        normales = cursor.fetchall()
 
-        conteos = {r["nombre_sector"]: r["cantidad"] for r in resultados}
+        # Contar turnos invitados
+        cursor.execute("""
+            SELECT 
+                s.Sector AS nombre_sector,
+                COUNT(ti.ID_TurnoInvitado) AS cantidad
+            FROM Turno_Invitado ti
+            JOIN Sectores s ON ti.ID_Sector = s.ID_Sector
+            WHERE ti.ID_Estados = 1
+            GROUP BY s.Sector
+        """)
+        invitados = cursor.fetchall()
+
+        conteos = {}
+        for r in normales:
+            conteos[r["nombre_sector"]] = conteos.get(r["nombre_sector"], 0) + r["cantidad"]
+        
+        for r in invitados:
+            conteos[r["nombre_sector"]] = conteos.get(r["nombre_sector"], 0) + r["cantidad"]
         return jsonify(conteos), 200
+    
     except Exception as e:
         print(f"Error en get_tickets_count: {e}")
         return jsonify({"error": str(e)}), 500
@@ -285,7 +720,11 @@ def total_tickets():
     cursor = conn.cursor(dictionary=True)
     try:
         cursor.execute("SELECT COUNT(ID_Turno) AS cantidad FROM Turno WHERE DATE(Fecha_Ticket) = CURDATE()")
-        Total = cursor.fetchall()
+        normales = cursor.fetchone()
+        cursor.execute("SELECT COUNT(ID_TurnoInvitado) AS cantidad FROM Turno_Invitado WHERE DATE(Fecha_Ticket) = CURDATE()")
+        invitados = cursor.fetchone()
+        
+        Total = (normales["cantidad"] if normales else 0) + (invitados["cantidad"] if invitados else 0)
         return jsonify(Total), 200
     except Exception as e:
         print(f"Error en total_tickets: {e}")
@@ -328,15 +767,37 @@ def llamar_siguiente_ticket():
         
         # 🔥 Buscar el siguiente ticket PENDIENTE del MISMO SECTOR
         cursor.execute("""
-            SELECT t.Folio, t.ID_Turno, a.Matricula, 
-                   CONCAT(a.nombre1, ' ', a.Apellido1) AS nombre_alumno
-            FROM Turno t
-            JOIN Alumnos a ON t.ID_Alumno = a.ID_Alumno
-            WHERE t.ID_Estados = 1  -- Pendiente
-            AND t.ID_Sector = %s    -- Mismo sector que el empleado
-            ORDER BY t.Fecha_Ticket ASC 
+            (
+                -- TURNOS NORMALES
+                SELECT 
+                    t.Folio, 
+                    t.ID_Turno as id,
+                    a.Matricula, 
+                    CONCAT(a.nombre1, ' ', a.Apellido1) AS nombre_alumno,
+                    'normal' AS tipo,
+                    t.Fecha_Ticket
+                FROM Turno t
+                JOIN Alumnos a ON t.ID_Alumno = a.ID_Alumno
+                WHERE t.ID_Estados = 1  -- Pendiente
+                AND t.ID_Sector = %s    -- Mismo sector que el empleado
+            )
+            UNION ALL
+            (
+                -- TURNOS INVITADOS  
+                SELECT 
+                    ti.Folio_Invitado AS Folio,
+                    ti.ID_TurnoInvitado as id,
+                    NULL AS Matricula,
+                    'Invitado' AS nombre_alumno,
+                    'invitado' AS tipo,
+                    ti.Fecha_Ticket
+                FROM Turno_Invitado ti
+                WHERE ti.ID_Estados = 1  -- Pendiente
+                AND ti.ID_Sector = %s    -- Mismo sector que el empleado
+            )
+            ORDER BY Fecha_Ticket ASC 
             LIMIT 1
-        """, (id_sector,))
+        """, (id_sector, id_sector))
         
         siguiente_ticket = cursor.fetchone()
         
@@ -344,20 +805,33 @@ def llamar_siguiente_ticket():
             return jsonify({"message": "No hay tickets pendientes en tu sector"}), 404
         
         folio = siguiente_ticket["Folio"]
+        tipo_ticket = siguiente_ticket["tipo"]
         matricula = siguiente_ticket["Matricula"]
         nombre_alumno = siguiente_ticket["nombre_alumno"]
         
-        print(f"🎯 Llamando ticket: {folio} - Alumno: {nombre_alumno}")
+        print(f"🎯 Llamando ticket: {folio} - Tipo: {tipo_ticket} - Alumno: {nombre_alumno}")
         
         # Actualizar el ticket a "Atendiendo"
         nueva_fecha = obtener_fecha_actual()
-        cursor.execute("""
-            UPDATE Turno
-            SET ID_Estados = 3, 
-                Fecha_Ultimo_Estado = %s, 
-                ID_Ventanilla = %s
-            WHERE Folio = %s AND ID_Estados = 1
-        """, (nueva_fecha, id_ventanilla, folio))
+        
+        if tipo_ticket == "normal":
+            # Actualizar turno normal
+            cursor.execute("""
+                UPDATE Turno
+                SET ID_Estados = 3, 
+                    Fecha_Ultimo_Estado = %s, 
+                    ID_Ventanilla = %s
+                WHERE Folio = %s AND ID_Estados = 1
+            """, (nueva_fecha, id_ventanilla, folio))
+        else:
+            # Actualizar turno invitado
+            cursor.execute("""
+                UPDATE Turno_Invitado
+                SET ID_Estados = 3, 
+                    Fecha_Ultimo_Estado = %s, 
+                    ID_Ventanilla = %s
+                WHERE Folio_Invitado = %s AND ID_Estados = 1
+            """, (nueva_fecha, id_ventanilla, folio))
 
         if cursor.rowcount == 0:
             return jsonify({"error": "El ticket ya fue tomado por otro operador"}), 409
@@ -367,6 +841,7 @@ def llamar_siguiente_ticket():
         return jsonify({
             "message": f"Ticket {folio} llamado para atención",
             "folio": folio,
+            "tipo": tipo_ticket,
             "matricula": matricula,
             "nombre_alumno": nombre_alumno
         }), 200
@@ -380,31 +855,11 @@ def llamar_siguiente_ticket():
         cursor.close()
         conn.close()
 
-@bp.route('/ticket/download', methods=['POST'])
-def download_ticket_pdf():
-    data = request.get_json()
-    matricula = data.get('matricula', 'N/A')
-    numero_ticket = data.get('numero_ticket', 'N/A')
-    sector = data.get('sector', 'N/A')
-    fecha = data.get('fecha', 'N/A')
-    tiempo_estimado = data.get('tiempo_estimado', 'N/A')
-    
-    try:
-        pdf_bytes = generar_ticket_PDF(matricula, numero_ticket, sector, fecha, tiempo_estimado)
-        
-        response = make_response(pdf_bytes)
-        response.headers['Content-Type'] = 'application/pdf'
-        response.headers['Content-Disposition'] = f'inline; filename=ticket_{numero_ticket}.pdf'
-        
-        return response, 200
-    except Exception as e:
-        print(f"Error al generar PDF: {e}")
-        return jsonify({"error": "Error interno al generar el PDF"}), 500
-
 @bp.route('/turno/<int:id_turno>/estado', methods=['PUT'])
 def actualizar_estado_turno(id_turno):
     data = request.get_json()
     nuevo_estado = data.get("estado")
+    tipo_turno = data.get("tipo", "normal")
 
     if not nuevo_estado:
         return jsonify({"error": "Estado requerido"}), 400
@@ -414,11 +869,23 @@ def actualizar_estado_turno(id_turno):
 
     try:
         nueva_fecha = obtener_fecha_actual()
-        cursor.execute("""
-            UPDATE Turno
-            SET ID_Estados = %s, Fecha_Ultimo_Estado = %s
-            WHERE ID_Turno = %s
-        """, (nuevo_estado, nueva_fecha, id_turno))
+        if tipo_turno == "invitado":
+            # Actualizar turno invitado
+            cursor.execute("""
+                UPDATE Turno_Invitado
+                SET ID_Estados = %s, Fecha_Ultimo_Estado = %s
+                WHERE ID_TurnoInvitado = %s
+            """, (nuevo_estado, nueva_fecha, id_turno))
+        else:
+            # Actualizar turno normal
+            cursor.execute("""
+                UPDATE Turno
+                SET ID_Estados = %s, Fecha_Ultimo_Estado = %s
+                WHERE ID_Turno = %s
+            """, (nuevo_estado, nueva_fecha, id_turno))
+            
+        if cursor.rowcount == 0:
+            return jsonify({"error": "Turno no encontrado"}), 404
 
         conn.commit()
         return jsonify({"mensaje": "Estado actualizado correctamente"}), 200
@@ -448,67 +915,123 @@ def tiempo_espera_promedio_por_sector(sector_nombre):
         id_sector = sector_data["ID_Sector"]
         print(f"✅ Sector encontrado - ID: {id_sector}")
         
-        # PRIMERO: Verificar si hay datos en la tabla Turno
+        # PRIMERO: Verificar si hay datos en AMBAS tablas
         cursor.execute("""
             SELECT COUNT(*) as total_tickets 
             FROM Turno 
             WHERE ID_Sector = %s AND ID_Estados = 3
         """, (id_sector,))
+        total_tickets_normales = cursor.fetchone()["total_tickets"]
         
-        total_tickets = cursor.fetchone()["total_tickets"]
-        print(f"📊 Total de tickets completados en sector {sector_nombre}: {total_tickets}")
-        
-        # 1. Calcular el tiempo promedio con consulta más flexible
-        print("📊 Consultando tiempos históricos...")
         cursor.execute("""
-            SELECT 
-                AVG(TIMESTAMPDIFF(SECOND, t.Fecha_Ticket, t.Fecha_Ultimo_Estado)) as promedio_segundos,
-                COUNT(*) as total_tickets
-            FROM Turno t
-            WHERE t.ID_Estados = 3  -- Tickets completados
-            AND t.ID_Sector = %s
-            AND t.Fecha_Ticket >= DATE_SUB(NOW(), INTERVAL 2 HOUR)  -- 2 horas
-            AND t.Fecha_Ultimo_Estado > t.Fecha_Ticket  -- Asegurar que la fecha final sea mayor
-            AND TIMESTAMPDIFF(SECOND, t.Fecha_Ticket, t.Fecha_Ultimo_Estado) 
+            SELECT COUNT(*) as total_tickets 
+            FROM Turno_Invitado 
+            WHERE ID_Sector = %s AND ID_Estados = 3
         """, (id_sector,))
+        total_tickets_invitados = cursor.fetchone()["total_tickets"]
         
-        resultado = cursor.fetchone()
-        print(f"📈 Resultado consulta 2 horas: {resultado}")
+        total_tickets = total_tickets_normales + total_tickets_invitados
+        print(f"📊 Total de tickets completados en sector {sector_nombre}: {total_tickets} (normales: {total_tickets_normales}, invitados: {total_tickets_invitados})")
         
-        # Si no hay datos, intentar con rango aún más amplio
-        if not resultado or resultado["total_tickets"] == 0:
-            print("🕐 Consultando todos los tickets completados...")
-            cursor.execute("""
+        # 1. Calcular el tiempo promedio COMBINADO de ambas tablas
+        print("📊 Consultando tiempos históricos COMBINADOS...")
+        cursor.execute("""
+            (
+                -- TURNOS NORMALES completados
                 SELECT 
-                    AVG(TIMESTAMPDIFF(SECOND, t.Fecha_Ticket, t.Fecha_Ultimo_Estado)) as promedio_segundos,
-                    COUNT(*) as total_tickets
+                    TIMESTAMPDIFF(SECOND, t.Fecha_Ticket, t.Fecha_Ultimo_Estado) as segundos,
+                    'normal' as tipo
                 FROM Turno t
                 WHERE t.ID_Estados = 3
                 AND t.ID_Sector = %s
+                AND t.Fecha_Ticket >= DATE_SUB(NOW(), INTERVAL 2 HOUR)
                 AND t.Fecha_Ultimo_Estado > t.Fecha_Ticket
-                AND TIMESTAMPDIFF(SECOND, t.Fecha_Ticket, t.Fecha_Ultimo_Estado)
-            """, (id_sector,))
-            
-            resultado = cursor.fetchone()
-            print(f"📈 Resultado consulta completa: {resultado}")
+                AND TIMESTAMPDIFF(SECOND, t.Fecha_Ticket, t.Fecha_Ultimo_Estado) > 0
+            )
+            UNION ALL
+            (
+                -- TURNOS INVITADOS completados
+                SELECT 
+                    TIMESTAMPDIFF(SECOND, ti.Fecha_Ticket, ti.Fecha_Ultimo_Estado) as segundos,
+                    'invitado' as tipo
+                FROM Turno_Invitado ti
+                WHERE ti.ID_Estados = 3
+                AND ti.ID_Sector = %s
+                AND ti.Fecha_Ticket >= DATE_SUB(NOW(), INTERVAL 2 HOUR)
+                AND ti.Fecha_Ultimo_Estado > ti.Fecha_Ticket
+                AND TIMESTAMPDIFF(SECOND, ti.Fecha_Ticket, ti.Fecha_Ultimo_Estado) > 0
+            )
+        """, (id_sector, id_sector))
         
-        # 2. Contar tickets pendientes por delante en el mismo sector
+        tiempos = cursor.fetchall()
+        
+        # Calcular promedio manualmente
+        if tiempos:
+            total_segundos = sum(t['segundos'] for t in tiempos)
+            promedio_segundos = total_segundos / len(tiempos)
+            total_tickets_historial = len(tiempos)
+            print(f"📈 Resultado consulta 2 horas: {promedio_segundos:.1f} segundos (de {total_tickets_historial} tickets)")
+        else:
+            promedio_segundos = None
+            total_tickets_historial = 0
+            print("📈 No hay datos en las últimas 2 horas")
+        
+        # Si no hay datos recientes, intentar con rango más amplio
+        if not tiempos:
+            print("🕐 Consultando todos los tickets completados...")
+            cursor.execute("""
+                (
+                    SELECT 
+                        TIMESTAMPDIFF(SECOND, t.Fecha_Ticket, t.Fecha_Ultimo_Estado) as segundos
+                    FROM Turno t
+                    WHERE t.ID_Estados = 3
+                    AND t.ID_Sector = %s
+                    AND t.Fecha_Ultimo_Estado > t.Fecha_Ticket
+                    AND TIMESTAMPDIFF(SECOND, t.Fecha_Ticket, t.Fecha_Ultimo_Estado) > 0
+                )
+                UNION ALL
+                (
+                    SELECT 
+                        TIMESTAMPDIFF(SECOND, ti.Fecha_Ticket, ti.Fecha_Ultimo_Estado) as segundos
+                    FROM Turno_Invitado ti
+                    WHERE ti.ID_Estados = 3
+                    AND ti.ID_Sector = %s
+                    AND ti.Fecha_Ultimo_Estado > ti.Fecha_Ticket
+                    AND TIMESTAMPDIFF(SECOND, ti.Fecha_Ticket, ti.Fecha_Ultimo_Estado) > 0
+                )
+            """, (id_sector, id_sector))
+            
+            tiempos = cursor.fetchall()
+            if tiempos:
+                total_segundos = sum(t['segundos'] for t in tiempos)
+                promedio_segundos = total_segundos / len(tiempos)
+                total_tickets_historial = len(tiempos)
+                print(f"📈 Resultado consulta completa: {promedio_segundos:.1f} segundos (de {total_tickets_historial} tickets)")
+        
+        # 2. Contar tickets pendientes por delante en AMBAS tablas
         cursor.execute("""
             SELECT COUNT(*) as tickets_pendientes
             FROM Turno t
             WHERE t.ID_Sector = %s 
-            AND t.ID_Estados = 1  -- Tickets pendientes
+            AND t.ID_Estados = 1
         """, (id_sector,))
+        pendientes_normales = cursor.fetchone()["tickets_pendientes"]
         
-        pendientes_result = cursor.fetchone()
-        tickets_pendientes = pendientes_result["tickets_pendientes"] if pendientes_result else 0
-        print(f"🎫 Tickets pendientes en sector {sector_nombre}: {tickets_pendientes}")
+        cursor.execute("""
+            SELECT COUNT(*) as tickets_pendientes
+            FROM Turno_Invitado ti
+            WHERE ti.ID_Sector = %s 
+            AND ti.ID_Estados = 1
+        """, (id_sector,))
+        pendientes_invitados = cursor.fetchone()["tickets_pendientes"]
+        
+        tickets_pendientes = pendientes_normales + pendientes_invitados
+        print(f"🎫 Tickets pendientes en sector {sector_nombre}: {tickets_pendientes} (normales: {pendientes_normales}, invitados: {pendientes_invitados})")
         
         # 3. Determinar el tiempo estimado base
-        if resultado and resultado["promedio_segundos"] and resultado["total_tickets"] > 0:
-            promedio_segundos = float(resultado["promedio_segundos"])
+        if promedio_segundos and total_tickets_historial > 0:
             tiempo_base = promedio_segundos / 60  # Convertir a minutos
-            print(f"⏱️  Tiempo base calculado: {tiempo_base:.1f} minutos (de {resultado['total_tickets']} tickets)")
+            print(f"⏱️  Tiempo base calculado: {tiempo_base:.1f} minutos (de {total_tickets_historial} tickets combinados)")
         else:
             # Valores por defecto según el sector
             tiempos_por_defecto = {
@@ -569,19 +1092,41 @@ def get_historial_tickets():
     
     try:
         cursor.execute("""
-            SELECT 
-                t.Folio AS folio,
-                t.ID_Turno AS id_turno,
-                a.Matricula AS matricula,
-                s.Sector AS sector,
-                et.Nombre AS estado,
-                t.Fecha_Ticket AS fecha_ticket,
-                t.Fecha_Ultimo_Estado AS fecha_ultimo_estado
-            FROM Turno t
-            JOIN Alumnos a ON t.ID_Alumno = a.ID_Alumno
-            JOIN Sectores s ON t.ID_Sector = s.ID_Sector
-            JOIN Estados_Turno et ON t.ID_Estados = et.ID_Estado
-            ORDER BY t.Fecha_Ticket DESC
+            (
+                -- TURNOS NORMALES
+                SELECT 
+                    t.Folio AS folio,
+                    t.ID_Turno AS id_turno,
+                    a.Matricula AS matricula,
+                    CONCAT(a.nombre1, ' ', a.Apellido1) AS nombre_completo,
+                    s.Sector AS sector,
+                    et.Nombre AS estado,
+                    t.Fecha_Ticket AS fecha_ticket,
+                    t.Fecha_Ultimo_Estado AS fecha_ultimo_estado,
+                    'normal' AS tipo
+                FROM Turno t
+                JOIN Alumnos a ON t.ID_Alumno = a.ID_Alumno
+                JOIN Sectores s ON t.ID_Sector = s.ID_Sector
+                JOIN Estados_Turno et ON t.ID_Estados = et.ID_Estado
+            )
+            UNION ALL
+            (
+                -- TURNOS INVITADOS
+                SELECT 
+                    ti.Folio_Invitado AS folio,
+                    ti.ID_TurnoInvitado AS id_turno,
+                    NULL AS matricula,
+                    'Invitado' AS nombre_completo,
+                    s.Sector AS sector,
+                    et.Nombre AS estado,
+                    ti.Fecha_Ticket AS fecha_ticket,
+                    ti.Fecha_Ultimo_Estado AS fecha_ultimo_estado,
+                    'invitado' AS tipo
+                FROM Turno_Invitado ti
+                JOIN Sectores s ON ti.ID_Sector = s.ID_Sector
+                JOIN Estados_Turno et ON ti.ID_Estados = et.ID_Estado
+            )
+            ORDER BY fecha_ticket DESC
             LIMIT 100
         """)
         
@@ -603,6 +1148,7 @@ def get_tickets_publico():
     cursor = conn.cursor(dictionary=True)
     
     try:
+        # Turnos normales
         cursor.execute("""
             SELECT 
                 t.Folio AS folio,
@@ -614,20 +1160,43 @@ def get_tickets_publico():
                 s.Sector AS sector,
                 et.Nombre AS estado,
                 et.ID_Estado AS estado_id,
-                t.Fecha_Ticket AS fecha_ticket
+                t.Fecha_Ticket AS fecha_ticket,
+                'normal' AS tipo
             FROM Turno t
             JOIN Alumnos a ON t.ID_Alumno = a.ID_Alumno
             JOIN Sectores s ON t.ID_Sector = s.ID_Sector
             JOIN Estados_Turno et ON t.ID_Estados = et.ID_Estado
             LEFT JOIN Ventanillas v ON t.ID_Ventanilla = v.ID_Ventanilla
-            WHERE t.ID_Estados IN (1, 3)  -- Solo pendientes y atendiendo
-            ORDER BY 
-                CASE WHEN t.ID_Estados = 3 THEN 0 ELSE 1 END,  -- Atendiendo primero
-                t.Fecha_Ticket ASC  -- Luego pendientes por antigüedad
+            WHERE t.ID_Estados IN (1, 3)
         """)
+        tickets_normales = cursor.fetchall()
         
-        tickets = cursor.fetchall()
-        return jsonify(tickets), 200
+        # Turnos invitados
+        cursor.execute("""
+            SELECT 
+                ti.Folio_Invitado AS folio,
+                ti.ID_TurnoInvitado AS id_turno,
+                ti.ID_Ventanilla AS id_ventanilla,
+                v.Ventanilla AS ventanilla,
+                NULL AS matricula,
+                'Invitado' AS nombre_alumno,
+                s.Sector AS sector,
+                et.Nombre AS estado,
+                et.ID_Estado AS estado_id,
+                ti.Fecha_Ticket AS fecha_ticket,
+                'invitado' AS tipo
+            FROM Turno_Invitado ti
+            JOIN Sectores s ON ti.ID_Sector = s.ID_Sector
+            JOIN Estados_Turno et ON ti.ID_Estados = et.ID_Estado
+            LEFT JOIN Ventanillas v ON ti.ID_Ventanilla = v.ID_Ventanilla
+            WHERE ti.ID_Estados IN (1, 3)
+        """)
+        tickets_invitados = cursor.fetchall()
+        
+        # Combinar y ordenar
+        todos_tickets = tickets_normales + tickets_invitados
+        todos_tickets.sort(key=lambda x: (x['estado_id'] != 3, x['fecha_ticket']))
+        return jsonify(todos_tickets), 200
         
     except Exception as e:
         print(f"Error en get_tickets_publico: {e}")

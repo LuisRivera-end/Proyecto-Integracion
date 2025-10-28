@@ -124,68 +124,6 @@ def iniciar_ventanilla():
         cursor.close()
         conn.close()
 
-@bp.route("/ventanilla/cerrar", methods=["PUT"])
-def cerrar_ventanilla():
-    if request.method == "OPTIONS":
-        response = jsonify({"message": "Preflight OK"})
-        response.headers["Access-Control-Allow-Origin"] = "*"
-        response.headers["Access-Control-Allow-Headers"] = "Content-Type,Authorization"
-        response.headers["Access-Control-Allow-Methods"] = "PUT, OPTIONS"
-        return response, 200
-    
-    try:
-        data = request.get_json()
-        if not data:
-            return jsonify({"error": "No se recibió JSON"}), 400
-
-        id_empleado = data.get("id_empleado")
-        if not id_empleado:
-            return jsonify({"error": "Empleado requerido"}), 400
-
-        print(f"Cerrando ventanilla para empleado: {id_empleado}")
-
-        conn_check = get_db_connection()
-        cursor_check = conn_check.cursor(dictionary=True, buffered=True)
-        
-        cursor_check.execute("""
-            SELECT ID_Asignacion 
-            FROM Empleado_Ventanilla 
-            WHERE ID_Empleado = %s AND ID_Estado = 1
-        """, (id_empleado,))
-        
-        asignacion = cursor_check.fetchone()
-        cursor_check.close()
-        conn_check.close()
-        
-        if not asignacion:
-            print(f"No se encontró ventanilla activa para el empleado {id_empleado}")
-            return jsonify({"error": "No hay ventanilla activa para este empleado"}), 404
-
-        conn_update = get_db_connection()
-        cursor_update = conn_update.cursor()
-        
-        cursor_update.execute("""
-            UPDATE Empleado_Ventanilla
-            SET Fecha_Termino = NOW(), 
-                ID_Estado = 2
-            WHERE ID_Empleado = %s AND ID_Estado = 1
-        """, (id_empleado,))
-
-        filas_afectadas = cursor_update.rowcount
-        conn_update.commit()
-        cursor_update.close()
-        conn_update.close()
-
-        print(f"Ventanilla cerrada. Filas afectadas: {filas_afectadas}")
-
-        return jsonify({"message": "Ventanilla liberada correctamente"}), 200
-
-    except Exception as e:
-        print(f"Error en cerrar_ventanilla: {e}")
-        import traceback
-        print(f"Traceback: {traceback.format_exc()}")
-        return jsonify({"error": f"Error interno del servidor: {str(e)}"}), 500
-
 @bp.route("/ventanillas/disponibles/<int:id_rol>", methods=["GET"])
 def get_ventanillas_disponibles(id_rol):
     conn = get_db_connection()
@@ -221,16 +159,19 @@ def update_employee_ventanilla(id_empleado):
         return jsonify({"error": "ID de ventanilla requerido"}), 400
     
     conn = get_db_connection()
-    cursor = conn.cursor()
+    cursor = conn.cursor(dictionary=True)
     
     try:
         conn.start_transaction()
-        
         cursor.execute("""
-            UPDATE Empleado_Ventanilla
-            SET Fecha_Termino = NOW(), ID_Estado = 2
-            WHERE ID_Empleado = %s AND Fecha_Termino IS NULL
-        """, (id_empleado,))
+        SELECT ID_Empleado 
+            FROM Empleado_Ventanilla 
+            WHERE ID_Ventanilla = %s AND ID_Estado = 1
+        """, (id_ventanilla,))
+        ocupada = cursor.fetchone()
+
+        if ocupada:
+            return jsonify({"error": "⚠️ Esta ventanilla ya está ocupada, seleccione otra."}), 400
         
         cursor.execute("""
             INSERT INTO Empleado_Ventanilla 

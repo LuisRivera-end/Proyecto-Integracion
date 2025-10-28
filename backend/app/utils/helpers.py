@@ -38,11 +38,22 @@ def generar_folio_unico(sector_nombre):
             
             # Verificar unicidad en la base de datos
             placeholders = ','.join(['%s'] * len(estados_activos))
-            query = f"""
+            query_normal = f"""
                 SELECT 1 FROM Turno 
                 WHERE Folio = %s AND ID_Estados IN ({placeholders})
             """
-            cursor.execute(query, (folio, *estados_activos))
+            cursor.execute(query_normal, (folio, *estados_activos))
+            
+            if cursor.fetchone():
+                continue  # Folio ya existe en Turno, generar otro
+            
+            # También verificar en Turno_Invitado
+            query_invitado = f"""
+                SELECT 1 FROM Turno_Invitado  
+                WHERE Folio_Invitado = %s AND ID_Estados IN ({placeholders})
+            """
+            cursor.execute(query_invitado, (folio, *estados_activos))
+
 
             if not cursor.fetchone():
                 return folio
@@ -56,36 +67,58 @@ def obtener_fecha_actual():
 def obtener_fecha_publico():
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-def generar_folio_invitado():
-    """Genera un folio único para turnos invitados (INV001, INV002, etc.)"""
+def generar_folio_invitado(sector_nombre):
+    """Genera un folio único para turnos invitados"""
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
+    estados_activos = (1, 3)
+    prefix, random_part_length = get_sector_prefix_and_length(sector_nombre)
     
     try:
-        # Obtener el último folio de invitado
-        cursor.execute("""
-            SELECT Folio_Invitado 
-            FROM Turno_Invitado 
-            WHERE Folio_Invitado LIKE 'INV%' 
-            ORDER BY ID_TurnoInvitado DESC 
-            LIMIT 1
-        """)
-        
-        ultimo_folio = cursor.fetchone()
-        
-        if ultimo_folio:
-            # Extraer número y incrementar
-            numero = int(ultimo_folio['Folio_Invitado'][3:]) + 1
-        else:
-            # Primer ticket invitado
-            numero = 1
-        
-        return f"INV{numero:03d}"
-        
+        while True:
+            random_part = ''.join(random.choices(string.ascii_uppercase + string.digits, k=random_part_length))
+            folio = prefix + random_part
+            
+            placeholders = ','.join(['%s'] * len(estados_activos))
+            query_invitado  = f"""
+                SELECT 1 FROM Turno_Invitado  
+                WHERE Folio_Invitado = %s AND ID_Estados IN ({placeholders})
+            """
+            cursor.execute(query_invitado , (folio, *estados_activos))
+            if cursor.fetchone():
+                continue
+            
+            query_normal = f"""
+                SELECT 1 FROM Turno  
+                WHERE Folio = %s AND ID_Estados IN ({placeholders})
+            """
+            cursor.execute(query_normal, (folio, *estados_activos))
+            
+            if not cursor.fetchone():
+                return folio
     except Exception as e:
         print(f"Error generando folio invitado: {e}")
         # Fallback: usar timestamp
         return f"INV{int(datetime.now().timestamp()) % 1000:03d}"
+    finally:
+        cursor.close()
+        conn.close()
+
+def es_turno_invitado(folio):
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    
+    try:
+        # Verificar si existe en Turno_Invitado con estados activos
+        cursor.execute("""
+            SELECT 1 FROM Turno_Invitado 
+            WHERE Folio_Invitado = %s AND ID_Estados IN (1, 3)
+        """, (folio,))
+        
+        return cursor.fetchone() is not None
+    except Exception as e:
+        print(f"Error verificando tipo de turno: {e}")
+        return False
     finally:
         cursor.close()
         conn.close()

@@ -168,7 +168,15 @@ document.addEventListener("DOMContentLoaded", () => {
         body: JSON.stringify({ id_ventanilla: parseInt(idVentanilla) })
       });
 
-      if (!res.ok) throw new Error("Error al asignar ventanilla");
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || "Error al asignar ventanilla");
+        const select = document.querySelector(`#select-ventanilla-${idEmpleado}`);
+        if (select) select.value = "";
+
+        loadEmployees();
+        return;
+      }
 
       alert("Ventanilla asignada correctamente");
       loadEmployees();
@@ -186,7 +194,17 @@ document.addEventListener("DOMContentLoaded", () => {
       4: 'desactivar'
     };
     
-    if (!confirm(`¿Está seguro de ${estadoNombre[nuevoEstado]} este empleado?`)) return;
+    const select = document.querySelector(`select[onchange="cambiarEstado(${idEmpleado}, this.value)"]`);
+    const estadoAnterior = select ? select.value : null;
+
+    // Confirmar la acción
+    const confirmar = confirm(`¿Está seguro de ${estadoNombre[nuevoEstado]} este empleado?`);
+    if (!confirmar) {
+      // Si cancela, volver al valor anterior y refrescar la tabla
+      if (select) select.value = estadoAnterior;
+      loadEmployees();
+      return;
+    }
 
     try {
       const res = await fetch(`${API_BASE_URL}/api/employees/${idEmpleado}/estado`, {
@@ -199,6 +217,8 @@ document.addEventListener("DOMContentLoaded", () => {
       
       if (!res.ok) {
         alert(data.error || `Error al cambiar estado del empleado`);
+        if (select) select.value = estadoAnterior;
+        loadEmployees();
         return;
       }
 
@@ -207,6 +227,8 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch (err) {
       console.error(err);
       alert(`Error al cambiar estado del empleado`);
+      if (select) select.value = estadoAnterior;
+      loadEmployees();
     }
   };
 

@@ -8,3 +8,7 @@ Flask-SocketIO
 python-socketio
 eventlet
 flask_session
+google-auth
+google-auth-oauthlib
+google-auth-httplib2
+google-api-python-client
