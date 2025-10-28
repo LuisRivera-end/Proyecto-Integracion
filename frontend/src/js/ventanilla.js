@@ -53,89 +53,78 @@ document.addEventListener("DOMContentLoaded", async () => {
   // -----------------------------
   // LOGIN - CORREGIDO
   // -----------------------------
-loginForm.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const username = document.getElementById("username").value.trim();
-    const password = document.getElementById("password").value.trim();
+  loginForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const username = document.getElementById("username").value.trim();
+      const password = document.getElementById("password").value.trim();
 
-    try {
-        const res = await fetch(`${API_BASE_URL}/api/login`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ username, password })
-        });
-        
-        if (!res.ok) {
-            const errorData = await res.json();
-            throw new Error(errorData.error || "Credenciales incorrectas");
-        }
-        
-        const data = await res.json();
-        currentUser = { 
-            id: data.id, 
-            username: data.nombre, 
-            rol: data.rol, 
-            sector: data.sector 
-        };
-
-        // Admin va directo a admin.html
-        if (currentUser.rol === 1) {
-            window.location.href = "admin.html";
-            return;
-        }
-
-        // VERIFICAR SI YA TIENE VENTANILLA ASIGNADA Y ACTIVA
-        const ventanillaActivaRes = await fetch(`${API_BASE_URL}/api/empleado/${currentUser.id}/ventanilla-activa`);
-        
-        if (ventanillaActivaRes.ok) {
-            const ventanillaActiva = await ventanillaActivaRes.json();
-            
-            if (ventanillaActiva && ventanillaActiva.ID_Ventanilla) {
-                // YA TIENE VENTANILLA ASIGNADA - USAR ESA
-                console.log("Usando ventanilla asignada:", ventanillaActiva);
-                currentUser.ventanilla = {
-                    id: ventanillaActiva.ID_Ventanilla,
-                    nombre: ventanillaActiva.Ventanilla
-                };
-                
-                // Ir directamente a la pantalla de gestión
-                loginScreen.classList.add("hidden");
-                managementScreen.classList.remove("hidden");
-                backButton.classList.add("hidden");
-                loginError.classList.add("hidden");
-                
-            // Inicializar elementos después de mostrar la pantalla
-            if (initializeManagementElements()) {
-              userSector.textContent = `${currentUser.sector} - ${currentUser.ventanilla.nombre}`;
-              userName.textContent = currentUser.username;
-              setupEventListeners();
-              startTicketPolling();
-            } else {
-              throw new Error("Error al inicializar la interfaz");
-            }
-            return;
+      try {
+          const res = await fetch(`${API_BASE_URL}/api/login`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ username, password })
+          });
+          
+          if (!res.ok) {
+              const errorData = await res.json();
+              throw new Error(errorData.error || "Credenciales incorrectas");
           }
-        }
+          
+          const data = await res.json();
+          currentUser = { 
+              id: data.id, 
+              username: data.nombre, 
+              rol: data.rol, 
+              sector: data.sector 
+          };
 
-        // SI NO TIENE VENTANILLA ASIGNADA, buscar una automáticamente
-        loginScreen.classList.add("hidden");
-        managementScreen.classList.remove("hidden");
-        backButton.classList.add("hidden");
-        loginError.classList.add("hidden");
+          // Admin va directo a admin.html
+          if (currentUser.rol === 1) {
+              window.location.href = "admin.html";
+              return;
+          }
 
-      if (initializeManagementElements()) {
-        setupEventListeners();
-        await iniciarVentanilla();
-      } else {
-        throw new Error("Error al inicializar la interfaz");
+          // VERIFICAR SI YA TIENE VENTANILLA ASIGNADA Y ACTIVA
+          const ventanillaActivaRes = await fetch(`${API_BASE_URL}/api/empleado/${currentUser.id}/ventanilla-activa`);
+          if (!ventanillaActivaRes.ok) {
+              throw new Error("Error al verificar ventanilla del empleado");
+          }
+
+          const ventanillaActiva = await ventanillaActivaRes.json();
+          if (ventanillaActiva && ventanillaActiva.ID_Ventanilla) {
+              console.log("Usando ventanilla asignada:", ventanillaActiva);
+              currentUser.ventanilla = {
+                  id: ventanillaActiva.ID_Ventanilla,
+                  nombre: ventanillaActiva.Ventanilla
+              };
+
+              loginScreen.classList.add("hidden");
+              managementScreen.classList.remove("hidden");
+              backButton.classList.add("hidden");
+              loginError.classList.add("hidden");
+
+              if (initializeManagementElements()) {
+                  userSector.textContent = `${currentUser.sector} - ${currentUser.ventanilla.nombre}`;
+                  userName.textContent = currentUser.username;
+                  setupEventListeners();
+                  startTicketPolling();
+              } else {
+                  throw new Error("Error al inicializar la interfaz");
+              }
+              return;
+          }
+
+          // 🚫 No tiene ventanilla asignada
+          alert("No tienes una ventanilla asignada. Contacta al administrador.");
+          return;
+
+      } catch (err) {
+          console.error("Error en login:", err);
+          loginError.textContent = err.message;
+          loginError.classList.remove("hidden");
       }
-        
-    } catch (err) {
-        console.error("Error en login:", err);
-        loginError.textContent = err.message;
-        loginError.classList.remove("hidden");
-    }
-});
+  });
+
 
   // -----------------------------
   // CARGAR VENTANILLAS LIBRES - ELIMINADA
