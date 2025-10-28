@@ -141,6 +141,7 @@ CREATE TABLE Turno (
 DROP TABLE IF EXISTS `Turno_Invitado`;
 CREATE TABLE Turno_Invitado (
     ID_TurnoInvitado INT(6) NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    ID_Sector INT(1) NOT NULL,
     ID_Ventanilla INT(6),
     Fecha_Ticket DATETIME(6) NOT NULL,
     Folio_Invitado VARCHAR(6) NOT NULL,

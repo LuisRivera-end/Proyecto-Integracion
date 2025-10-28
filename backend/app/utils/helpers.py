@@ -56,6 +56,40 @@ def obtener_fecha_actual():
 def obtener_fecha_publico():
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
+def generar_folio_invitado():
+    """Genera un folio único para turnos invitados (INV001, INV002, etc.)"""
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    
+    try:
+        # Obtener el último folio de invitado
+        cursor.execute("""
+            SELECT Folio_Invitado 
+            FROM Turno_Invitado 
+            WHERE Folio_Invitado LIKE 'INV%' 
+            ORDER BY ID_TurnoInvitado DESC 
+            LIMIT 1
+        """)
+        
+        ultimo_folio = cursor.fetchone()
+        
+        if ultimo_folio:
+            # Extraer número y incrementar
+            numero = int(ultimo_folio['Folio_Invitado'][3:]) + 1
+        else:
+            # Primer ticket invitado
+            numero = 1
+        
+        return f"INV{numero:03d}"
+        
+    except Exception as e:
+        print(f"Error generando folio invitado: {e}")
+        # Fallback: usar timestamp
+        return f"INV{int(datetime.now().timestamp()) % 1000:03d}"
+    finally:
+        cursor.close()
+        conn.close()
+
 def login_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):

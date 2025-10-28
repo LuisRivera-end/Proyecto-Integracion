@@ -1,9 +1,8 @@
 from flask import Blueprint, request, jsonify, make_response, current_app
 from app.models.database import get_db_connection
 from app.utils.helpers import generar_folio_unico, obtener_fecha_actual, obtener_fecha_publico
-from app.models.pdf_generator import generar_ticket_PDF
+from app.models.pdf_generator import generar_ticket_PDF, generar_ticket_invitado_PDF
 from datetime import datetime
-import requests
 import base64
 
 bp = Blueprint('tickets', __name__, url_prefix='/api')

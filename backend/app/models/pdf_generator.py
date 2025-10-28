@@ -51,3 +51,39 @@ def generar_ticket_PDF(matricula, numero_ticket, sector, fecha, tiempo_estimado)
     pdf.ln(10)
 
     return pdf.output(dest='S').encode('latin-1')
+
+def generar_ticket_invitado_PDF(folio, sector, fecha, tiempo_estimado):
+    """Genera PDF para tickets de invitados"""
+    pdf = TicketPDF("P", "mm", (58, 100))  # Tamaño ajustado para ticket
+    pdf.set_auto_page_break(auto=False)
+    pdf.set_margins(left=3, top=5, right=3)
+    pdf.add_page()
+
+    # Encabezado (la imagen ya se coloca en header())
+    pdf.set_font("Arial", "B", 12)
+    pdf.cell(0, 6, "TICKET DE TURNO", ln=True, align="C")
+    pdf.ln(2)
+
+    # Datos del ticket
+    pdf.set_font("Arial", "", 9)
+    pdf.cell(0, 5, f"Folio: {folio}", ln=True)
+    pdf.cell(0, 5, f"Sector: {sector}", ln=True)
+    pdf.cell(0, 5, f"Fecha: {fecha}", ln=True)
+    pdf.cell(0, 5, f"Tiempo estimado: {tiempo_estimado} min", ln=True)
+    
+    pdf.ln(3)
+    
+    # Separador
+    pdf.cell(0, 0, "-" * 35, ln=True, align="C")
+    pdf.ln(3)
+    
+    # Información adicional
+    pdf.set_font("Arial", "I", 8)
+    pdf.cell(0, 4, "Conserve este ticket", ln=True, align="C")
+    pdf.cell(0, 4, "para su atención", ln=True, align="C")
+    
+    # Espacio para corte
+    pdf.ln(10)
+
+    return pdf.output(dest='S').encode('latin-1')
+    pass
