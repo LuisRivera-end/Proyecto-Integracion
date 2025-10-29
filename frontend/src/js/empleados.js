@@ -106,9 +106,15 @@ document.addEventListener("DOMContentLoaded", async() => {
         ventanillaCell = '<span class="text-gray-400 text-xs">N/A</span>';
       } else if (emp.ID_ROL === 3) {
         // Operador Becas - mostrar "Becas 1"
-        ventanillaCell = emp.Ventanilla 
-          ? `<span class="text-sm">${formatearNombreVentanilla(emp.Ventanilla)}</span>`
-          : '<span class="text-gray-400 text-xs">Sin asignar</span>';
+        const ventanillaAsignada = emp.ID_Ventanilla || 1; // ID de "Becas 1"
+        ventanillaCell = `<span class="text-sm">${formatearNombreVentanilla("Beca1")}</span>`;
+        if (!emp.ID_Ventanilla) {
+                await fetch(`${API_BASE_URL}/api/employees/${emp.ID_Empleado}/ventanilla`, {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ id_ventanilla: ventanillaAsignada })
+                });
+            }
       } else {
         // Operador Cajas o Servicios Escolares - select para elegir
         const ventanillas = await cargarVentanillasParaRol(emp.ID_ROL);
