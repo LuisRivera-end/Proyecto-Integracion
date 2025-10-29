@@ -106,7 +106,7 @@ document.addEventListener("DOMContentLoaded", async() => {
         ventanillaCell = '<span class="text-gray-400 text-xs">N/A</span>';
       } else if (emp.ID_ROL === 3) {
         // Operador Becas - mostrar "Becas 1"
-        const ventanillaAsignada = emp.ID_Ventanilla || 1; // ID de "Becas 1"
+        const ventanillaAsignada = emp.ID_Ventanilla || 5; // ID de "Becas 1"
         ventanillaCell = `<span class="text-sm">${formatearNombreVentanilla("Beca1")}</span>`;
         if (!emp.ID_Ventanilla) {
                 await fetch(`${API_BASE_URL}/api/employees/${emp.ID_Empleado}/ventanilla`, {
