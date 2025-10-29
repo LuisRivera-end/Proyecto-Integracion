@@ -442,7 +442,7 @@ def generar_ticket():
 
         return jsonify({
             "mensaje": "Ticket generado exitosamente",
-            "folio": Folio, # Este 'folio' ya es el folio completo de 6 caracteres (ej. C6H2S9)
+            "folio": Folio,
             "fecha": Fecha_Ticket_publico,
             "alumno": matricula,
             "sector": sector_nombre

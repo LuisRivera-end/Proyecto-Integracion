@@ -60,7 +60,7 @@ CREATE TABLE Alumnos (
 
 DROP TABLE IF EXISTS `Horarios`;
 CREATE TABLE Horarios (
-    ID_Horario INT(6) AUTO_INCREMENT PRIMARY KEY,
+    ID_Horario INT(1) AUTO_INCREMENT PRIMARY KEY,
     ID_Tipo INT(1) NOT NULL,
     Descripcion VARCHAR(30) NOT NULL,
     Hora_Inicio TIME NOT NULL,
@@ -70,7 +70,7 @@ CREATE TABLE Horarios (
 
 DROP TABLE IF EXISTS `Ventanillas`;
 CREATE TABLE Ventanillas (
-    ID_Ventanilla INT(6) AUTO_INCREMENT PRIMARY KEY,
+    ID_Ventanilla INT(1) AUTO_INCREMENT PRIMARY KEY,
     Ventanilla VARCHAR(30) NOT NULL,
     ID_Sector INT(1) NOT NULL,
     FOREIGN KEY (ID_Sector) REFERENCES Sectores(ID_Sector)
@@ -100,7 +100,7 @@ CREATE TABLE Empleado (
 DROP TABLE IF EXISTS `Empleado_Horario`;
 CREATE TABLE Empleado_Horario (
     ID_Registro INT(6) NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    ID_Horario INT(6) NOT NULL,
+    ID_Horario INT(1) NOT NULL,
     ID_Empleado INT(6) NOT NULL,
     Fecha_Inicio_Ausencia DATE NOT NULL,
     Fecha_Final_Ausencia DATE NOT NULL,
@@ -112,7 +112,7 @@ DROP TABLE IF EXISTS `Empleado_Ventanilla`;
 CREATE TABLE Empleado_Ventanilla (
     ID_Asignacion INT(6) NOT NULL AUTO_INCREMENT PRIMARY KEY,
     ID_Empleado INT(6) NOT NULL,
-    ID_Ventanilla INT(6) NOT NULL,
+    ID_Ventanilla INT(1) NOT NULL,
     Fecha_Inicio DATETIME NOT NULL,
     Fecha_Termino DATETIME,
     ID_Estado INT(1) NOT NULL,
