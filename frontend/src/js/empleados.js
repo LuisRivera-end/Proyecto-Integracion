@@ -1,7 +1,16 @@
 import Config from './config.js';
 const API_BASE_URL = Config.API_BASE_URL;
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async() => {
+   try {
+        // Llamada POST para actualizar los estados según descansos activos hoy
+        await fetch(`${API_BASE_URL}/api/employees/update-status`, { method: "POST" });
+        console.log("Estados de empleados actualizados al abrir login");
+    } catch (err) {
+        console.error("No se pudieron actualizar los estados al abrir login:", err);
+    }
+
+
   const empleadoForm = document.getElementById("empleadoForm");
   const tablaEmpleados = document.getElementById("tablaEmpleados");
 
