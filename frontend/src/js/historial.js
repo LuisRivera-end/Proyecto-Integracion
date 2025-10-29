@@ -319,14 +319,24 @@ function aplicarFiltros() {
     
     // ✅ CORRECCIÓN: Solo aplicar fechas si tienen valor
     if (fechaInicioInput.value) {
-        fechaInicio = new Date(fechaInicioInput.value);
-        fechaInicio.setHours(0, 0, 0, 0);
-    }
-    
-    if (fechaFinInput.value) {
-        fechaFin = new Date(fechaFinInput.value);
-        fechaFin.setHours(23, 59, 59, 999);
-    }
+    const partesInicio = fechaInicioInput.value.split("-");
+    fechaInicio = new Date(
+        partesInicio[0],
+        partesInicio[1] - 1,
+        partesInicio[2],
+        0, 0, 0, 0
+    );
+}
+
+if (fechaFinInput.value) {
+    const partesFin = fechaFinInput.value.split("-");
+    fechaFin = new Date(
+        partesFin[0],
+        partesFin[1] - 1,
+        partesFin[2],
+        23, 59, 59, 999
+    );
+}
     
     // ✅ CORRECCIÓN: Solo validar si ambas fechas tienen valor
     if (fechaInicio && fechaFin && fechaInicio > fechaFin) {
