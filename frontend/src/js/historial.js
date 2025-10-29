@@ -403,7 +403,7 @@ function iniciarRefreshAutomatico() {
         refreshInterval = setInterval(() => {
             console.log("🔄 Actualizando automáticamente historial...");
             aplicarFiltros();
-        }, 10000); // 10 segundos
+        }, 3000); // 10 segundos
     }, 2000);
 }
 

@@ -79,10 +79,6 @@ document.addEventListener("DOMContentLoaded", async () => {
               sector: data.sector 
           };
 
-          if (currentUser.rol !== 1) {
-            document.title = `${currentUser.sector} - ${currentUser.username}`;
-          }
-
           // Admin va directo a admin.html
           if (currentUser.rol === 1) {
               window.location.href = "admin.html";
@@ -109,6 +105,9 @@ document.addEventListener("DOMContentLoaded", async () => {
               loginError.classList.add("hidden");
 
               if (initializeManagementElements()) {
+                  if (currentUser.rol !== 1) {
+                    document.title = `${currentUser.sector} - ${currentUser.username}`;
+                  }
                   userSector.textContent = `${currentUser.sector} - ${currentUser.ventanilla.nombre}`;
                   userName.textContent = currentUser.username;
                   setupEventListeners();
