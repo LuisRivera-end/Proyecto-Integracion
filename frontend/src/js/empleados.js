@@ -41,17 +41,6 @@ document.addEventListener("DOMContentLoaded", () => {
           default: return 'bg-gray-100 text-gray-800';
         }
       };
-
-      const getEstadoNombre = (idEstado) => {
-        switch(idEstado) {
-          case 1: return 'Activo';
-          case 2: return 'Descanso';
-          case 3: return 'Despedido';
-          case 4: return 'Inactivo';
-          default: return 'Desconocido';
-        }
-      };
-
       // Es admin?
       const esAdmin = emp.ID_ROL === 1;
 
@@ -290,28 +279,6 @@ document.addEventListener("DOMContentLoaded", () => {
       console.error("Error al cargar roles:", err);
     }
   }
-
-  // Cargar estados
-  async function cargarEstados() {
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/estados_empleado`);
-      const estados = await res.json();
-      const estadoSelect = document.getElementById("estado");
-      
-      // ❌ No mostrar "Descanso" al agregar empleado
-      estados.forEach(e => {
-        if (e.Nombre !== "Descanso") {
-          const opt = document.createElement("option");
-          opt.value = e.ID_Estado;
-          opt.textContent = e.Nombre;
-          estadoSelect.appendChild(opt);
-        }
-      });
-    } catch (err) {
-      console.error("Error al cargar estados:", err);
-    }
-  }
-
   // Inicializar
   cargarRoles();
   //cargarEstados();
