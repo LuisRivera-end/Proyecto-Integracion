@@ -68,7 +68,7 @@ def obtener_fecha_actual():
 
 def obtener_fecha_publico():
     tz_mexico = pytz.timezone('America/Mexico_City')
-    return datetime.now(tz_mexico).strftime("%Y-%m-%d %H:%M:%S.%f")
+    return datetime.now(tz_mexico).strftime("%Y-%m-%d %H:%M:%S")
 
 def generar_folio_invitado(sector_nombre):
     """Genera un folio único para turnos invitados"""
