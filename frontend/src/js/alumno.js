@@ -13,88 +13,88 @@ document.addEventListener("DOMContentLoaded", () => {
     const inputMatriculaFolio = document.getElementById("input-matricula-folio");
 
     // Manejar cambios en el checkbox de invitado
-noMatriculaCheckbox.addEventListener('change', function(e) {
-    const inputMatricula = document.getElementById('input-matricula-folio');
-    const invitadoInfo = document.getElementById('invitado-info');
-    
-    if (this.checked) {
-        matriculaFolioLabel.textContent = "Tipo";
-        inputMatricula.placeholder = "No requerido para invitados";
-        inputMatricula.value = "";
-        inputMatricula.setAttribute('disabled', 'disabled');
-        inputMatricula.classList.add('bg-slate-100', 'text-slate-400');
-        invitadoInfo.classList.remove('hidden');
-    } else {
-        matriculaFolioLabel.textContent = "Matrícula";
-        inputMatricula.placeholder = "Ingresa tu matrícula";
-        inputMatricula.removeAttribute('disabled');
-        inputMatricula.classList.remove('bg-slate-100', 'text-slate-400');
-        invitadoInfo.classList.add('hidden');
-    }
-});
+    noMatriculaCheckbox.addEventListener('change', function (e) {
+        const inputMatricula = document.getElementById('input-matricula-folio');
+        const invitadoInfo = document.getElementById('invitado-info');
+
+        if (this.checked) {
+            matriculaFolioLabel.textContent = "Tipo";
+            inputMatricula.placeholder = "No requerido para invitados";
+            inputMatricula.value = "";
+            inputMatricula.setAttribute('disabled', 'disabled');
+            inputMatricula.classList.add('bg-slate-100', 'text-slate-400');
+            invitadoInfo.classList.remove('hidden');
+        } else {
+            matriculaFolioLabel.textContent = "Matrícula";
+            inputMatricula.placeholder = "Ingresa tu matrícula";
+            inputMatricula.removeAttribute('disabled');
+            inputMatricula.classList.remove('bg-slate-100', 'text-slate-400');
+            invitadoInfo.classList.add('hidden');
+        }
+    });
 
     form.addEventListener("submit", async (e) => {
-    e.preventDefault();
+        e.preventDefault();
 
-    const MatriculaOFolioIngresado = inputMatriculaFolio.value.trim();
-    const sector = document.getElementById("sector").value;
-    const esInvitado = noMatriculaCheckbox.checked;
+        const MatriculaOFolioIngresado = inputMatriculaFolio.value.trim();
+        const sector = document.getElementById("sector").value;
+        const esInvitado = noMatriculaCheckbox.checked;
 
-    if ((!esInvitado && !MatriculaOFolioIngresado) || !sector) {
+        if ((!esInvitado && !MatriculaOFolioIngresado) || !sector) {
             showError("Por favor, completa todos los campos.");
             return;
         }
-        
-    const ahora = new Date();
-    const dia = ahora.getDay(); 
-    const hora = ahora.getHours();
+
+        const ahora = new Date();
+        const dia = ahora.getDay();
+        const hora = ahora.getHours();
 
         if (dia === 0) {
             showError("No se pueden generar tickets los domingos.");
             return;
-        } else if (dia >= 1 && dia <= 5) { 
+        } else if (dia >= 1 && dia <= 5) {
             if (hora < 8 || hora >= 17) {
                 showError("Solo se pueden generar tickets de lunes a viernes de 8:00 a 17:00.");
                 return;
             }
-        } else if (dia === 6) { 
+        } else if (dia === 6) {
             if (hora < 8 || hora >= 14) {
                 showError("Solo se pueden generar tickets los sábados de 8:00 a 14:00.");
                 return;
             }
         }
-    try {   
-        console.log("Iniciando proceso de generación de ticket...");
-        
-        // 1. Primero obtener el tiempo estimado
-        let tiempoEstimado = 5; // Valor por defecto actualizado
         try {
-            console.log("Consultando tiempo estimado para sector:", sector);
-            const tiempoResponse = await fetch(`${API_BASE_URL}/api/tiempo_espera_promedio/${encodeURIComponent(sector)}`);
-            
-            if (tiempoResponse.ok) {
-                const tiempoData = await tiempoResponse.json();
-                tiempoEstimado = tiempoData.tiempo_estimado;
-                console.log("Tiempo estimado obtenido:", tiempoEstimado);
-            } else {
-                console.warn("No se pudo obtener tiempo estimado, usando valor por defecto");
-            }
-        } catch (tiempoError) {
-            console.warn("Error al obtener tiempo estimado:", tiempoError);
-            // Mantener el valor por defecto
-        }
+            console.log("Iniciando proceso de generación de ticket...");
 
-        // 2. Luego generar el ticket
-        console.log("Generando ticket...");
-        let response, data;
-        if (esInvitado) {
+            // 1. Primero obtener el tiempo estimado
+            let tiempoEstimado = 5; // Valor por defecto actualizado
+            try {
+                console.log("Consultando tiempo estimado para sector:", sector);
+                const tiempoResponse = await fetch(`${API_BASE_URL}/api/tiempo_espera_promedio/${encodeURIComponent(sector)}`);
+
+                if (tiempoResponse.ok) {
+                    const tiempoData = await tiempoResponse.json();
+                    tiempoEstimado = tiempoData.tiempo_estimado;
+                    console.log("Tiempo estimado obtenido:", tiempoEstimado);
+                } else {
+                    console.warn("No se pudo obtener tiempo estimado, usando valor por defecto");
+                }
+            } catch (tiempoError) {
+                console.warn("Error al obtener tiempo estimado:", tiempoError);
+                // Mantener el valor por defecto
+            }
+
+            // 2. Luego generar el ticket
+            console.log("Generando ticket...");
+            let response, data;
+            if (esInvitado) {
                 // GENERAR TICKET INVITADO
                 console.log("Generando ticket para INVITADO");
                 response = await fetch(`${API_BASE_URL}/api/ticket/invitado`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ 
-                        sector 
+                    body: JSON.stringify({
+                        sector
                     })
                 });
             } else {
@@ -103,21 +103,21 @@ noMatriculaCheckbox.addEventListener('change', function(e) {
                 response = await fetch(`${API_BASE_URL}/api/ticket`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ 
+                    body: JSON.stringify({
                         matricula: MatriculaOFolioIngresado,
-                        sector 
+                        sector
                     })
                 });
             }
 
-        data = await response.json();
+            data = await response.json();
 
-        if (!response.ok) {
-            throw new Error(data.error || "Error al generar el ticket");
-        }
+            if (!response.ok) {
+                throw new Error(data.error || "Error al generar el ticket");
+            }
 
-        const matriculaFolio = document.getElementById("matricula-o-folio");
-        if (esInvitado) {
+            const matriculaFolio = document.getElementById("matricula-o-folio");
+            if (esInvitado) {
                 matriculaFolio.textContent = "Tipo:";
                 document.getElementById("result-matricula-o-folio").textContent = "Invitado";
                 document.getElementById("result-matricula-o-folio").style.fontWeight = "bold";
@@ -142,22 +142,22 @@ noMatriculaCheckbox.addEventListener('change', function(e) {
             }
 
 
-        // ✅ Cambiar vistas
-        formContainer.classList.add("hidden");
-        ticketResult.classList.remove("hidden");
-        errorMessage.classList.add("hidden");
+            // ✅ Cambiar vistas
+            formContainer.classList.add("hidden");
+            ticketResult.classList.remove("hidden");
+            errorMessage.classList.add("hidden");
 
-    } catch (err) {
-        showError(err.message);
-    }
-});
+        } catch (err) {
+            showError(err.message);
+        }
+    });
 
     function showError(message) {
         errorText.textContent = message;
         errorMessage.classList.remove("hidden");
     }
 
-    window.resetForm = function() {
+    window.resetForm = function () {
         form.reset();
         formContainer.classList.remove("hidden");
         ticketResult.classList.add("hidden");
@@ -166,7 +166,7 @@ noMatriculaCheckbox.addEventListener('change', function(e) {
         noMatriculaCheckbox.checked = false;
         noMatriculaCheckbox.dispatchEvent(new Event('change'));
     };
-    
+
 });
 
 async function imprimir() {
@@ -183,18 +183,18 @@ async function imprimir() {
         const response = await fetch(`${API_BASE_URL}/api/ticket/print`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ 
+            body: JSON.stringify({
                 matricula: esInvitado ? null : matricula, // Para invitados, enviar null
-                numero_ticket, 
-                sector, 
-                fecha, 
-                tiempo_estimado 
+                numero_ticket,
+                sector,
+                fecha,
+                tiempo_estimado
             })
         });
 
 
         const result = await response.json();
-        
+
         if (response.ok) {
             console.log('✅ Ticket enviado a impresora:', result.message);
             alert('Ticket enviado a impresora POS-58');
@@ -209,7 +209,7 @@ async function imprimir() {
 
 async function descargar() {
     // Obtener los datos visibles del ticket
-    const GOOGLE_LOGIN_URL = `${API_BASE_URL}/api/login_google`; 
+    const GOOGLE_LOGIN_URL = `${API_BASE_URL}/api/login_google`;
     const matricula = document.getElementById("result-matricula-o-folio").textContent.trim();
     const sector = document.getElementById("result-sector").textContent.trim();
     const numero_ticket = document.getElementById("result-ticket").textContent.trim();
@@ -235,7 +235,7 @@ async function descargar() {
         if (response.status === 401) {
             alert("⚠️ Autenticación de Google Drive requerida. Serás redirigido para iniciar sesión y autorizar a la aplicación.");
             window.location.href = GOOGLE_LOGIN_URL;
-            return; 
+            return;
         }
 
         const data = await response.json();
