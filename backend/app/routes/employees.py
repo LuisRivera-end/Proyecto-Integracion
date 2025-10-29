@@ -261,3 +261,18 @@ def save_agenda():
     finally:
         cursor.close()
         conn.close()
+
+@bp.route("/employees/exists/<usuario>", methods=["GET"])
+def check_user_exists(usuario):
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    try:
+        cursor.execute("SELECT 1 FROM Empleado WHERE Usuario = %s LIMIT 1", (usuario,))
+        exists = cursor.fetchone() is not None
+        return jsonify({"exists": exists}), 200
+    except Exception as e:
+        print(f"Error en check_user_exists: {e}")
+        return jsonify({"error": str(e)}), 500
+    finally:
+        cursor.close()
+        conn.close()

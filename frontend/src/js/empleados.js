@@ -235,13 +235,41 @@ document.addEventListener("DOMContentLoaded", () => {
       id_rol: parseInt(document.getElementById("rol").value),
     };
 
-    // Validaciones
     if (!data.nombre1 || !data.apellido1 || !data.usuario || !data.passwd) {
       alert("Por favor complete los campos obligatorios");
       return;
     }
 
+   // Validar contraseña segura
+    const password = data.passwd;
+
+    if (password.length < 8) {
+      alert("La contraseña debe tener al menos 8 caracteres");
+      return;
+    }
+
+    // Debe tener al menos una letra mayúscula
+    if (!/[A-Z]/.test(password)) {
+      alert("La contraseña debe contener al menos una letra mayúscula");
+      return;
+    }
+
+    // Debe tener al menos un número
+    if (!/[0-9]/.test(password)) {
+      alert("La contraseña debe contener al menos un número");
+      return;
+    }
+
+
     try {
+      const verificarUsuario = await fetch(`${API_BASE_URL}/api/employees/exists/${encodeURIComponent(data.usuario)}`);
+      const existe = await verificarUsuario.json();
+
+      if (existe.exists) {
+        alert("El nombre de usuario ya existe. Por favor elija otro.");
+        return;
+      }
+
       const res = await fetch(`${API_BASE_URL}/api/employees/add`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -261,6 +289,7 @@ document.addEventListener("DOMContentLoaded", () => {
       alert(err.message || "Error al agregar empleado");
     }
   });
+
 
   // Cargar roles
   async function cargarRoles() {
