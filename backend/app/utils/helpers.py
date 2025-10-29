@@ -4,6 +4,7 @@ from datetime import datetime
 from app.models.database import get_db_connection
 from functools import wraps
 from flask import session, jsonify
+import pytz
 
 def get_sector_prefix_and_length(sector_nombre):
     """Mapea el nombre del sector a su prefijo y la longitud de la parte aleatoria."""
@@ -62,10 +63,12 @@ def generar_folio_unico(sector_nombre):
         conn.close()
 
 def obtener_fecha_actual():
-    return datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+    tz_mexico = pytz.timezone('America/Mexico_City')
+    return datetime.now(tz_mexico).strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
 
 def obtener_fecha_publico():
-    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    tz_mexico = pytz.timezone('America/Mexico_City')
+    return datetime.now(tz_mexico).strftime("%Y-%m-%d %H:%M:%S.%f")
 
 def generar_folio_invitado(sector_nombre):
     """Genera un folio único para turnos invitados"""
