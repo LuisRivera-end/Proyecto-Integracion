@@ -972,14 +972,14 @@ def tiempo_espera_promedio_por_sector(sector_nombre):
         cursor.execute("""
             SELECT COUNT(*) as total_tickets 
             FROM Turno 
-            WHERE ID_Sector = %s AND ID_Estados = 3
+            WHERE ID_Sector = %s AND ID_Estados = 4
         """, (id_sector,))
         total_tickets_normales = cursor.fetchone()["total_tickets"]
         
         cursor.execute("""
             SELECT COUNT(*) as total_tickets 
             FROM Turno_Invitado 
-            WHERE ID_Sector = %s AND ID_Estados = 3
+            WHERE ID_Sector = %s AND ID_Estados = 4
         """, (id_sector,))
         total_tickets_invitados = cursor.fetchone()["total_tickets"]
         
@@ -987,32 +987,32 @@ def tiempo_espera_promedio_por_sector(sector_nombre):
         print(f"📊 Total de tickets completados en sector {sector_nombre}: {total_tickets} (normales: {total_tickets_normales}, invitados: {total_tickets_invitados})")
         
         # 1. Calcular el tiempo promedio COMBINADO de ambas tablas
-        print("📊 Consultando tiempos históricos COMBINADOS...")
+        print("📊 Consultando tiempos históricos COMBINADOS (últimas 2 horas)...")
         cursor.execute("""
             (
-                -- TURNOS NORMALES completados
+                -- TURNOS NORMALES completados (entre 1 minuto y 1 hora)
                 SELECT 
                     TIMESTAMPDIFF(SECOND, t.Fecha_Ticket, t.Fecha_Ultimo_Estado) as segundos,
                     'normal' as tipo
                 FROM Turno t
-                WHERE t.ID_Estados = 3
+                WHERE t.ID_Estados = 4
                 AND t.ID_Sector = %s
                 AND t.Fecha_Ticket >= DATE_SUB(NOW(), INTERVAL 2 HOUR)
                 AND t.Fecha_Ultimo_Estado > t.Fecha_Ticket
-                AND TIMESTAMPDIFF(SECOND, t.Fecha_Ticket, t.Fecha_Ultimo_Estado) > 0
+                AND TIMESTAMPDIFF(SECOND, t.Fecha_Ticket, t.Fecha_Ultimo_Estado) BETWEEN 60 AND 3600
             )
             UNION ALL
             (
-                -- TURNOS INVITADOS completados
+                -- TURNOS INVITADOS completados (entre 1 minuto y 1 hora)
                 SELECT 
                     TIMESTAMPDIFF(SECOND, ti.Fecha_Ticket, ti.Fecha_Ultimo_Estado) as segundos,
                     'invitado' as tipo
                 FROM Turno_Invitado ti
-                WHERE ti.ID_Estados = 3
+                WHERE ti.ID_Estados = 4
                 AND ti.ID_Sector = %s
                 AND ti.Fecha_Ticket >= DATE_SUB(NOW(), INTERVAL 2 HOUR)
                 AND ti.Fecha_Ultimo_Estado > ti.Fecha_Ticket
-                AND TIMESTAMPDIFF(SECOND, ti.Fecha_Ticket, ti.Fecha_Ultimo_Estado) > 0
+                AND TIMESTAMPDIFF(SECOND, ti.Fecha_Ticket, ti.Fecha_Ultimo_Estado) BETWEEN 60 AND 3600
             )
         """, (id_sector, id_sector))
         
@@ -1023,34 +1023,36 @@ def tiempo_espera_promedio_por_sector(sector_nombre):
             total_segundos = sum(t['segundos'] for t in tiempos)
             promedio_segundos = total_segundos / len(tiempos)
             total_tickets_historial = len(tiempos)
-            print(f"📈 Resultado consulta 2 horas: {promedio_segundos:.1f} segundos (de {total_tickets_historial} tickets)")
+            print(f"📈 Resultado consulta 2 horas (1min-1h): {promedio_segundos:.1f} segundos (de {total_tickets_historial} tickets)")
         else:
             promedio_segundos = None
             total_tickets_historial = 0
-            print("📈 No hay datos en las últimas 2 horas")
+            print("📈 No hay datos en las últimas 2 horas con duración 1min-1h")
         
         # Si no hay datos recientes, intentar con rango más amplio
         if not tiempos:
-            print("🕐 Consultando todos los tickets completados...")
+            print("🕐 Consultando todos los tickets completados (1min-1h)...")
             cursor.execute("""
                 (
+                    -- TURNOS NORMALES completados (entre 1 minuto y 1 hora)
                     SELECT 
                         TIMESTAMPDIFF(SECOND, t.Fecha_Ticket, t.Fecha_Ultimo_Estado) as segundos
                     FROM Turno t
-                    WHERE t.ID_Estados = 3
+                    WHERE t.ID_Estados = 4
                     AND t.ID_Sector = %s
                     AND t.Fecha_Ultimo_Estado > t.Fecha_Ticket
-                    AND TIMESTAMPDIFF(SECOND, t.Fecha_Ticket, t.Fecha_Ultimo_Estado) > 0
+                    AND TIMESTAMPDIFF(SECOND, t.Fecha_Ticket, t.Fecha_Ultimo_Estado) BETWEEN 60 AND 3600
                 )
                 UNION ALL
                 (
+                    -- TURNOS INVITADOS completados (entre 1 minuto y 1 hora)
                     SELECT 
                         TIMESTAMPDIFF(SECOND, ti.Fecha_Ticket, ti.Fecha_Ultimo_Estado) as segundos
                     FROM Turno_Invitado ti
-                    WHERE ti.ID_Estados = 3
+                    WHERE ti.ID_Estados = 4
                     AND ti.ID_Sector = %s
                     AND ti.Fecha_Ultimo_Estado > ti.Fecha_Ticket
-                    AND TIMESTAMPDIFF(SECOND, ti.Fecha_Ticket, ti.Fecha_Ultimo_Estado) > 0
+                    AND TIMESTAMPDIFF(SECOND, ti.Fecha_Ticket, ti.Fecha_Ultimo_Estado) BETWEEN 60 AND 3600
                 )
             """, (id_sector, id_sector))
             
@@ -1059,7 +1061,7 @@ def tiempo_espera_promedio_por_sector(sector_nombre):
                 total_segundos = sum(t['segundos'] for t in tiempos)
                 promedio_segundos = total_segundos / len(tiempos)
                 total_tickets_historial = len(tiempos)
-                print(f"📈 Resultado consulta completa: {promedio_segundos:.1f} segundos (de {total_tickets_historial} tickets)")
+                print(f"📈 Resultado consulta completa (1min-1h): {promedio_segundos:.1f} segundos (de {total_tickets_historial} tickets)")
         
         # 2. Contar tickets pendientes por delante en AMBAS tablas
         cursor.execute("""
@@ -1084,7 +1086,7 @@ def tiempo_espera_promedio_por_sector(sector_nombre):
         # 3. Determinar el tiempo estimado base
         if promedio_segundos and total_tickets_historial > 0:
             tiempo_base = promedio_segundos / 60  # Convertir a minutos
-            print(f"⏱️  Tiempo base calculado: {tiempo_base:.1f} minutos (de {total_tickets_historial} tickets combinados)")
+            print(f"⏱️  Tiempo base calculado: {tiempo_base:.1f} minutos (de {total_tickets_historial} tickets combinados, filtro 1min-1h)")
         else:
             # Valores por defecto según el sector
             tiempos_por_defecto = {
@@ -1093,7 +1095,7 @@ def tiempo_espera_promedio_por_sector(sector_nombre):
                 "Servicios Escolares": 5
             }
             tiempo_base = tiempos_por_defecto.get(sector_nombre, 5)
-            print(f"⚙️  Usando tiempo por defecto: {tiempo_base} minutos (sin datos históricos)")
+            print(f"⚙️  Usando tiempo por defecto: {tiempo_base} minutos (sin datos históricos válidos)")
         
         # 4. Calcular tiempo total considerando tickets pendientes
         factor_por_ticket = 0.85
