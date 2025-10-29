@@ -179,6 +179,15 @@ async function imprimir() {
 
     console.log('🖨️ Enviando a impresión directa...');
 
+    console.log('🖨️ Datos para impresión:', {
+        matricula: esInvitado ? null : matricula,
+        numero_ticket, 
+        sector, 
+        fecha, 
+        tiempo_estimado,
+        esInvitado
+    }); 
+
     try {
         const response = await fetch(`${API_BASE_URL}/api/ticket/print`, {
             method: "POST",

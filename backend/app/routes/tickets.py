@@ -301,54 +301,107 @@ def download_ticket_pdf():
 def request_ticket_print():
     data = request.get_json()
     
+    # ✅ Agregar logs de depuración
+    print(f"🔍 DEBUG /ticket/print - Datos recibidos: {data}")
+    
     try:
+        # ✅ Verificar que los datos necesarios estén presentes
+        if not data or 'numero_ticket' not in data:
+            return jsonify({"error": "Datos incompletos: numero_ticket es requerido"}), 400
+            
+        numero_ticket = data['numero_ticket']
+        print(f"🔍 DEBUG - Número de ticket: {numero_ticket}")
         
-        es_invitado = es_turno_invitado(data['numero_ticket'])
-        # Generar PDF
-        if es_invitado:
-            # Usar función específica para invitados
-            pdf_bytes = generar_ticket_invitado_PDF(
-                data['numero_ticket'],
-                data['sector'],
-                data['fecha'],
-                data['tiempo_estimado']
-            )
-        else:
-            # Ticket normal con datos de alumno
-            pdf_bytes = generar_ticket_PDF(
-                data['matricula'],
-                data['numero_ticket'], 
-                data['sector'],
-                data['fecha'],
-                data['tiempo_estimado']
-            )
+        # ✅ Manejar posibles errores en es_turno_invitado
+        try:
+            es_invitado = es_turno_invitado(numero_ticket)
+            print(f"🔍 DEBUG - Es invitado: {es_invitado}")
+        except Exception as e:
+            print(f"❌ Error en es_turno_invitado: {e}")
+            # Si falla la verificación, asumir que es ticket normal
+            es_invitado = False
         
-        pdf_base64 = base64.b64encode(pdf_bytes).decode('utf-8')
+        # ✅ Generar PDF según el tipo
+        try:
+            if es_invitado:
+                print("🖨️ Generando PDF para ticket INVITADO")
+                # Verificar datos requeridos para invitados
+                required_fields = ['numero_ticket', 'sector', 'fecha', 'tiempo_estimado']
+                for field in required_fields:
+                    if field not in data:
+                        return jsonify({"error": f"Campo requerido faltante: {field}"}), 400
+                
+                pdf_bytes = generar_ticket_invitado_PDF(
+                    data['numero_ticket'],
+                    data['sector'],
+                    data['fecha'],
+                    data['tiempo_estimado']
+                )
+            else:
+                print("🖨️ Generando PDF para ticket NORMAL")
+                # Verificar datos requeridos para tickets normales
+                required_fields = ['matricula', 'numero_ticket', 'sector', 'fecha', 'tiempo_estimado']
+                for field in required_fields:
+                    if field not in data:
+                        return jsonify({"error": f"Campo requerido faltante: {field}"}), 400
+                
+                pdf_bytes = generar_ticket_PDF(
+                    data['matricula'],
+                    data['numero_ticket'], 
+                    data['sector'],
+                    data['fecha'],
+                    data['tiempo_estimado']
+                )
+                
+            print("✅ PDF generado exitosamente")
+            
+        except Exception as pdf_error:
+            print(f"❌ Error al generar PDF: {pdf_error}")
+            return jsonify({"error": f"Error al generar el PDF: {str(pdf_error)}"}), 500
         
-        # Obtener la función de impresión desde la configuración de la app
+        # ✅ Convertir a base64
+        try:
+            pdf_base64 = base64.b64encode(pdf_bytes).decode('utf-8')
+            print("✅ PDF convertido a base64")
+        except Exception as base64_error:
+            print(f"❌ Error al convertir PDF a base64: {base64_error}")
+            return jsonify({"error": "Error al procesar el PDF"}), 500
+        
+        # ✅ Obtener función de impresión
         send_print_job = current_app.config.get('SEND_PRINT_JOB')
         
         if not send_print_job:
+            print("❌ Servicio de impresión no disponible")
             return jsonify({"error": "Servicio de impresión no disponible"}), 500
         
-        # Enviar trabajo de impresión via WebSocket
-        success, message = send_print_job(
-            pdf_content=pdf_base64,
-            ticket_number=data['numero_ticket'],
-            sector=data['sector']
-        )
-        
-        if success:
-            return jsonify({
-                "message": message,
-                "ticket_number": data['numero_ticket']
-            }), 200
-        else:
-            return jsonify({"error": message}), 500
+        # ✅ Enviar trabajo de impresión
+        try:
+            print("📤 Enviando trabajo de impresión...")
+            success, message = send_print_job(
+                pdf_content=pdf_base64,
+                ticket_number=data['numero_ticket'],
+                sector=data['sector']
+            )
+            
+            if success:
+                print(f"✅ Impresión exitosa: {message}")
+                return jsonify({
+                    "message": message,
+                    "ticket_number": data['numero_ticket']
+                }), 200
+            else:
+                print(f"❌ Error en impresión: {message}")
+                return jsonify({"error": message}), 500
+                
+        except Exception as print_error:
+            print(f"❌ Error al enviar a impresión: {print_error}")
+            return jsonify({"error": f"Error de comunicación con la impresora: {str(print_error)}"}), 500
         
     except Exception as e:
-        print(f"Error en impresión WebSocket: {e}")
-        return jsonify({"error": f"Error interno: {str(e)}"}), 500
+        print(f"❌ Error general en impresión WebSocket: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": f"Error interno del servidor: {str(e)}"}), 500 
 
 
 @bp.route('/ticket', methods=['POST'])

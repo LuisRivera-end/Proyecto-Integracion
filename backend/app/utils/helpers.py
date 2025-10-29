@@ -105,19 +105,28 @@ def generar_folio_invitado(sector_nombre):
         conn.close()
 
 def es_turno_invitado(folio):
+    """Determina si un folio corresponde a un turno invitado"""
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
     
     try:
-        # Verificar si existe en Turno_Invitado con estados activos
+        print(f"🔍 Verificando tipo de ticket: {folio}")
+        
+        # Verificar si existe en Turno_Invitado
         cursor.execute("""
             SELECT 1 FROM Turno_Invitado 
-            WHERE Folio_Invitado = %s AND ID_Estados IN (1, 3)
+            WHERE Folio_Invitado = %s
         """, (folio,))
         
-        return cursor.fetchone() is not None
+        es_invitado = cursor.fetchone() is not None
+        
+        print(f"🔍 Resultado verificación: {es_invitado}")
+        
+        return es_invitado
+        
     except Exception as e:
-        print(f"Error verificando tipo de turno: {e}")
+        print(f"❌ Error en es_turno_invitado: {e}")
+        # En caso de error, asumir que es ticket normal
         return False
     finally:
         cursor.close()

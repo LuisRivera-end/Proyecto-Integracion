@@ -190,86 +190,6 @@ return;
 
    
 
-
-  // -----------------------------
-  // CARGAR VENTANILLAS LIBRES - ELIMINADA
-  // -----------------------------
-  /* La función cargarVentanillas se elimina por completo */
-  
-// -----------------------------
-// INICIAR VENTANILLA - CORREGIDO
-// -----------------------------
-// Se eliminó la línea "iniciarVentanilla(ventanilla.id, ventanilla.nombre);"
-async function iniciarVentanilla() {
-    try {
-        console.log("Buscando ventanilla libre para empleado:", currentUser.id);
-
-        // PRIMERO: Obtener una ventanilla libre para este empleado
-        const ventanillasRes = await fetch(`${API_BASE_URL}/api/ventanillas/libres/${currentUser.id}`);
-        
-        if (!ventanillasRes.ok) {
-            throw new Error("No se pudieron obtener ventanillas libres");
-        }
-
-        const ventanillasLibres = await ventanillasRes.json();
-        console.log("Ventanillas libres:", ventanillasLibres);
-
-        if (!ventanillasLibres || ventanillasLibres.length === 0) {
-            throw new Error("No hay ventanillas disponibles para tu rol. Contacta al administrador.");
-        }
-
-        // Tomar la primera ventanilla libre disponible
-        const ventanillaAsignada = ventanillasLibres[0];
-        const idVentanilla = ventanillaAsignada.ID_Ventanilla;
-
-        console.log("Asignando ventanilla automáticamente:", {
-            empleado: currentUser.id,
-            ventanilla: idVentanilla
-        });
-
-        // SEGUNDO: Iniciar la ventanilla seleccionada
-        const res = await fetch(`${API_BASE_URL}/api/ventanilla/iniciar`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ 
-                id_empleado: currentUser.id, 
-                id_ventanilla: idVentanilla 
-            })
-        });
-        
-        const data = await res.json();
-        
-        if (!res.ok) {
-            throw new Error(data.error || "No se pudo iniciar ventanilla");
-        }
-
-        console.log("Ventanilla iniciada:", data);
-
-        // Usar la información que devuelve el backend
-        currentUser.ventanilla = { 
-            id: data.ID_Ventanilla || idVentanilla, 
-            nombre: data.Nombre_Ventanilla || ventanillaAsignada.Ventanilla
-        };
-
-        // Actualizar la interfaz
-        userSector.textContent = `${currentUser.sector} - ${currentUser.ventanilla.nombre}`;
-        userName.textContent = currentUser.username;
-
-        // Iniciar polling para actualizar tickets automáticamente
-        startTicketPolling();
-
-    } catch (err) {
-        console.error("Error al iniciar ventanilla:", err);
-        alert(`Error al iniciar ventanilla: ${err.message}. Por favor, cierra sesión e intenta de nuevo.`);
-        
-        // Regresar a la pantalla de login si falla la inicialización
-        managementScreen.classList.add("hidden");
-        loginScreen.classList.remove("hidden");
-        backButton.classList.remove("hidden");
-    }
-}
-
-
  // -----------------------------
   // CONFIGURAR EVENT LISTENERS
   // -----------------------------
@@ -347,37 +267,6 @@ async function llamarSiguienteTicket() {
       alert(err.message || "Error al llamar siguiente ticket");
     }
 }
-
-// -----------------------------
-// OBTENER INFORMACIÓN DEL SIGUIENTE TICKET - NUEVA FUNCIÓN
-// -----------------------------
-async function getNextTicketInfo() {
-  try {
-    const allTickets = await getAllTickets();
-    // El primer ticket de la lista es el siguiente en ser atendido (ordenado por fecha más antigua)
-    return allTickets.length > 0 ? allTickets[0] : null;
-  } catch (err) {
-    console.error("Error al obtener siguiente ticket:", err);
-    return null;
-  }
-}
-
-  // -----------------------------
-  // OBTENER INFORMACIÓN DEL TICKET
-  // -----------------------------
-  async function getTicketInfo(folio) {
-    try {
-      const allTickets = await getAllTickets();
-      const ticket = allTickets.find(t => {
-        const ticketFolio = t.folio || t.Folio || t.ID_Ticket;
-        return ticketFolio === folio;
-      });
-      return ticket || null;
-    } catch (err) {
-      console.error("Error al obtener info del ticket:", err);
-      return null;
-    }
-  }
 
   async function getAllTickets() {
     try {
