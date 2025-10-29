@@ -241,7 +241,7 @@ async function iniciarVentanilla() {
    // -----------------------------
   // LLAMAR SIGUIENTE TICKET - VERSIÓN CORREGIDA
   // -----------------------------
-  async function llamarSiguienteTicket() {
+async function llamarSiguienteTicket() {
     if (!currentUser?.ventanilla) return;
     
     if (currentTicket) {
@@ -250,22 +250,13 @@ async function iniciarVentanilla() {
     }
 
     try {
-      // PRIMERO: Obtener información del siguiente ticket ANTES de llamarlo
-      const nextTicketInfo = await getNextTicketInfo();
-      if (!nextTicketInfo) {
-        alert("No hay tickets pendientes para atender.");
-        return;
-      }
-      
-      console.log("Siguiente ticket encontrado:", nextTicketInfo);
-
-      // SEGUNDO: Llamar al ticket
+      // Llamar al ticket directamente
       const res = await fetch(`${API_BASE_URL}/api/tickets/llamar-siguiente`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
           id_ventanilla: currentUser.ventanilla.id,
-          id_empleado: currentUser.id 
+          id_empleado: currentUser.id
         })
       });
 
@@ -276,11 +267,11 @@ async function iniciarVentanilla() {
       
       const data = await res.json();
       
-      // USAR LA INFORMACIÓN COMPLETA QUE YA OBTUVIMOS ANTES
+      // USAR LA INFORMACIÓN COMPLETA QUE DEVUELVE EL BACKEND
       currentTicket = {
         folio: data.folio,
-        matricula: nextTicketInfo.matricula || 'N/A',
-        nombre_alumno: nextTicketInfo.nombre_alumno || 'N/A'
+        matricula: data.matricula || 'N/A',
+        nombre_alumno: data.nombre_alumno || 'N/A'
       };
       
       console.log("Ticket actual establecido:", currentTicket);
@@ -290,7 +281,7 @@ async function iniciarVentanilla() {
       callNextBtn.disabled = true;
       callNextBtn.classList.add("opacity-50", "cursor-not-allowed");
       completeCurrentBtn.classList.remove("hidden");
-      cancelCurrentBtn.classList.remove("hidden"); // MOSTRAR BOTÓN CANCELAR
+      cancelCurrentBtn.classList.remove("hidden");
       currentTicketSection.classList.remove("hidden");
       
       // Recargar lista de tickets pendientes
@@ -300,7 +291,7 @@ async function iniciarVentanilla() {
       console.error("Error al llamar siguiente ticket:", err);
       alert(err.message || "Error al llamar siguiente ticket");
     }
-  }
+}
 
 // -----------------------------
 // OBTENER INFORMACIÓN DEL SIGUIENTE TICKET - NUEVA FUNCIÓN
