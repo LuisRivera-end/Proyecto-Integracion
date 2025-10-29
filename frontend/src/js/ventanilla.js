@@ -21,34 +21,42 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // Estos elementos se inicializarán cuando managementScreen esté visible
   let callNextBtn, completeCurrentBtn, cancelCurrentBtn, currentTicketSection, currentTicketFolio, currentTicketMatricula, currentTicketAlumno, ticketsContainer, noTicketsMessage;
+  let normalTicketLayout, invitadoTicketLayout, currentTicketFolioInvitado, currentTicketInvitado; // NUEVAS VARIABLES
 
   let currentUser = null;
   let refreshInterval = null;
   let currentTicket = null;
-
-  // -----------------------------
-  // INICIALIZAR ELEMENTOS DE MANAGEMENT SCREEN
-  // -----------------------------
-  function initializeManagementElements() {
+ // -----------------------------
+// INICIALIZAR ELEMENTOS DE MANAGEMENT SCREEN
+// -----------------------------
+function initializeManagementElements() {
     callNextBtn = document.getElementById("call-next-btn");
     completeCurrentBtn = document.getElementById("complete-current-btn");
-    cancelCurrentBtn = document.getElementById("cancel-current-btn"); // NUEVO BOTÓN
+    cancelCurrentBtn = document.getElementById("cancel-current-btn");
     currentTicketSection = document.getElementById("current-ticket-section");
     currentTicketFolio = document.getElementById("current-ticket-folio");
     currentTicketMatricula = document.getElementById("current-ticket-matricula");
     currentTicketAlumno = document.getElementById("current-ticket-alumno");
     ticketsContainer = document.getElementById("tickets-container");
     noTicketsMessage = document.getElementById("no-tickets-message");
+    
+    // NUEVOS ELEMENTOS PARA INVITADOS
+    normalTicketLayout = document.getElementById("normal-ticket-layout");
+    invitadoTicketLayout = document.getElementById("invitado-ticket-layout");
+    currentTicketFolioInvitado = document.getElementById("current-ticket-folio-invitado");
+    currentTicketInvitado = document.getElementById("current-ticket-invitado");
 
     // Verificar que todos los elementos existan
     if (!callNextBtn || !completeCurrentBtn || !cancelCurrentBtn || !currentTicketSection || 
-        !currentTicketFolio || !currentTicketMatricula || !ticketsContainer || !currentTicketAlumno || !noTicketsMessage) {
+        !currentTicketFolio || !currentTicketMatricula || !ticketsContainer || !currentTicketAlumno || 
+        !noTicketsMessage || !normalTicketLayout || !invitadoTicketLayout || !currentTicketFolioInvitado || 
+        !currentTicketInvitado) {
       console.error("No se pudieron encontrar todos los elementos de management screen");
       return false;
     }
     
     return true;
-  }
+}
 
   // -----------------------------
   // LOGIN - CORREGIDO
@@ -230,9 +238,9 @@ async function iniciarVentanilla() {
     }
   }
 
-   // -----------------------------
-  // LLAMAR SIGUIENTE TICKET - VERSIÓN CORREGIDA
-  // -----------------------------
+// -----------------------------
+// LLAMAR SIGUIENTE TICKET - VERSIÓN CORREGIDA CON SOPORTE PARA INVITADOS
+// -----------------------------
 async function llamarSiguienteTicket() {
     if (!currentUser?.ventanilla) return;
     
@@ -262,8 +270,9 @@ async function llamarSiguienteTicket() {
       // USAR LA INFORMACIÓN COMPLETA QUE DEVUELVE EL BACKEND
       currentTicket = {
         folio: data.folio,
-        matricula: data.matricula || 'N/A',
-        nombre_alumno: data.nombre_alumno || 'N/A'
+        matricula: data.matricula || null,
+        nombre_alumno: data.nombre_alumno || 'Invitado',
+        tipo: data.tipo || 'normal' // 'normal' o 'invitado'
       };
       
       console.log("Ticket actual establecido:", currentTicket);
@@ -344,16 +353,32 @@ async function getNextTicketInfo() {
     }
   }
 
-  // -----------------------------
-  // ACTUALIZAR UI DEL TICKET ACTUAL - CORREGIDO
-  // -----------------------------
-  function updateCurrentTicketUI() {
-    if (currentTicket && currentTicketFolio && currentTicketMatricula && currentTicketAlumno) {
-      currentTicketFolio.textContent = currentTicket.folio;
-      currentTicketMatricula.textContent = currentTicket.matricula;
-      currentTicketAlumno.textContent = currentTicket.nombre_alumno; // CORREGIDO: usar currentTicket en lugar de ticket
+// -----------------------------
+// ACTUALIZAR UI DEL TICKET ACTUAL - MODIFICADO PARA INVITADOS
+// -----------------------------
+function updateCurrentTicketUI() {
+    if (!currentTicket) return;
+    
+    // Mostrar información según el tipo de ticket
+    if (currentTicket.tipo === 'invitado' || currentTicket.nombre_alumno === 'Invitado') {
+        // Es un turno invitado - Mostrar layout de 2 columnas
+        normalTicketLayout.classList.add("hidden");
+        invitadoTicketLayout.classList.remove("hidden");
+        
+        currentTicketFolioInvitado.textContent = currentTicket.folio;
+        currentTicketInvitado.textContent = 'Invitado';
+        
+    } else {
+        // Es un turno normal - Mostrar layout de 3 columnas
+        invitadoTicketLayout.classList.add("hidden");
+        normalTicketLayout.classList.remove("hidden");
+        
+        currentTicketFolio.textContent = currentTicket.folio;
+        currentTicketMatricula.textContent = currentTicket.matricula || 'N/A';
+        currentTicketAlumno.textContent = currentTicket.nombre_alumno;
     }
-  }
+}
+
 
   // -----------------------------
   // COMPLETAR TICKET ACTUAL
@@ -421,16 +446,20 @@ async function getNextTicketInfo() {
     }
   }
 
-  // -----------------------------
-  // RESET UI DEL TICKET ACTUAL - NUEVA FUNCIÓN
-  // -----------------------------
-  function resetCurrentTicketUI() {
+ // -----------------------------
+// RESET UI DEL TICKET ACTUAL - MODIFICADO
+// -----------------------------
+function resetCurrentTicketUI() {
     callNextBtn.disabled = false;
     callNextBtn.classList.remove("opacity-50", "cursor-not-allowed");
     completeCurrentBtn.classList.add("hidden");
     cancelCurrentBtn.classList.add("hidden");
     currentTicketSection.classList.add("hidden");
-  }
+    
+    // Ocultar ambos layouts
+    normalTicketLayout.classList.add("hidden");
+    invitadoTicketLayout.classList.add("hidden");
+}
 
 
   // -----------------------------
@@ -481,9 +510,9 @@ async function getNextTicketInfo() {
   }
 
  // -----------------------------
-  // RENDERIZAR TICKETS
-  // -----------------------------
-  function renderTickets(tickets, sector) {
+// RENDERIZAR TICKETS - MODIFICADO PARA INVITADOS
+// -----------------------------
+function renderTickets(tickets, sector) {
     if (!ticketsContainer || !noTicketsMessage) {
       console.error("Elementos del DOM no disponibles");
       return;
@@ -518,14 +547,15 @@ async function getNextTicketInfo() {
         div.className = "p-4 bg-gray-50 border rounded-lg shadow-sm";
         
         const ticketId = ticket.folio || ticket.Folio || ticket.ID_Ticket;
+        const esInvitado = ticket.tipo === 'invitado' || ticket.nombre_alumno === 'Invitado' || !ticket.matricula;
         
         div.innerHTML = `
           <div class="text-center">
             <p class="font-semibold text-gray-800">
               Ticket: <span class="text-blue-600">${ticketId}</span>
             </p>
-            <p class="text-sm text-gray-600 mt-1">
-              Matrícula: ${ticket.matricula || 'Invitado'}
+            <p class="text-sm ${esInvitado ? 'text-blue-600 font-semibold' : 'text-gray-600'} mt-1">
+              ${esInvitado ? 'Turno Invitado' : `Matrícula: ${ticket.matricula}`}
             </p>
             <p class="text-xs text-gray-500 mt-1">
               Estado: <span class="text-orange-500">${ticket.estado || 'Pendiente'}</span>
@@ -536,7 +566,8 @@ async function getNextTicketInfo() {
         ticketsContainer.appendChild(div);
       });
     }
-  }
+}
+
 
   // -----------------------------
   // CERRAR SESIÓN
