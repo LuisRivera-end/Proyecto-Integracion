@@ -222,12 +222,12 @@ INSERT INTO Ventanillas (Ventanilla, ID_Sector) VALUES
 /* Estado = Activo */
 INSERT INTO Empleado (ID_ROL, nombre1, nombre2, Apellido1, Apellido2, Usuario, Passwd, ID_Estado)
 VALUES 
-(1, 'Luis', '', 'Rivera', '', 'admin', SHA2('12345', 256), 1),
-(2, 'Luis', '', 'Rivera', '', 'Fur1us', SHA2('12345', 256), 1),
-(2, 'Gabriel', '', 'Ortiz', '', 'itzumi', SHA2('12345', 256), 1),
-(3, 'Salvador', '', 'Butanda', '', 'python', SHA2('12345', 256), 1),
-(4, 'Hola', '', 'Butanda', '', 'butanda', SHA2('12345', 256), 1),
-(2, 'Jose', 'Antonio', 'Zenil', 'Ruiz', 'antoniozr', SHA2('12345', 256), 1);
+(1, 'Luis', '', 'Rivera', '', 'admin', SHA2('12345678', 256), 1),
+(2, 'Luis', '', 'Rivera', 'Gamez', 'Fur1us', SHA2('12345678', 256), 1),
+(2, 'Gabriel', '', 'Ortiz', '', 'itzumi', SHA2('12345678', 256), 1),
+(3, 'Salvador', '', 'Butanda', '', 'python', SHA2('12345678', 256), 1),
+(4, 'Cristian', '', 'Butanda', '', 'butanda', SHA2('12345678', 256), 1),
+(2, 'Jose', 'Antonio', 'Zenil', 'Ruiz', 'antoniozr', SHA2('12345678', 256), 1);
 
 
 /* ====== 10. Alumnos ====== */
