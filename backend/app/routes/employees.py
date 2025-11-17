@@ -268,45 +268,40 @@ def asignar_ventanilla(id_empleado):
     data = request.get_json()
     nueva_ventanilla = data.get("id_ventanilla")
 
-    if not nueva_ventanilla:
-        return jsonify({"error": "Debe indicar una ventanilla"}), 400
-
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
 
     try:
-        # 1️⃣ Obtener ID_Estado "Activo" e "Inactivo"
+        # Estados
         cursor.execute("SELECT ID_Estado FROM Estado_empleado_ventanilla WHERE Nombre = 'Activo' LIMIT 1")
-        estado_activo = cursor.fetchone()
-        if not estado_activo:
-            return jsonify({"error": "No existe el estado 'Activo'"}), 500
-        estado_activo_id = estado_activo["ID_Estado"]
+        estado_activo_id = cursor.fetchone()["ID_Estado"]
 
         cursor.execute("SELECT ID_Estado FROM Estado_empleado_ventanilla WHERE Nombre = 'Inactivo' LIMIT 1")
-        estado_inactivo = cursor.fetchone()
-        if not estado_inactivo:
-            return jsonify({"error": "No existe el estado 'Inactivo'"}), 500
-        estado_inactivo_id = estado_inactivo["ID_Estado"]
+        estado_inactivo_id = cursor.fetchone()["ID_Estado"]
 
-        # 2️⃣ Validar que la ventanilla no esté ocupada por otro empleado
-        cursor.execute("""
-            SELECT 1
-            FROM Empleado_Ventanilla
-            WHERE ID_Ventanilla = %s AND Fecha_Termino IS NULL AND ID_Estado = %s
-            LIMIT 1
-        """, (nueva_ventanilla, estado_activo_id))
-
-        if cursor.fetchone():
-            return jsonify({"error": "La ventanilla ya está asignada a otro empleado"}), 400
-
-        # 3️⃣ Cerrar la ventanilla actual del empleado (si existe)
+        # 1️⃣ Cerrar ventanilla actual SIEMPRE
         cursor.execute("""
             UPDATE Empleado_Ventanilla
             SET Fecha_Termino = NOW(), ID_Estado = %s
             WHERE ID_Empleado = %s AND Fecha_Termino IS NULL
         """, (estado_inactivo_id, id_empleado))
 
-        # 4️⃣ Asignar la nueva ventanilla
+        # 2️⃣ Si se envió "null" → significa quitar ventanilla, NO asignar nueva
+        if nueva_ventanilla is None:
+            conn.commit()
+            return jsonify({"message": "Ventanilla removida correctamente"}), 200
+
+        # 3️⃣ VALIDAR que la nueva ventanilla no esté ocupada
+        cursor.execute("""
+            SELECT 1
+            FROM Empleado_Ventanilla
+            WHERE ID_Ventanilla = %s AND Fecha_Termino IS NULL AND ID_Estado = %s
+        """, (nueva_ventanilla, estado_activo_id))
+
+        if cursor.fetchone():
+            return jsonify({"error": "La ventanilla ya está asignada a otro empleado"}), 400
+
+        # 4️⃣ Insertar nueva ventanilla
         cursor.execute("""
             INSERT INTO Empleado_Ventanilla (ID_Empleado, ID_Ventanilla, Fecha_Inicio, ID_Estado)
             VALUES (%s, %s, NOW(), %s)

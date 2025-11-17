@@ -150,25 +150,6 @@ function initializeManagementElements() {
       }
 
 
-      if (currentUser.sector && currentUser.sector.toLowerCase() === "becas") {
-        console.log("Empleado de Becas sin ventanilla: acceso permitido.");
-        
-        currentUser.ventanilla = { id: null, nombre: "Ventanilla unica" };
-
-        loginScreen.classList.add("hidden");
-        managementScreen.classList.remove("hidden");
-        backButton.classList.add("hidden");
-        loginError.classList.add("hidden");
-
-        if (initializeManagementElements()) {
-          document.title = `${currentUser.sector} - ${currentUser.username}`;
-          userSector.textContent = `${currentUser.sector} - ${currentUser.ventanilla.nombre}`;
-          userName.textContent = currentUser.username;
-          setupEventListeners();
-          startTicketPolling();
-        }
-        return;
-      }
 
 
 alert("No tienes una ventanilla asignada. Contacta al administrador.");

@@ -93,7 +93,7 @@ document.addEventListener("DOMContentLoaded", async() => {
           const numero = nombre.replace('ServiciosEscolares', '');
           return `Sev ${numero}`;
         } else if (nombre.startsWith('Beca')) {
-          return 'Becas 1';
+          return nombre;
         }
         return nombre;
       };
@@ -104,17 +104,6 @@ document.addEventListener("DOMContentLoaded", async() => {
       if (esAdmin) {
         // Admin no tiene ventanilla
         ventanillaCell = '<span class="text-gray-400 text-xs">N/A</span>';
-      } else if (emp.ID_ROL === 3) {
-        // Operador Becas - mostrar "Becas 1"
-        const ventanillaAsignada = emp.ID_Ventanilla || 5; // ID de "Becas 1"
-        ventanillaCell = `<span class="text-sm">${formatearNombreVentanilla("Beca1")}</span>`;
-        if (!emp.ID_Ventanilla) {
-                await fetch(`${API_BASE_URL}/api/employees/${emp.ID_Empleado}/ventanilla`, {
-                    method: "PUT",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ id_ventanilla: ventanillaAsignada })
-                });
-            }
       } else {
         // Operador Cajas o Servicios Escolares - select para elegir
         const ventanillas = await cargarVentanillasParaRol(emp.ID_ROL);
@@ -125,13 +114,19 @@ document.addEventListener("DOMContentLoaded", async() => {
           <select 
             onchange="asignarVentanilla(${emp.ID_Empleado}, this.value)"
             class="w-32 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-slate-500">
+            
+            <!-- NUEVA OPCIÓN: dejar sin ventanilla -->
+            <option value="0" ${emp.ID_Ventanilla === null ? 'selected' : ''}>Sin ventanilla</option>
+
             <option value="">Seleccionar...</option>
+
             ${ventanillas.map(v => `
               <option value="${v.ID_Ventanilla}" ${emp.ID_Ventanilla === v.ID_Ventanilla ? 'selected' : ''}>
                 ${formatearNombreVentanilla(v.Ventanilla)}
               </option>
             `).join('')}
-          </select>
+        </select>
+
         `;
       }
 
@@ -163,7 +158,15 @@ document.addEventListener("DOMContentLoaded", async() => {
 
   // Función global para asignar ventanilla
   window.asignarVentanilla = async function(idEmpleado, idVentanilla) {
+    // Si selecciona "Sin ventanilla" (0)
+    if (idVentanilla === "0") {
+        quitarVentanilla(idEmpleado);
+        return;
+    }
+
+    // Si selecciona "Seleccionar..."
     if (!idVentanilla) return;
+
     
     try {
       const res = await fetch(`${API_BASE_URL}/api/employees/${idEmpleado}/ventanilla`, {
@@ -189,6 +192,32 @@ document.addEventListener("DOMContentLoaded", async() => {
       alert("Error al asignar ventanilla");
     }
   };
+
+  window.quitarVentanilla = async function(idEmpleado) {
+    try {
+        const res = await fetch(`${API_BASE_URL}/api/employees/${idEmpleado}/ventanilla`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id_ventanilla: null })
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+            alert(data.error || "Error al quitar ventanilla");
+            loadEmployees();
+            return;
+        }
+
+        alert("Ventanilla eliminada correctamente");
+        loadEmployees();
+
+    } catch (err) {
+        console.error(err);
+        alert("Error al quitar la ventanilla");
+    }
+  };
+
 
   // Función global para cambiar estado
   window.cambiarEstado = async function(idEmpleado, nuevoEstado) {
