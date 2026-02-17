@@ -66,119 +66,12 @@
     </div>
 
     <!-- Pantalla de gestión de tickets -->
-    <div id="management-screen" class="hidden min-h-screen p-8">
-      <div class="max-w-6xl mx-auto">
-        <div class="bg-white/95 backdrop-blur-sm rounded-3xl shadow-xl p-8 mb-8 flex justify-between items-center border border-slate-200">
-          <div>
-            <h1 class="text-3xl font-bold text-slate-800">Panel de Ventanilla</h1>
-            <p class="text-slate-600 mt-2">Sector: <span id="user-sector" class="font-semibold text-emerald-700"></span></p>
-            <p class="text-sm text-slate-500 mt-1">Usuario: <span id="user-name" class="font-medium"></span></p>
-          </div>
-          <button id="logout-btn"
-                  class="bg-slate-600 hover:bg-slate-700 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-300 flex items-center gap-2 shadow-md hover:shadow-lg">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0
-                    01-3 3H6a3 3 0
-                    01-3-3V7a3 3 0
-                    013-3h4a3 3 0
-                    013 3v1"/>
-            </svg>
-            Cerrar Sesión
-          </button>
-        </div>
-
-        <div class="bg-white/95 backdrop-blur-sm rounded-3xl shadow-xl p-8 border border-slate-200">
-          
-          <!-- Botón Llamar Siguiente -->
-          <button id="call-next-btn"
-              class="w-full bg-gradient-to-r from-slate-500 to-emerald-600 hover:from-slate-700 hover:to-emerald-700 text-white text-lg font-bold py-3 mb-6 rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl">
-              Llamar Siguiente Ticket
-          </button>
-
-        <!-- Área para mostrar el ticket actual en atención - MODIFICADA PARA INVITADOS -->
-        <div id="current-ticket-section" class="hidden mb-6">
-          <div class="bg-blue-50 border border-blue-200 rounded-xl p-6">
-            <h3 class="text-lg font-semibold text-emerald-800 mb-4 text-center">Ticket en Atención</h3>
-            
-            <!-- Layout para tickets normales (3 columnas) -->
-            <div id="normal-ticket-layout" class="flex items-center justify-center space-x-6 mb-4">
-              <div class="text-center">
-                <p class="text-2xl font-bold text-emerald-600" id="current-ticket-folio">-</p>
-                <p class="text-sm text-emerald-500 mt-1">Folio</p>
-              </div>
-              <div class="text-center">
-                <p class="text-lg font-medium text-emerald-700" id="current-ticket-matricula">-</p>
-                <p class="text-sm text-emerald-500 mt-1">Matrícula</p>
-              </div>
-              <div class="text-center">
-                <p class="text-lg font-medium text-emerald-700" id="current-ticket-alumno">-</p>
-                <p class="text-sm text-emerald-500 mt-1">Alumno</p>
-              </div>
-            </div>
-            
-            <!-- Layout para tickets invitados (2 columnas) -->
-            <div id="invitado-ticket-layout" class="hidden flex items-center justify-center space-x-8 mb-4">
-              <div class="text-center">
-                <p class="text-2xl font-bold text-emerald-600" id="current-ticket-folio-invitado">-</p>
-                <p class="text-sm text-emerald-500 mt-1">Folio</p>
-              </div>
-              <div class="text-center">
-                <p class="text-2xl font-bold text-blue-600" id="current-ticket-invitado">Invitado</p>
-                <p class="text-sm text-blue-500 mt-1">Tipo</p>
-              </div>
-            </div>
-            
-            <!-- BOTONES DIVIDIDOS: Cancelar (Izquierda) y Completar (Derecha) -->
-            <div class="flex gap-4 mt-4">
-              <!-- Botón Cancelar (Izquierda - Rojo) -->
-              <button id="cancel-current-btn"
-                  class="flex-1 bg-red-600 hover:bg-red-700 text-white text-lg font-bold py-3 rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl flex items-center justify-center gap-2">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                </svg>
-                Cancelar Ticket
-              </button>
-              
-              <!-- Botón Completar (Derecha - Verde) -->
-              <button id="complete-current-btn"
-                  class="flex-1 bg-green-600 hover:bg-green-700 text-white text-lg font-bold py-3 rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl flex items-center justify-center gap-2">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-                </svg>
-                Completar Ticket
-              </button>
-            </div>
-          </div>
-        </div>
-
-          <h2 class="text-2xl font-bold text-slate-800 mb-6">Tickets en Espera</h2>
-          <!-- CONTENEDOR DE TICKETS PENDIENTES -->
-          <div id="tickets-container" class="space-y-4 mb-6"></div>
-
-          <!-- Mensaje de No Tickets -->
-          <div id="no-tickets-message" class="hidden text-center py-16 bg-white/80 backdrop-blur-sm rounded-2xl border border-slate-200">
-            <div class="inline-flex items-center justify-center w-24 h-24 bg-slate-100 rounded-full mb-4">
-              <svg class="w-12 h-12 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                      d="M9 12l2 2 4-4m6 2a9 9 0
-                      11-18 0 9 9 0
-                      0118 0z"/>
-              </svg>
-            </div>
-            <p class="text-slate-600 text-xl font-semibold">No hay tickets pendientes</p>
-            <p class="text-slate-500 mt-2">Los nuevos tickets aparecerán aquí automáticamente</p>
-          </div>
-        </div>
-      </div>
-    </div>
-
     <!-- idiomas -->
     <div class="gtranslate_wrapper" title="Cambiar idioma"></div>
     <script src="https://cdn.gtranslate.net/widgets/latest/float.js" defer></script>
     <script src="./js/idioma.js"></script>
   </div>
 
-  <script type="module" src="./js/ventanilla.js"></script>
+  <script type="module" src="./js/login.js"></script>
 </body>
 </html>
