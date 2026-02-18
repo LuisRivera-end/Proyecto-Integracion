@@ -113,7 +113,7 @@ def generar_ticket():
 
         cursor.execute("""
             INSERT INTO Turno (ID_Sector, ID_Ventanilla, Fecha_Ticket, Folio, ID_Estados, Fecha_Ultimo_Estado)
-            VALUES (%s, %s, NULL, %s, %s, 1, %s)
+            VALUES (%s, NULL, %s, %s, 1, %s)
         """, (ID_Sector, Fecha_Ticket, Folio, Fecha_Ticket))
 
         conn.commit()

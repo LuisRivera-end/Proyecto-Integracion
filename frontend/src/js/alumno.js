@@ -16,25 +16,6 @@ document.addEventListener("DOMContentLoaded", () => {
             showError("Por favor, selecciona un sector.");
             return;
         }
-
-        const ahora = new Date();
-        const dia = ahora.getDay();
-        const hora = ahora.getHours();
-
-        if (dia === 0) {
-            showError("No se pueden generar tickets los domingos.");
-            return;
-        } else if (dia >= 1 && dia <= 5) {
-            if (hora < 8 || hora >= 17) {
-                showError("Solo se pueden generar tickets de lunes a viernes de 8:00 a 17:00.");
-                return;
-            }
-        } else if (dia === 6) {
-            if (hora < 8 || hora >= 14) {
-                showError("Solo se pueden generar tickets los sábados de 8:00 a 14:00.");
-                return;
-            }
-        }
         try {
             // 1. Generar el ticket
             let response, data;
@@ -42,7 +23,6 @@ document.addEventListener("DOMContentLoaded", () => {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
-                        matricula: MatriculaOFolioIngresado,
                         sector
                     })
                 });
@@ -52,11 +32,6 @@ document.addEventListener("DOMContentLoaded", () => {
             if (!response.ok) {
                 throw new Error(data.error || "Error al generar el ticket");
             }
-
-            const matriculaFolio = document.getElementById("matricula-o-folio");
-            matriculaFolio.textContent = "Matrícula:";
-            document.getElementById("result-matricula-o-folio").textContent = MatriculaOFolioIngresado;
-            document.getElementById("result-matricula-o-folio").style.fontWeight = "normal";
             document.getElementById("result-sector").textContent = data.sector || sector;
             document.getElementById("result-ticket").textContent = data.folio;
             if (data.fecha) document.getElementById("result-fecha").textContent = data.fecha;
