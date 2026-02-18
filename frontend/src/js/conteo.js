@@ -11,6 +11,7 @@ async function actualizarConteos() {
         document.getElementById("count-servicios").textContent = data["Servicios Escolares"] || 0;
         document.getElementById("count-becas").textContent = data["Becas"] || 0;
         document.getElementById("count-cajas").textContent = data["Cajas"] || 0;
+        document.getElementById("count-tesoreria").textContent = data["Tesoreria"] || 0;
     } catch (err) {
         console.error("Error al actualizar conteos:", err);
     }
