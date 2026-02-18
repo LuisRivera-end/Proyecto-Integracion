@@ -171,7 +171,7 @@ def update_employee_ventanilla(id_empleado):
         ocupada = cursor.fetchone()
 
         if ocupada:
-            return jsonify({"error": "⚠️ Esta ventanilla ya está ocupada, seleccione otra."}), 400
+            return jsonify({"error": "Esta ventanilla ya está ocupada, seleccione otra."}), 400
         
         cursor.execute("""
             INSERT INTO Empleado_Ventanilla 

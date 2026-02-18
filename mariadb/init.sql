@@ -111,11 +111,11 @@ CREATE TABLE Rol_Ventanilla (
 /* ====== 1. Roles ====== */
 INSERT INTO Rol (Rol) VALUES 
 ('Admin'),
-('Jefe de Departamento'),
 ('Operador Cajas'), 
 ('Operador Becas'), 
 ("Operador Servicios Escolares"),
-("Operador Tesoreria");
+("Operador Tesoreria"),
+('Jefe de Departamento');
 
 /* ====== 2. Sectores ====== */
 INSERT INTO Sectores (Sector) VALUES 
@@ -154,7 +154,8 @@ INSERT INTO Ventanillas (Ventanilla, ID_Sector) VALUES
 ('ServiciosEscolares1', 3),
 ('ServiciosEscolares2', 3),
 ('ServiciosEscolares3', 3),
-('ServiciosEscolares4', 3);
+('ServiciosEscolares4', 3),
+('Tesoreria1', 4);
 
 /* ====== 7. Empleado (Admin) ====== */
 /* Estado = Activo */
@@ -165,7 +166,8 @@ VALUES
 (2, 'Gabriel', '', 'Ortiz', '', 'itzumi', SHA2('12345678', 256), 1),
 (3, 'Salvador', '', 'Butanda', '', 'python', SHA2('12345678', 256), 1),
 (4, 'Cristian', '', 'Butanda', '', 'butanda', SHA2('12345678', 256), 1),
-(2, 'Jose', 'Antonio', 'Zenil', 'Ruiz', 'antoniozr', SHA2('12345678', 256), 1);
+(2, 'Jose', 'Antonio', 'Zenil', 'Ruiz', 'antoniozr', SHA2('12345678', 256), 1),
+(5, 'Jaime', '', 'Mendez', '', 'jaime', SHA2('12345678', 256), 1);
 
 /* ====== 8. Rol_Ventanilla ====== */
 INSERT INTO Rol_Ventanilla (ID_Rol, ID_Ventanilla) VALUES
@@ -182,4 +184,7 @@ INSERT INTO Rol_Ventanilla (ID_Rol, ID_Ventanilla) VALUES
 (4, 6),  -- ServiciosEscolares1
 (4, 7),  -- ServiciosEscolares2
 (4, 8),  -- ServiciosEscolares3
-(4, 9);  -- ServiciosEscolares4
+(4, 9),  -- ServiciosEscolares4
+
+-- Operador Tesoreria (Rol 5) tiene acceso a la ventanilla de Tesoreria
+(5, 10); -- Tesoreria1

@@ -50,7 +50,9 @@ def login():
             1: "Admin",
             2: "Cajas", 
             3: "Becas",
-            4: "Servicios Escolares"
+            4: "Servicios Escolares",
+            5: "Tesoreria",
+            6: "Jefe de Departamento"
         }
         
         sector = rol_a_sector.get(user["ID_ROL"], "Desconocido")
