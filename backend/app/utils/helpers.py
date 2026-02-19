@@ -5,6 +5,9 @@ from app.models.database import get_db_connection
 from functools import wraps
 from flask import session, jsonify
 import pytz
+import subprocess
+import os
+import uuid
 
 def get_sector_prefix_and_length(sector_nombre):
     """Mapea el nombre del sector a su prefijo y la longitud de la parte aleatoria."""
@@ -70,3 +73,18 @@ def login_required(f):
             return jsonify({"error": "No autenticado"}), 401
         return f(*args, **kwargs)
     return decorated
+
+AUDIO_DIR = "/app/audio"
+
+def speak_to_file(text):
+    os.makedirs(AUDIO_DIR, exist_ok=True)
+
+    filename = f"turno_{uuid.uuid4().hex}.wav"
+    filepath = os.path.join(AUDIO_DIR, filename)
+
+    # Usar espeak directamente para generar audio
+    subprocess.run([
+        "espeak", "-v", "es", "-w", filepath, text
+    ], check=True)
+
+    return filename

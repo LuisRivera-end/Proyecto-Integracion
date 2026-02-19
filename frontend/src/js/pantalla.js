@@ -11,6 +11,55 @@ document.addEventListener("DOMContentLoaded", function() {
 
     // Variable para almacenar el estado anterior
     let estadoAnterior = new Map();
+    let audioHabilitado = false;
+
+    // Botón opcional para habilitar audio (recomendado en pantallas)
+    if (alertaAudio) {
+        alertaAudio.addEventListener("click", () => {
+            audioHabilitado = true;
+            const audio = new Audio();
+            audio.play().catch(() => {}); // desbloquea autoplay
+        });
+        }
+
+        async function reproducirAudio(url) {
+        if (!audioHabilitado) return;
+
+        const audio = new Audio(url);
+        try {
+            await audio.play();
+        } catch (err) {
+            console.error("🔇 Error al reproducir audio:", err);
+        }
+    }
+
+    async function llamarTicket(folio, ventanilla) {
+        try {
+            const res = await fetch(`${API_BASE_URL}/api/turno/llamar`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ folio, ventanilla })
+            });
+
+            if (!res.ok) {
+            throw new Error(`Error backend: ${res.status}`);
+            }
+
+            const data = await res.json();
+
+            if (data.audio_url) {
+            reproducirAudio(data.audio_url);
+            } else if (data.texto) {
+            // fallback si usas Web Speech API
+            hablar(data.texto);
+            }
+
+        } catch (error) {
+            console.error("❌ Error al llamar ticket:", error);
+        }
+    }
+
+
 
     // Función para obtener los tickets desde la API
     async function obtenerTickets() {
@@ -154,9 +203,16 @@ document.addEventListener("DOMContentLoaded", function() {
                         const estadoActual = ticketActual.estado_id || ticketActual.ID_Estados || ticketActual.estado;
                         const estadoAnteriorTicket = anterior ? anterior.hash.split('-')[1] : null;
                         
-                        if ((estadoActual === 3 || estadoActual === 'Atendiendo') &&
-                            estadoAnteriorTicket !== '3' && estadoAnteriorTicket !== 'Atendiendo') {
-                            alertaAudio.play().catch(err => console.warn("No se pudo reproducir audio:", err));
+                        const estadoNormalizado = String(estadoActual);
+                        const estadoAnteriorNormalizado = String(estadoAnteriorTicket);
+
+                        if ((estadoNormalizado === '3' || estadoNormalizado === 'Atendiendo') &&
+                            estadoAnteriorNormalizado !== estadoNormalizado) {
+                            const pantalla = true;
+                            if (pantalla) {
+                                llamarTicket(ticketActual.folio, ticketActual.ventanilla);
+                            }
+
                         }
                         
                         const filaExistente = contenedor.querySelector(`[data-folio="${folio}"]`);

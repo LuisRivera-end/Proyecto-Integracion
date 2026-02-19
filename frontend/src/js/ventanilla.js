@@ -116,9 +116,6 @@ document.addEventListener("DOMContentLoaded", async () => {
             
             currentTicket = {
                 folio: data.folio,
-                matricula: data.matricula || null,
-                nombre_alumno: data.nombre_alumno || 'Invitado',
-                tipo: data.tipo || 'normal'
             };
             
             console.log("Ticket actual establecido:", currentTicket);
@@ -145,21 +142,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     function updateCurrentTicketUI() {
         if (!currentTicket) return;
         
-        if (currentTicket.tipo === 'invitado' || currentTicket.nombre_alumno === 'Invitado') {
-            normalTicketLayout.classList.add("hidden");
-            invitadoTicketLayout.classList.remove("hidden");
-            
-            if(currentTicketFolioInvitado) currentTicketFolioInvitado.textContent = currentTicket.folio;
-            if(currentTicketInvitado) currentTicketInvitado.textContent = 'Invitado';
-            
-        } else {
-            invitadoTicketLayout.classList.add("hidden");
-            normalTicketLayout.classList.remove("hidden");
-            
-            if(currentTicketFolio) currentTicketFolio.textContent = currentTicket.folio;
-            if(currentTicketMatricula) currentTicketMatricula.textContent = currentTicket.matricula || 'N/A';
-            if(currentTicketAlumno) currentTicketAlumno.textContent = currentTicket.nombre_alumno;
-        }
+        if (currentTicketFolio) currentTicketFolio.textContent = currentTicket.folio;
+        
+        // Show/hide layouts only if elements exist
+        if (normalTicketLayout) normalTicketLayout.classList.remove("hidden");
+        if (invitadoTicketLayout) invitadoTicketLayout.classList.add("hidden");
     }
 
     // -----------------------------

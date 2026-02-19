@@ -1,5 +1,9 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, send_from_directory
 from app.models.database import get_db_connection
+from app.utils.helpers import speak_to_file
+import os
+
+API_BASE_URL = os.getenv("IP_ADDRESS", "https://localhost:4443")
 
 bp = Blueprint('ventanillas', __name__, url_prefix='/api')
 
@@ -189,3 +193,20 @@ def update_employee_ventanilla(id_empleado):
     finally:
         cursor.close()
         conn.close()
+        
+@bp.route("/turno/llamar", methods=["POST"])
+def llamar_turno():
+    data = request.json
+    folio = data["folio"]
+    ventanilla = data["ventanilla"]
+
+    texto = f"Turno {folio}, pasar a la ventanilla {ventanilla}"
+    audio_file = speak_to_file(texto)
+
+    return jsonify({
+        "mensaje": "Turno llamado",
+        "audio_url": f"{API_BASE_URL}/api/audio/{audio_file}"
+    })
+@bp.route("/audio/<filename>")
+def get_audio(filename):
+    return send_from_directory("/app/audio", filename)

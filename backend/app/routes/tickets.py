@@ -388,7 +388,6 @@ def llamar_siguiente_ticket():
                     t.ID_Turno as id,
                     t.Fecha_Ticket
                 FROM Turno t
-                JOIN Alumnos a ON t.ID_Alumno = a.ID_Alumno
                 WHERE t.ID_Estados = 1  -- Pendiente
                 AND t.ID_Sector = %s    -- Mismo sector que el empleado
             )
