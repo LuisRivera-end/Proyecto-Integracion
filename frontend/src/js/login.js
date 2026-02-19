@@ -11,14 +11,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     // Limpiar sesión anterior al cargar login
     localStorage.removeItem('currentUser');
 
-    try {
-        // Llamada POST para actualizar los estados según descansos activos hoy
-        await fetch(`${API_BASE_URL}/api/employees/update-status`, { method: "POST" });
-        console.log("Estados de empleados actualizados al abrir login");
-    } catch (err) {
-        console.error("No se pudieron actualizar los estados al abrir login:", err);
-    }
-
     if (loginForm) {
         loginForm.addEventListener("submit", async (e) => {
             e.preventDefault();
