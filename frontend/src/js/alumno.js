@@ -28,6 +28,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 });
 
             data = await response.json();
+            console.log("🎯 Respuesta API ticket:", data);
 
             if (!response.ok) {
                 throw new Error(data.error || "Error al generar el ticket");
@@ -36,9 +37,15 @@ document.addEventListener("DOMContentLoaded", () => {
             document.getElementById("result-ticket").textContent = data.folio;
             if (data.fecha) document.getElementById("result-fecha").textContent = data.fecha;
 
-            // Guardar el tipo de ticket en un atributo para usar en impresión/descarga
-            document.getElementById("ticket-result").setAttribute("data-ticket-type", "normal");
+            if (data.qr_url) {
+                const qrContainer = document.getElementById("qr-container");
+                const qrImage = document.getElementById("qr-image");
+                const qrLink = document.getElementById("qr-link");
 
+                qrImage.src = data.qr_url;
+                if (qrLink) qrLink.href = data.pdf_url || data.qr_url;
+                qrContainer.classList.remove("hidden");
+            }
             // Cambiar vistas
             formContainer.classList.add("hidden");
             ticketResult.classList.remove("hidden");

@@ -49,3 +49,37 @@ def generar_ticket_PDF(numero_ticket, sector, fecha):
     pdf.ln(10)
 
     return pdf.output(dest='S').encode('latin-1')
+
+def generar_ticket_PDF_archivo(numero_ticket, sector, fecha):
+    pdf = TicketPDF("P", "mm", (58, 100))
+    pdf.set_auto_page_break(auto=False)
+    pdf.set_margins(left=3, top=5, right=3)
+    pdf.add_page()
+
+    pdf.set_font("Arial", "B", 12)
+    pdf.cell(0, 6, "TICKET DE TURNO", ln=True, align="C")
+    pdf.ln(2)
+
+    pdf.set_font("Arial", "", 9)
+    pdf.cell(0, 5, f"Folio: {numero_ticket}", ln=True)
+    pdf.cell(0, 5, f"Sector: {sector}", ln=True)
+    pdf.cell(0, 5, f"Fecha: {fecha}", ln=True)
+
+    pdf.ln(3)
+    pdf.cell(0, 0, "-" * 35, ln=True, align="C")
+    pdf.ln(3)
+
+    pdf.set_font("Arial", "I", 8)
+    pdf.cell(0, 4, "Conserve este ticket", ln=True, align="C")
+    pdf.cell(0, 4, "para su atención", ln=True, align="C")
+
+    pdf.ln(10)
+
+    carpeta = "tickets"
+    os.makedirs(carpeta, exist_ok=True)
+
+    nombre_archivo = f"ticket_{numero_ticket}.pdf"
+    ruta = os.path.join(carpeta, nombre_archivo)
+
+    pdf.output(ruta)
+    return ruta, nombre_archivo

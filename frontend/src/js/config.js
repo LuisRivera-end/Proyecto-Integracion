@@ -6,8 +6,8 @@ const Config = (() => {
   
   return {
     API_BASE_URL: LOCAL_HOSTS.includes(host)
-      ? "https://localhost:4443"      // pruebas locales
-      : `https://${host}:4443`,       // IP o DNS
+      ? "http://localhost:8081"     // pruebas locales
+      : `http://${host}:8081`,       // IP o DNS
   };
 })();
 

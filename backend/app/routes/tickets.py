@@ -1,7 +1,8 @@
-from flask import Blueprint, request, session, redirect, jsonify, make_response, current_app
+from flask import Blueprint, request, session, redirect, jsonify, make_response, current_app, send_from_directory, send_file
+import os
 from app.models.database import get_db_connection
-from app.utils.helpers import generar_folio_unico, obtener_fecha_actual, obtener_fecha_publico
-from app.models.pdf_generator import generar_ticket_PDF
+from app.utils.helpers import generar_folio_unico, obtener_fecha_actual, obtener_fecha_publico, generar_qr_ticket, tokens
+from app.models.pdf_generator import generar_ticket_PDF, generar_ticket_PDF_archivo
 from datetime import datetime
 import base64
 import json
@@ -117,12 +118,19 @@ def generar_ticket():
         """, (ID_Sector, Fecha_Ticket, Folio, Fecha_Ticket))
 
         conn.commit()
+        ruta_pdf, nombre_pdf = generar_ticket_PDF_archivo(Folio, sector_nombre, Fecha_Ticket_publico)
+        qr_path = generar_qr_ticket(nombre_pdf)
+        API_BASE_URL = os.getenv("IP_ADDRESS", "https://localhost:4443")
+        qr_url_publica = f"{API_BASE_URL}/api/qr/{os.path.basename(qr_path)}"
+        pdf_url_publica = f"{API_BASE_URL}/api/ticket/{nombre_pdf}"
 
         return jsonify({
             "mensaje": "Ticket generado exitosamente",
             "folio": Folio,
             "fecha": Fecha_Ticket_publico,
-            "sector": sector_nombre
+            "sector": sector_nombre,
+            "qr_url": qr_url_publica,
+            "pdf_url": pdf_url_publica
         }), 201
 
     except Exception as e:
@@ -529,3 +537,30 @@ def get_tickets_publico():
     finally:
         cursor.close()
         conn.close()
+
+TICKETS_DIR = "/app/tickets"
+
+@bp.route("/ticket/<nombre>")
+def descargar_ticket(nombre):
+    return send_from_directory(TICKETS_DIR, nombre, as_attachment=True)
+
+@bp.route("/qr/<nombre>")
+def servir_qr(nombre):
+    qr_folder = os.path.join(os.getcwd(), "app", "static", "qrs")
+    return send_from_directory(qr_folder, nombre)
+
+@bp.route("/ticket/descargar/<token>")
+def descargar_ticket_token(token):
+    if token not in tokens:
+        return jsonify({"error": "Token inválido o expirado"}), 404
+
+    info = tokens[token]
+    if datetime.now() > info["expira"]:
+        del tokens[token]
+        return jsonify({"error": "Token expirado"}), 404
+
+    ruta = os.path.join("tickets", info["archivo"])
+    if not os.path.exists(ruta):
+        return jsonify({"error": "Archivo no encontrado"}), 404
+
+    return send_file(ruta, as_attachment=True)

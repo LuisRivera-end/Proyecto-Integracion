@@ -11,3 +11,4 @@ class Config:
     HOST = os.getenv("HOST", "0.0.0.0")
     PORT = os.getenv("PORT", 5000)
     DEBUG = os.getenv("DEBUG", True)
+    API_BASE_URL = os.getenv("API_BASE_URL", "https://[IP_ADDRESS]")

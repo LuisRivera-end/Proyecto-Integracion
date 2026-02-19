@@ -5,6 +5,10 @@ from app.models.database import get_db_connection
 from functools import wraps
 from flask import session, jsonify
 import pytz
+import qrcode
+import uuid
+from datetime import datetime, timedelta
+import os
 
 def get_sector_prefix_and_length(sector_nombre):
     """Mapea el nombre del sector a su prefijo y la longitud de la parte aleatoria."""
@@ -70,3 +74,32 @@ def login_required(f):
             return jsonify({"error": "No autenticado"}), 401
         return f(*args, **kwargs)
     return decorated
+
+API_BASE_URL = os.getenv("IP_ADDRESS", "https://localhost:4443")
+
+def generar_qr_ticket(nombre_archivo):
+    # Asegurar que el directorio static/qrs existe
+    static_folder = os.path.join(os.getcwd(), "app", "static", "qrs")
+    os.makedirs(static_folder, exist_ok=True)
+
+    # URL pública CORRECTA
+    url = f"{API_BASE_URL}/api/ticket/{nombre_archivo}"
+    
+    img = qrcode.make(url)
+    
+    # Nombre del archivo QR
+    qr_filename = f"qr_{nombre_archivo.replace('.pdf', '')}.png"
+    ruta_completa = os.path.join(static_folder, qr_filename)
+    
+    img.save(ruta_completa)
+    return ruta_completa
+
+tokens = {}
+
+def crear_token(nombre_archivo):
+    token = uuid.uuid4().hex
+    tokens[token] = {
+        "archivo": nombre_archivo,
+        "expira": datetime.now() + timedelta(seconds=40)
+    }
+    return token

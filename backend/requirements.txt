@@ -1,12 +1,11 @@
-# backend/requirements.txt
-Flask
+flask
+flask-cors
+flask-socketio
 mysql-connector-python
-flask_cors
-FPDF
-requests
-Flask-SocketIO
-python-socketio
+fpdf
 eventlet
 flask_session
 pytz
 python-dotenv
+qrcode
+pillow

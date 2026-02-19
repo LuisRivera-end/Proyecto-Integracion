@@ -11,6 +11,9 @@ services:
       - mariadb
     env_file:
       - .env
+    volumes:
+      - ./qrs:/app/qrs
+      - ./tickets:/app/tickets
     environment:
       - DB_HOST=${DB_HOST}
       - DB_USER=${MARIADB_USER}

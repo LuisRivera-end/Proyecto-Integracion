@@ -1,19 +1,19 @@
 FROM python:3.12-alpine
 WORKDIR /app
 RUN apk add --no-cache \
-    cups \           
-    cups-client \    
-    cups-libs \      
-    ghostscript \    
-    poppler-utils \ 
-    netcat-openbsd
+    cups \
+    cups-client \
+    cups-libs \
+    ghostscript \
+    poppler-utils \
+    netcat-openbsd \
+    jpeg-dev \
+    zlib-dev \
+    gcc \
+    musl-dev \
+    python3-dev
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
-RUN pip install --no-cache-dir \
-    google-auth \
-    google-auth-oauthlib \
-    google-auth-httplib2 \
-    google-api-python-client
 COPY . .
 RUN apk add --no-cache netcat-openbsd
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
