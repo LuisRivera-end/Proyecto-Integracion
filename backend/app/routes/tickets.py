@@ -8,6 +8,21 @@ import json
 
 bp = Blueprint('tickets', __name__, url_prefix='/api')
 
+@bp.route('/sectores', methods=['GET'])
+def obtener_sectores():
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    try:
+        cursor.execute("SELECT ID_Sector, Sector FROM Sectores")
+        sectores = cursor.fetchall()
+        return jsonify(sectores), 200
+    except Exception as e:
+        print(f"Error al obtener sectores: {e}")
+        return jsonify({"error": "Error interno al obtener sectores"}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
 @bp.route('/ticket/print', methods=['POST'])
 def request_ticket_print():
     data = request.get_json()
