@@ -8,6 +8,24 @@ document.addEventListener("DOMContentLoaded", () => {
     const errorMessage = document.getElementById("error-message");
     const errorText = document.getElementById("error-text");
 
+    // Cargar sectores dinámicamente desde la API
+    async function cargarSectores() {
+        const sectorSelect = document.getElementById("sector");
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/sectores`);
+            const sectores = await response.json();
+            sectores.forEach(s => {
+                const option = document.createElement("option");
+                option.value = s.Sector;
+                option.textContent = s.Sector;
+                sectorSelect.appendChild(option);
+            });
+        } catch (error) {
+            console.error("Error al cargar sectores:", error);
+        }
+    }
+    cargarSectores();
+
     form.addEventListener("submit", async (e) => {
         e.preventDefault();
         const sector = document.getElementById("sector").value;
