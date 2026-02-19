@@ -223,8 +223,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         cancelCurrentBtn.classList.add("hidden");
         currentTicketSection.classList.add("hidden");
         
-        normalTicketLayout.classList.add("hidden");
-        invitadoTicketLayout.classList.add("hidden");
+        if (normalTicketLayout) normalTicketLayout.classList.add("hidden");
+        if (invitadoTicketLayout) invitadoTicketLayout.classList.add("hidden");
     }
 
     // -----------------------------

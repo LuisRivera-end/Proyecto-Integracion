@@ -13,14 +13,19 @@ document.addEventListener("DOMContentLoaded", function() {
     let estadoAnterior = new Map();
     let audioHabilitado = false;
 
-    // Botón opcional para habilitar audio (recomendado en pantallas)
-    if (alertaAudio) {
-        alertaAudio.addEventListener("click", () => {
+    // Botón para habilitar audio (recomendado en pantallas)
+    const activarAudioBtn = document.getElementById("activarAudio");
+    if (activarAudioBtn) {
+        activarAudioBtn.addEventListener("click", () => {
             audioHabilitado = true;
-            const audio = new Audio();
-            audio.play().catch(() => {}); // desbloquea autoplay
+            // Desbloquea el contexto de audio
+            if (alertaAudio) {
+                alertaAudio.play().catch(() => {});
+            }
+            activarAudioBtn.textContent = "🔊 Audio activado";
+            activarAudioBtn.disabled = true;
         });
-        }
+    }
 
         async function reproducirAudio(url) {
         if (!audioHabilitado) return;
