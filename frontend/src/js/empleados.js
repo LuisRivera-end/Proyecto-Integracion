@@ -2,19 +2,9 @@ import Config from './config.js';
 const API_BASE_URL = Config.API_BASE_URL;
 
 document.addEventListener("DOMContentLoaded", async() => {
-   try {
-        // Llamada POST para actualizar los estados según descansos activos hoy
-        await fetch(`${API_BASE_URL}/api/employees/update-status`, { method: "POST" });
-        console.log("Estados de empleados actualizados al abrir login");
-    } catch (err) {
-        console.error("No se pudieron actualizar los estados al abrir login:", err);
-    }
-
-
   const empleadoForm = document.getElementById("empleadoForm");
   const tablaEmpleados = document.getElementById("tablaEmpleados");
 
-  // Cargar empleados con toda la información
   async function loadEmployees() {
     try {
       const res = await fetch(`${API_BASE_URL}/api/employees/full`);
@@ -117,16 +107,12 @@ document.addEventListener("DOMContentLoaded", async() => {
             
             <!-- NUEVA OPCIÓN: dejar sin ventanilla -->
             <option value="0" ${emp.ID_Ventanilla === null ? 'selected' : ''}>Sin ventanilla</option>
-
-            <option value="">Seleccionar...</option>
-
             ${ventanillas.map(v => `
               <option value="${v.ID_Ventanilla}" ${emp.ID_Ventanilla === v.ID_Ventanilla ? 'selected' : ''}>
                 ${formatearNombreVentanilla(v.Ventanilla)}
               </option>
             `).join('')}
         </select>
-
         `;
       }
 

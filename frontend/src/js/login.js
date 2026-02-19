@@ -5,8 +5,7 @@ const API_BASE_URL = Config.API_BASE_URL;
 document.addEventListener("DOMContentLoaded", async () => {
     const loginForm = document.getElementById("login-form");
     const loginError = document.getElementById("login-error");
-    const errorMessage = document.getElementById("error-message");
-    const errorText = document.getElementById("error-text");
+
 
     // Limpiar sesión anterior al cargar login
     localStorage.removeItem('currentUser');
@@ -18,8 +17,6 @@ document.addEventListener("DOMContentLoaded", async () => {
             const password = document.getElementById("password").value.trim();
 
             function showError(message) {
-                if (errorText) errorText.textContent = message;
-                if (errorMessage) errorMessage.classList.remove("hidden");
                 if (loginError) {
                     loginError.textContent = message;
                     loginError.classList.remove("hidden");
@@ -52,25 +49,6 @@ document.addEventListener("DOMContentLoaded", async () => {
                     localStorage.setItem('currentUser', JSON.stringify(currentUser));
                     window.location.href = "admin.html";
                     return;
-                }
-
-                const ahora = new Date();
-                const dia = ahora.getDay();
-                const hora = ahora.getHours();
-
-                if (dia === 0) {
-                    showError("No se puede acceder a ventanilla en los domingos.");
-                    return;
-                } else if (dia >= 1 && dia <= 5) {
-                    if (hora < 8 || hora >= 17) {
-                        showError("Solo se puede acceder de lunes a viernes de 8:00 a 17:00.");
-                        return;
-                    }
-                } else if (dia === 6) {
-                    if (hora < 8 || hora >= 14) {
-                        showError("Solo se puede acceder los sábados de 8:00 a 14:00.");
-                        return;
-                    }
                 }
 
                 // Si pasa la validación, seguimos con la ventanilla
