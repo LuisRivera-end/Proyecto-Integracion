@@ -497,7 +497,6 @@ def get_historial_tickets():
 
 @bp.route("/tickets/publico", methods=["GET"])
 def get_tickets_publico():
-    """Endpoint específico para la pantalla pública que muestra pendientes + atendiendo"""
     
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
@@ -510,15 +509,12 @@ def get_tickets_publico():
                 t.ID_Turno AS id_turno,
                 t.ID_Ventanilla AS id_ventanilla,
                 v.Ventanilla AS ventanilla,
-                a.Matricula AS matricula,
-                CONCAT(a.nombre1, ' ', a.Apellido1) AS nombre_alumno,
                 s.Sector AS sector,
                 et.Nombre AS estado,
                 et.ID_Estado AS estado_id,
                 t.Fecha_Ticket AS fecha_ticket,
                 'normal' AS tipo
             FROM Turno t
-            JOIN Alumnos a ON t.ID_Alumno = a.ID_Alumno
             JOIN Sectores s ON t.ID_Sector = s.ID_Sector
             JOIN Estados_Turno et ON t.ID_Estados = et.ID_Estado
             LEFT JOIN Ventanillas v ON t.ID_Ventanilla = v.ID_Ventanilla

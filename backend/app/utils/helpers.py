@@ -9,6 +9,7 @@ import qrcode
 import uuid
 from datetime import datetime, timedelta
 import os
+import threading
 
 def get_sector_prefix_and_length(sector_nombre):
     """Mapea el nombre del sector a su prefijo y la longitud de la parte aleatoria."""
@@ -77,6 +78,18 @@ def login_required(f):
 
 API_BASE_URL = os.getenv("IP_ADDRESS", "https://localhost:4443")
 
+def programar_eliminacion(*rutas, delay=40):
+    """Elimina los archivos indicados después de `delay` segundos."""
+    def eliminar():
+        for ruta in rutas:
+            try:
+                if os.path.exists(ruta):
+                    os.remove(ruta)
+                    print(f"Archivo eliminado: {ruta}")
+            except Exception as e:
+                print(f"Error al eliminar {ruta}: {e}")
+    threading.Timer(delay, eliminar).start()
+
 def generar_qr_ticket(nombre_archivo):
     # Asegurar que el directorio static/qrs existe
     static_folder = os.path.join(os.getcwd(), "app", "static", "qrs")
@@ -92,6 +105,11 @@ def generar_qr_ticket(nombre_archivo):
     ruta_completa = os.path.join(static_folder, qr_filename)
     
     img.save(ruta_completa)
+
+    # Programar eliminación del QR y del PDF después de 40s
+    ruta_pdf = os.path.join(os.getcwd(), "tickets", nombre_archivo)
+    programar_eliminacion(ruta_completa, ruta_pdf, delay=40)
+
     return ruta_completa
 
 tokens = {}
