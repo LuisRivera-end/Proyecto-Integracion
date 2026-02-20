@@ -6,6 +6,7 @@ from app import socketio
 from datetime import datetime
 import base64
 import json
+import pytz
 
 bp = Blueprint('tickets', __name__, url_prefix='/api')
 
@@ -353,7 +354,14 @@ def total_tickets():
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
     try:
-        cursor.execute("SELECT COUNT(ID_Turno) AS cantidad FROM Turno WHERE DATE(Fecha_Ticket) = CURDATE()")
+        # Obtener la fecha actual en la zona horaria de México
+        tz = pytz.timezone('America/Mexico_City')
+        hoy_local = datetime.now(tz).strftime('%Y-%m-%d')
+
+        # Usamos un marcador %s para pasar la fecha local
+        query = "SELECT COUNT(ID_Turno) AS cantidad FROM Turno WHERE DATE(Fecha_Ticket) = %s"
+        cursor.execute(query, (hoy_local,))
+        
         normales = cursor.fetchone()
         Total = (normales["cantidad"] if normales else 0)
         return jsonify({"cantidad": Total}), 200

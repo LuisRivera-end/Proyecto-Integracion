@@ -1,12 +1,3 @@
-<!DOCTYPE html>
-<html lang="es">
-
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Tickets Atendidos - Sistema de Turnos</title>
-  <link rel="stylesheet" href="../dist/output.css">
-  <link rel="stylesheet" href="style.css">
   <script type="module">
     import Config from './js/config.js';
 
@@ -25,6 +16,15 @@
 
     verificarSesion();
   </script>
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tickets Atendidos - Sistema de Turnos</title>
+  <link rel="stylesheet" href="../dist/output.css">
+  <link rel="stylesheet" href="style.css">
 </head>
 
 <body
@@ -154,6 +154,7 @@
             </button>
           </div>
         </div>
+      </div>
 
         <!-- Stats Grid -->
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -197,95 +198,74 @@
           <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
             <h2 class="text-2xl font-bold text-slate-800">Historial Detallado</h2>
 
-            <!-- Filter Bar -->
-            <div class="flex flex-wrap gap-3">
-              <select id="filtro-status"
-                class="px-4 py-2 rounded-xl bg-slate-50 border border-slate-200 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500/20">
-                <option value="todos">Todos los estados</option>
-                <option value="Completado">Completado</option>
-                <option value="Cancelado">Cancelado</option>
-                <option value="Pendiente">Pendiente</option>
-                <option value="Atendiendo">Atendiendo</option>
-              </select>
-              <select id="filtro-sector"
-                class="px-4 py-2 rounded-xl bg-slate-50 border border-slate-200 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500/20">
-                <option value="todos">Todos los sectores</option>
-                <option value="cajas">Cajas</option>
-                <option value="becas">Becas</option>
-                <option value="servicios escolares">Servicios Escolares</option>
-              </select>
-              <div class="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-2 py-1">
-                <input id="filtro-fecha-inicio" type="date"
-                  class="bg-transparent border-none text-sm text-slate-700 focus:ring-0">
-                <span class="text-slate-400">-</span>
-                <input id="filtro-fecha-fin" type="date"
-                  class="bg-transparent border-none text-sm text-slate-700 focus:ring-0">
-              </div>
-              <button id="btn-limpiar-fechas"
-                class="px-3 py-2 rounded-xl bg-slate-200 text-slate-600 hover:bg-slate-300 text-xs font-bold transition-colors">Limpiar</button>
-            </div>
+      <!-- HISTORIAL DE TICKETS -->
+      <div class="bg-white rounded-lg shadow-lg p-8 mt-10">
+        <h2 class="text-2xl font-semibold text-gray-900 mb-6 text-center">Historial de Tickets</h2>
+
+        <!-- Filtros -->
+        <div class="flex flex-wrap justify-between items-center mb-6 gap-4">
+          <div class="flex items-center gap-2">
+            <label for="filtro-status" class="text-gray-700 font-medium">Estado:</label>
+            <select id="filtro-status"
+              class="border-gray-300 rounded-lg p-2 focus:ring-emerald-400 focus:border-emerald-400">
+              <option value="todos">Todos los estados</option>
+              <option value="Completado">Completado</option>
+              <option value="Cancelado">Cancelado</option>
+              <option value="Pendiente">Pendiente</option>
+              <option value="Atendiendo">Atendiendo</option>
+            </select>
           </div>
 
-          <div class="overflow-hidden rounded-2xl border border-slate-200">
-            <table class="w-full text-sm text-left">
-              <thead class="bg-slate-50 border-b border-slate-200">
-                <tr>
-                  <th class="px-6 py-4 font-bold text-slate-600 uppercase tracking-wider text-xs">ID</th>
-                  <th class="px-6 py-4 font-bold text-slate-600 uppercase tracking-wider text-xs">Sector</th>
-                  <th class="px-6 py-4 font-bold text-slate-600 uppercase tracking-wider text-xs">Estado</th>
-                  <th class="px-6 py-4 font-bold text-slate-600 uppercase tracking-wider text-xs">Creado</th>
-                  <th class="px-6 py-4 font-bold text-slate-600 uppercase tracking-wider text-xs">Ultima Actualización
-                  </th>
-                </tr>
-              </thead>
-              <tbody id="tabla-historial" class="divide-y divide-slate-100 bg-white"></tbody>
-            </table>
+          <div class="flex items-center gap-2">
+            <label for="filtro-sector" class="text-gray-700 font-medium">Sector:</label>
+            <select id="filtro-sector"
+              class="border-gray-300 rounded-lg p-2 focus:ring-emerald-400 focus:border-emerald-400">
+              <option value="todos">Todos</option>
+            </select>
+          </div>
+
+          <!-- Nuevo filtro por rango de fechas -->
+          <div class="flex flex-col gap-2">
+            <label class="text-gray-700 font-medium">Rango de Fechas:</label>
+            <div class="flex gap-2">
+              <input id="filtro-fecha-inicio" type="date"
+                class="border-gray-300 rounded-lg p-2 focus:ring-emerald-400 focus:border-emerald-400 w-32">
+              <span class="self-center">a</span>
+              <input id="filtro-fecha-fin" type="date"
+                class="border-gray-300 rounded-lg p-2 focus:ring-emerald-400 focus:border-emerald-400 w-32">
+              <button id="btn-limpiar-fechas"
+                class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-3 rounded-lg transition-colors">Limpiar</button>
+            </div>
           </div>
         </div>
 
-      </div>
+        <!-- Tabla de Tickets -->
+        <div class="overflow-x-auto">
+          <table class="min-w-full border border-gray-200 rounded-lg text-sm text-left text-gray-700">
+            <thead class="bg-gray-100">
+              <tr>
+                <th class="py-3 px-4 border-b">ID</th>
+                <th class="py-3 px-4 border-b">Sector</th>
+                <th class="py-3 px-4 border-b">Estado</th>
+                <th class="py-3 px-4 border-b">Creado</th>
+                <th class="py-3 px-4 border-b">Ultima Actualización</th>
+              </tr>
+            </thead>
+            <tbody id="tabla-historial" class="divide-y divide-gray-100"></tbody>
+          </table>
+        </div>
 
-      <!-- Floating Language Selector -->
-      <div class="fixed bottom-6 right-6 z-50">
-        <div class="gtranslate_wrapper" title="Cambiar idioma"></div>
       </div>
-
-    </main>
+    </div>
   </div>
-
+  <!-- idiomas -->
+  <script src="./js/lib/socket.io.min.js"></script>
+  <div class="gtranslate_wrapper" title="Cambiar idioma"></div>
   <script src="https://cdn.gtranslate.net/widgets/latest/float.js" defer></script>
   <script src="./js/idioma.js"></script>
+  </div>
   <script type="module" src="./js/historial.js"></script>
-
-  <!-- Sidebar Toggle Script -->
-  <script>
-    document.addEventListener('DOMContentLoaded', function () {
-      const sidebar = document.getElementById('sidebar');
-      const openBtn = document.getElementById('openSidebar');
-      const closeBtn = document.getElementById('closeSidebar');
-      const backdrop = document.getElementById('mobileBackdrop');
-
-      if (!sidebar || !openBtn || !closeBtn || !backdrop) return;
-
-      function toggleSidebar() {
-        sidebar.classList.toggle('-translate-x-full');
-
-        if (!sidebar.classList.contains('-translate-x-full')) {
-          // Open
-          backdrop.classList.remove('hidden');
-          setTimeout(() => backdrop.classList.remove('opacity-0'), 10);
-        } else {
-          // Close
-          backdrop.classList.add('opacity-0');
-          setTimeout(() => backdrop.classList.add('hidden'), 300);
-        }
-      }
-
-      openBtn.addEventListener('click', toggleSidebar);
-      closeBtn.addEventListener('click', toggleSidebar);
-      backdrop.addEventListener('click', toggleSidebar);
-    });
-  </script>
+  <script src="./js/desplegable.js"></script>
 </body>
 
 </html>

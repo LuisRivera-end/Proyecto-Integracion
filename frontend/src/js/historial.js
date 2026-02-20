@@ -221,6 +221,7 @@ async function cargarSectoresFiltro() {
         const res = await fetch(`${API_BASE_URL}/api/sectores`);
         const sectores = await res.json();
         const sectorSelect = document.getElementById("filtro-sector");
+        sectorSelect.innerHTML = '<option value="todos">Todos</option>';
         
         sectores.forEach(s => {
             const opt = document.createElement("option");
