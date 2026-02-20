@@ -1,12 +1,14 @@
 services:
   frontend:
     build: ./frontend
+    container_name: frontend
     depends_on:
       - backend
     restart: unless-stopped
 
   backend:
     build: ./backend
+    container_name: backend
     depends_on:
       - mariadb
     env_file:
@@ -16,6 +18,7 @@ services:
       - DB_USER=${MARIADB_USER}
       - DB_PASSWORD=${MARIADB_PASSWORD}
       - DB_NAME=${MARIADB_DATABASE}
+    command: gunicorn --worker-class geventwebsocket.gunicorn.workers.GeventWebSocketWorker -w 1 --bind 0.0.0.0:5000 "run:app"
     restart: unless-stopped
 
   mariadb:
@@ -39,11 +42,11 @@ services:
     image: nginx:alpine
     ports:
       - "8081:80"
-      - "4443:443"                    # Puerto HTTPS
+      - "4443:443" # Puerto HTTPS
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf
       - ./nginx/ssl.conf:/etc/nginx/conf.d/ssl.conf
-      - ./certs:/etc/nginx/certs     # Montar certificados
+      - ./certs:/etc/nginx/certs # Montar certificados
     depends_on:
       - frontend
       - backend
