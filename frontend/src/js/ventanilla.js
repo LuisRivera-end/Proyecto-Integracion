@@ -65,8 +65,16 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     if (initializeManagementElements()) {
         // Mostrar info del usuario
-        if (userSector && currentUser.ventanilla) {
-            userSector.textContent = `${currentUser.sector} - ${currentUser.ventanilla.nombre}`;
+        if (userSector) {
+            if (currentUser.ventanilla) {
+                userSector.textContent = `${currentUser.sector} - ${currentUser.ventanilla.nombre}`;
+            } else {
+                userSector.textContent = currentUser.sector;
+                // Si es jefe y no tiene ventanilla, ocultar botón de llamar
+                if (currentUser.rol === 6 && callNextBtn) {
+                   callNextBtn.classList.add("hidden");
+                }
+            }
         }
         if (userName) {
             userName.textContent = currentUser.username;

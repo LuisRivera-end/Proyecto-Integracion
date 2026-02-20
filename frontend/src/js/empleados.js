@@ -88,17 +88,30 @@ document.addEventListener("DOMContentLoaded", async() => {
         return nombre;
       };
 
-      // Construir celda de ventanilla
+      // Construir celda de ventanilla / sector
       let ventanillaCell = '';
       
       if (esAdmin) {
         // Admin no tiene ventanilla
         ventanillaCell = '<span class="text-gray-400 text-xs">N/A</span>';
+      } else if (emp.ID_ROL === 6) {
+        // Jefe de Departamento - select de Sectores
+        const sectores = await obtenerSectores();
+        ventanillaCell = `
+          <select 
+            onchange="asignarSector(${emp.ID_Empleado}, this.value)"
+            class="w-32 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-slate-500">
+            <option value="">Seleccionar sector</option>
+            ${sectores.map(s => `
+              <option value="${s.ID_Sector}" ${emp.ID_Sector_Jefe === s.ID_Sector ? 'selected' : ''}>
+                ${s.Sector}
+              </option>
+            `).join('')}
+          </select>
+        `;
       } else {
-        // Operador Cajas o Servicios Escolares - select para elegir
+        // Operador Cajas o Servicios Escolares - select para elegir ventanilla
         const ventanillas = await cargarVentanillasParaRol(emp.ID_ROL);
-        
-        console.log(`Ventanillas para empleado ${emp.ID_Empleado} (Rol ${emp.ID_ROL}):`, ventanillas);
         
         ventanillaCell = `
           <select 
@@ -176,6 +189,24 @@ document.addEventListener("DOMContentLoaded", async() => {
     } catch (err) {
       console.error(err);
       alert("Error al asignar ventanilla");
+    }
+  };
+
+  window.asignarSector = async function(idEmpleado, idSector) {
+    if (!idSector) return;
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/employees/${idEmpleado}/sector`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id_sector: parseInt(idSector) })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Error al asignar sector");
+      alert("Sector asignado correctamente");
+      loadEmployees();
+    } catch (err) {
+      console.error(err);
+      alert(err.message);
     }
   };
 
@@ -263,6 +294,7 @@ document.addEventListener("DOMContentLoaded", async() => {
       usuario: document.getElementById("usuario").value.trim(),
       passwd: document.getElementById("password").value.trim(),
       id_rol: parseInt(document.getElementById("rol").value),
+      id_sector: document.getElementById("rol").value === "6" ? parseInt(document.getElementById("sector-form").value) : null
     };
 
     if (!data.nombre1 || !data.apellido1 || !data.usuario || !data.passwd) {
@@ -313,6 +345,7 @@ document.addEventListener("DOMContentLoaded", async() => {
 
       alert("Empleado agregado exitosamente");
       empleadoForm.reset();
+      document.getElementById("sector-container").classList.add("hidden");
       loadEmployees();
     } catch (err) {
       console.error(err);
@@ -320,6 +353,44 @@ document.addEventListener("DOMContentLoaded", async() => {
     }
   });
 
+
+  // Cargar sectores
+  let cachedSectores = null;
+  async function obtenerSectores() {
+    if (cachedSectores) return cachedSectores;
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/sectores`);
+      cachedSectores = await res.json();
+      return cachedSectores;
+    } catch (err) {
+      console.error("Error al cargar sectores:", err);
+      return [];
+    }
+  }
+
+  async function cargarSectoresEnForm() {
+    const sectores = await obtenerSectores();
+    const sectorSelect = document.getElementById("sector-form");
+    sectorSelect.innerHTML = '<option value="">Seleccionar sector</option>';
+    sectores.forEach(s => {
+      const opt = document.createElement("option");
+      opt.value = s.ID_Sector;
+      opt.textContent = s.Sector;
+      sectorSelect.appendChild(opt);
+    });
+  }
+
+  // Listener para rol
+  document.getElementById("rol").addEventListener("change", function() {
+    const sectorContainer = document.getElementById("sector-container");
+    if (this.value === "6") { // Jefe de Departamento
+      sectorContainer.classList.remove("hidden");
+      document.getElementById("sector-form").required = true;
+    } else {
+      sectorContainer.classList.add("hidden");
+      document.getElementById("sector-form").required = false;
+    }
+  });
 
   // Cargar roles
   async function cargarRoles() {
@@ -338,8 +409,10 @@ document.addEventListener("DOMContentLoaded", async() => {
       console.error("Error al cargar roles:", err);
     }
   }
+
   // Inicializar
   cargarRoles();
+  cargarSectoresEnForm();
   //cargarEstados();
   loadEmployees();
 });
