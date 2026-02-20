@@ -101,7 +101,7 @@ document.addEventListener("DOMContentLoaded", async() => {
           <select 
             onchange="asignarSector(${emp.ID_Empleado}, this.value)"
             class="w-32 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-slate-500">
-            <option value="">Seleccionar sector</option>
+            <option value="0" ${emp.ID_Sector_Jefe === null ? 'selected' : ''}>Sin sector</option>
             ${sectores.map(s => `
               <option value="${s.ID_Sector}" ${emp.ID_Sector_Jefe === s.ID_Sector ? 'selected' : ''}>
                 ${s.Sector}
@@ -193,12 +193,13 @@ document.addEventListener("DOMContentLoaded", async() => {
   };
 
   window.asignarSector = async function(idEmpleado, idSector) {
-    if (!idSector) return;
+    if (idSector === undefined || idSector === null) return;
+    
     try {
       const res = await fetch(`${API_BASE_URL}/api/employees/${idEmpleado}/sector`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id_sector: parseInt(idSector) })
+        body: JSON.stringify({ id_sector: idSector === "0" ? null : parseInt(idSector) })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Error al asignar sector");
@@ -294,7 +295,7 @@ document.addEventListener("DOMContentLoaded", async() => {
       usuario: document.getElementById("usuario").value.trim(),
       passwd: document.getElementById("password").value.trim(),
       id_rol: parseInt(document.getElementById("rol").value),
-      id_sector: document.getElementById("rol").value === "6" ? parseInt(document.getElementById("sector-form").value) : null
+      id_sector: document.getElementById("rol").value === "6" ? (parseInt(document.getElementById("sector-form").value) || null) : null
     };
 
     if (!data.nombre1 || !data.apellido1 || !data.usuario || !data.passwd) {
@@ -371,7 +372,7 @@ document.addEventListener("DOMContentLoaded", async() => {
   async function cargarSectoresEnForm() {
     const sectores = await obtenerSectores();
     const sectorSelect = document.getElementById("sector-form");
-    sectorSelect.innerHTML = '<option value="">Seleccionar sector</option>';
+    sectorSelect.innerHTML = '<option value="0">Sin sector</option>';
     sectores.forEach(s => {
       const opt = document.createElement("option");
       opt.value = s.ID_Sector;
