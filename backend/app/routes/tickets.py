@@ -2,9 +2,11 @@ from flask import Blueprint, request, session, redirect, jsonify, make_response,
 from app.models.database import get_db_connection
 from app.utils.helpers import generar_folio_unico, obtener_fecha_actual, obtener_fecha_publico
 from app.models.pdf_generator import generar_ticket_PDF
+from app import socketio
 from datetime import datetime
 import base64
 import json
+import pytz
 
 bp = Blueprint('tickets', __name__, url_prefix='/api')
 
@@ -133,6 +135,9 @@ def generar_ticket():
 
         conn.commit()
 
+        # Emitir evento para actualizar las pantallas
+        socketio.emit('tickets_updated', namespace='/')
+
         return jsonify({
             "mensaje": "Ticket generado exitosamente",
             "folio": Folio,
@@ -243,6 +248,10 @@ def attend_ticket(folio):
             return jsonify({"error": "Ticket no encontrado o ya atendido"}), 404
 
         conn.commit()
+        
+        # Emitir evento para actualizar las pantallas
+        socketio.emit('tickets_updated', namespace='/')
+        
         return jsonify({
             "message": f"Ticket {folio} en estado 'Atendiendo' por ventanilla {id_ventanilla}"
         }), 200
@@ -269,6 +278,10 @@ def complete_ticket(folio):
         """, (4, nueva_fecha, folio))
 
         conn.commit()
+        
+        # Emitir evento para actualizar las pantallas
+        socketio.emit('tickets_updated', namespace='/')
+        
         return jsonify({"message": f"Ticket {folio} marcado como 'Completado'"}), 200
     except Exception as e:
         print(f"Error en complete_ticket: {e}")
@@ -294,6 +307,10 @@ def cancel_ticket(folio):
             return jsonify({"error": "Ticket no encontrado o no está siendo atendido"}), 404
 
         conn.commit()
+        
+        # Emitir evento para actualizar las pantallas
+        socketio.emit('tickets_updated', namespace='/')
+        
         return jsonify({"message": f"Ticket {folio} cancelado exitosamente"}), 200
         
     except Exception as e:
@@ -337,7 +354,14 @@ def total_tickets():
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
     try:
-        cursor.execute("SELECT COUNT(ID_Turno) AS cantidad FROM Turno WHERE DATE(Fecha_Ticket) = CURDATE()")
+        # Obtener la fecha actual en la zona horaria de México
+        tz = pytz.timezone('America/Mexico_City')
+        hoy_local = datetime.now(tz).strftime('%Y-%m-%d')
+
+        # Usamos un marcador %s para pasar la fecha local
+        query = "SELECT COUNT(ID_Turno) AS cantidad FROM Turno WHERE DATE(Fecha_Ticket) = %s"
+        cursor.execute(query, (hoy_local,))
+        
         normales = cursor.fetchone()
         Total = (normales["cantidad"] if normales else 0)
         return jsonify({"cantidad": Total}), 200
@@ -420,6 +444,9 @@ def llamar_siguiente_ticket():
 
         conn.commit()
         
+        # Emitir evento para actualizar las pantallas
+        socketio.emit('tickets_updated', namespace='/')
+        
         return jsonify({
             "message": f"Ticket {folio} llamado para atención",
             "folio": folio,
@@ -458,6 +485,10 @@ def actualizar_estado_turno(id_turno):
             return jsonify({"error": "Turno no encontrado"}), 404
 
         conn.commit()
+        
+        # Emitir evento para actualizar las pantallas
+        socketio.emit('tickets_updated', namespace='/')
+        
         return jsonify({"mensaje": "Estado actualizado correctamente"}), 200
     except Exception as e:
         print(f"Error en actualizar_estado_turno: {e}")
