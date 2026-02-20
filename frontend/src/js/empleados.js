@@ -1,15 +1,17 @@
 import Config from './config.js';
 const API_BASE_URL = Config.API_BASE_URL;
 
-document.addEventListener("DOMContentLoaded", async() => {
+document.addEventListener("DOMContentLoaded", async () => {
   const empleadoForm = document.getElementById("empleadoForm");
   const tablaEmpleados = document.getElementById("tablaEmpleados");
 
+  // ──────────────────────────────────────────────
+  // LOAD & RENDER employees (table, no Ventanilla/Estado columns)
+  // ──────────────────────────────────────────────
   async function loadEmployees() {
     try {
       const res = await fetch(`${API_BASE_URL}/api/employees/full`);
       if (!res.ok) throw new Error("Error al cargar empleados");
-
       const empleados = await res.json();
       renderEmployees(empleados);
     } catch (err) {
@@ -18,11 +20,10 @@ document.addEventListener("DOMContentLoaded", async() => {
     }
   }
 
-  async function renderEmployees(empleados) {
+  function renderEmployees(empleados) {
     tablaEmpleados.innerHTML = "";
 
     for (const emp of empleados) {
-      // Construir nombre completo
       const nombreCompleto = [
         emp.nombre1,
         emp.nombre2 || '',
@@ -30,260 +31,263 @@ document.addEventListener("DOMContentLoaded", async() => {
         emp.Apellido2 || ''
       ].filter(n => n.trim() !== '').join(' ');
 
-      // Determinar clase de estado para el badge
-      const getEstadoClass = (idEstado) => {
-        switch(idEstado) {
-          case 1: return 'bg-green-100 text-green-800';      // Activo
-          case 2: return 'bg-yellow-100 text-yellow-800';    // Descanso
-          case 3: return 'bg-red-100 text-red-800';          // Despedido
-          case 4: return 'bg-gray-100 text-gray-800';        // Inactivo
-          default: return 'bg-gray-100 text-gray-800';
-        }
-      };
-      // Es admin?
       const esAdmin = emp.ID_ROL === 1;
 
-      // Construir celda de estado
-      let estadoCell = '';
-      
-      if (esAdmin) {
-        // Admin siempre activo, no editable
-        estadoCell = `
-          <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${getEstadoClass(1)}">
-            Activo
-          </span>
-        `;
-      } else if (emp.ID_Estado === 2) {
-        // 💤 Si está en descanso, solo mostrar la opción "Descanso" bloqueada
-        estadoCell = `
-          <select disabled 
-            class="w-32 px-2 py-1 text-xs font-medium rounded-lg border bg-yellow-100 text-yellow-800 cursor-not-allowed">
-            <option value="2" selected>Descanso</option>
-          </select>
-        `;
-      } else {
-        // 🟢 Si no está en descanso, mostrar todas menos "Descanso"
-        estadoCell = `
-          <select 
-            onchange="cambiarEstado(${emp.ID_Empleado}, this.value)"
-            class="w-32 px-2 py-1 text-xs font-medium rounded-lg border focus:outline-none focus:ring-2 focus:ring-slate-500 ${getEstadoClass(emp.ID_Estado)}">
-            <option value="1" ${emp.ID_Estado === 1 ? 'selected' : ''}>Activo</option>
-            <option value="3" ${emp.ID_Estado === 3 ? 'selected' : ''}>Despedido</option>
-            <option value="4" ${emp.ID_Estado === 4 ? 'selected' : ''}>Inactivo</option>
-          </select>
-        `;
-      }
-
-      // Función para formatear nombres de ventanillas
-      const formatearNombreVentanilla = (nombre) => {
-        if (!nombre) return '';
-        if (nombre.startsWith('Caja')) {
-          return nombre; // Caja1, Caja2, etc.
-        } else if (nombre.startsWith('ServiciosEscolares')) {
-          const numero = nombre.replace('ServiciosEscolares', '');
-          return `Sev ${numero}`;
-        } else if (nombre.startsWith('Beca')) {
-          return nombre;
-        }
-        return nombre;
-      };
-
-      // Construir celda de ventanilla / sector
-      let ventanillaCell = '';
-      
-      if (esAdmin) {
-        // Admin no tiene ventanilla
-        ventanillaCell = '<span class="text-gray-400 text-xs">N/A</span>';
-      } else if (emp.ID_ROL === 6) {
-        // Jefe de Departamento - select de Sectores
-        const sectores = await obtenerSectores();
-        ventanillaCell = `
-          <select 
-            onchange="asignarSector(${emp.ID_Empleado}, this.value)"
-            class="w-32 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-slate-500">
-            <option value="0" ${emp.ID_Sector_Jefe === null ? 'selected' : ''}>Sin sector</option>
-            ${sectores.map(s => `
-              <option value="${s.ID_Sector}" ${emp.ID_Sector_Jefe === s.ID_Sector ? 'selected' : ''}>
-                ${s.Sector}
-              </option>
-            `).join('')}
-          </select>
-        `;
-      } else {
-        // Operador Cajas o Servicios Escolares - select para elegir ventanilla
-        const ventanillas = await cargarVentanillasParaRol(emp.ID_ROL);
-        
-        ventanillaCell = `
-          <select 
-            onchange="asignarVentanilla(${emp.ID_Empleado}, this.value)"
-            class="w-32 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-slate-500">
-            
-            <!-- NUEVA OPCIÓN: dejar sin ventanilla -->
-            <option value="0" ${emp.ID_Ventanilla === null ? 'selected' : ''}>Sin ventanilla</option>
-            ${ventanillas.map(v => `
-              <option value="${v.ID_Ventanilla}" ${emp.ID_Ventanilla === v.ID_Ventanilla ? 'selected' : ''}>
-                ${formatearNombreVentanilla(v.Ventanilla)}
-              </option>
-            `).join('')}
-        </select>
-        `;
-      }
+      // Edit button — admin is excluded
+      const accionesCell = esAdmin
+        ? `<span class="text-slate-300 text-xs italic">Sin acciones</span>`
+        : `<button class="edit-btn" onclick="abrirEdicion(${emp.ID_Empleado})">Editar</button>`;
 
       const tr = document.createElement("tr");
-      tr.className = "hover:bg-gray-50 transition-colors";
+      tr.className = "hover:bg-slate-50 transition-colors";
       tr.innerHTML = `
-        <td class="px-4 py-3 border border-gray-300 text-center font-medium">${emp.ID_Empleado}</td>
-        <td class="px-4 py-3 border border-gray-300">${nombreCompleto}</td>
-        <td class="px-4 py-3 border border-gray-300">${emp.Usuario}</td>
-        <td class="px-4 py-3 border border-gray-300">${emp.Rol || 'N/A'}</td>
-        <td class="px-4 py-3 border border-gray-300 text-center">${ventanillaCell}</td>
-        <td class="px-4 py-3 border border-gray-300 text-center">${estadoCell}</td>
+        <td class="px-6 py-3.5 text-center font-medium text-slate-500 text-sm">${emp.ID_Empleado}</td>
+        <td class="px-6 py-3.5 font-medium text-slate-800 text-sm">${nombreCompleto}</td>
+        <td class="px-6 py-3.5 text-slate-600 text-sm">${emp.Usuario}</td>
+        <td class="px-6 py-3.5 text-slate-600 text-sm">${emp.Rol || 'N/A'}</td>
+        <td class="px-6 py-3.5 text-center">${accionesCell}</td>
       `;
       tablaEmpleados.appendChild(tr);
     }
   }
 
-  // Cargar ventanillas según el rol
-  async function cargarVentanillasParaRol(idRol) {
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/ventanillas/disponibles/${idRol}`);
-      if (!res.ok) return [];
-      return await res.json();
-    } catch (err) {
-      console.error("Error al cargar ventanillas:", err);
-      return [];
+  // ──────────────────────────────────────────────
+  // OPEN EDIT panel for a specific employee
+  // ──────────────────────────────────────────────
+  window.abrirEdicion = async function (idEmpleado) {
+    // Open the edit accordion panel
+    const content = document.getElementById('content-editar');
+    const header = document.getElementById('header-editar');
+    const arrow = header.querySelector('.accordion-arrow');
+    if (!content.classList.contains('open')) {
+      content.classList.add('open');
+      header.classList.add('open');
+      arrow.classList.add('rotate-180');
     }
-  }
+    // Scroll the panel into view
+    content.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
-  // Función global para asignar ventanilla
-  window.asignarVentanilla = async function(idEmpleado, idVentanilla) {
-    // Si selecciona "Sin ventanilla" (0)
-    if (idVentanilla === "0") {
-        quitarVentanilla(idEmpleado);
-        return;
-    }
+    const container = document.getElementById('editEmpleadoContainer');
+    container.innerHTML = `<p class="text-slate-400 text-sm text-center py-6">Cargando datos...</p>`;
 
-    // Si selecciona "Seleccionar..."
-    if (!idVentanilla) return;
-
-    
     try {
-      const res = await fetch(`${API_BASE_URL}/api/employees/${idEmpleado}/ventanilla`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id_ventanilla: parseInt(idVentanilla) })
-      });
+      // Fetch employee detail
+      const res = await fetch(`${API_BASE_URL}/api/employees/full`);
+      if (!res.ok) throw new Error();
+      const todos = await res.json();
+      const emp = todos.find(e => e.ID_Empleado === idEmpleado);
+      if (!emp) throw new Error("Empleado no encontrado");
 
-      const data = await res.json();
-      if (!res.ok) {
-        alert(data.error || "Error al asignar ventanilla");
-        const select = document.querySelector(`#select-ventanilla-${idEmpleado}`);
-        if (select) select.value = "";
+      // Fetch ventanillas for their role
+      let ventanillas = [];
+      try {
+        const vRes = await fetch(`${API_BASE_URL}/api/ventanillas/disponibles/${emp.ID_ROL}?excluir_empleado=${emp.ID_Empleado}`);
+        if (vRes.ok) ventanillas = await vRes.json();
+      } catch (_) { }
 
-        loadEmployees();
-        return;
-      }
+      // Build ventanilla options
+      const ventanillaOptions = [
+        `<option value="0" ${emp.ID_Ventanilla === null ? 'selected' : ''}>Sin ventanilla</option>`,
+        ...ventanillas.map(v =>
+          `<option value="${v.ID_Ventanilla}" ${emp.ID_Ventanilla === v.ID_Ventanilla ? 'selected' : ''}>${formatearNombreVentanilla(v.Ventanilla)}</option>`
+        )
+      ].join('');
 
-      alert("Ventanilla asignada correctamente");
-      loadEmployees();
+      // Estado options (same states as before, excluding Descanso)
+      const estadoOptions = `
+        <option value="1" ${emp.ID_Estado === 1 ? 'selected' : ''}>Activo</option>
+        <option value="3" ${emp.ID_Estado === 3 ? 'selected' : ''}>Despedido</option>
+        <option value="4" ${emp.ID_Estado === 4 ? 'selected' : ''}>Inactivo</option>
+      `;
+
+      container.innerHTML = `
+        <div class="mb-6 pb-4 border-b border-slate-100 flex items-center gap-3">
+          <div class="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center text-amber-700 font-bold text-lg">
+            ${(emp.nombre1 || '?')[0].toUpperCase()}
+          </div>
+          <div>
+            <p class="font-bold text-slate-800">${[emp.nombre1, emp.Apellido1].join(' ')}</p>
+            <p class="text-xs text-slate-400 uppercase tracking-wider font-semibold">${emp.Rol || 'N/A'} · ID ${emp.ID_Empleado}</p>
+          </div>
+        </div>
+
+        <div class="space-y-5">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Primer Nombre *</label>
+              <input id="edit-nombre1" type="text" value="${emp.nombre1 || ''}"
+                class="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-400/30 focus:border-amber-400 transition-all font-medium"/>
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Segundo Nombre</label>
+              <input id="edit-nombre2" type="text" value="${emp.nombre2 || ''}" placeholder="Opcional"
+                class="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-400/30 focus:border-amber-400 transition-all font-medium"/>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Primer Apellido *</label>
+              <input id="edit-apellido1" type="text" value="${emp.Apellido1 || ''}"
+                class="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-400/30 focus:border-amber-400 transition-all font-medium"/>
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Segundo Apellido</label>
+              <input id="edit-apellido2" type="text" value="${emp.Apellido2 || ''}" placeholder="Opcional"
+                class="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-400/30 focus:border-amber-400 transition-all font-medium"/>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Usuario *</label>
+              <input id="edit-usuario" type="text" value="${emp.Usuario || ''}"
+                class="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-400/30 focus:border-amber-400 transition-all font-medium"/>
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Contraseña <span class="normal-case font-normal text-slate-400">(dejar vacío para no cambiar)</span></label>
+              <input id="edit-password" type="password" placeholder="••••••••"
+                class="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-800 placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-amber-400/30 focus:border-amber-400 transition-all font-medium"/>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Ventanilla</label>
+              <select id="edit-ventanilla"
+                class="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-400/30 focus:border-amber-400 transition-all appearance-none cursor-pointer font-medium">
+                ${ventanillaOptions}
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Estado</label>
+              <select id="edit-estado"
+                class="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-400/30 focus:border-amber-400 transition-all appearance-none cursor-pointer font-medium">
+                ${estadoOptions}
+              </select>
+            </div>
+          </div>
+
+          <div class="flex gap-3 pt-2">
+            <button onclick="guardarEdicion(${emp.ID_Empleado})"
+              class="flex-1 bg-amber-500 hover:bg-amber-400 text-white font-bold py-3.5 rounded-xl transition-all duration-200 shadow hover:shadow-md hover:-translate-y-0.5 active:scale-95">
+              Guardar cambios
+            </button>
+            <button onclick="cancelarEdicion()"
+              class="px-6 py-3.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 font-semibold transition-all duration-200">
+              Cancelar
+            </button>
+          </div>
+        </div>
+      `;
     } catch (err) {
       console.error(err);
-      alert("Error al asignar ventanilla");
+      container.innerHTML = `<p class="text-red-500 text-sm text-center py-6">Error al cargar los datos del empleado.</p>`;
     }
   };
 
-  window.asignarSector = async function(idEmpleado, idSector) {
-    if (idSector === undefined || idSector === null) return;
-    
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/employees/${idEmpleado}/sector`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id_sector: idSector === "0" ? null : parseInt(idSector) })
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Error al asignar sector");
-      alert("Sector asignado correctamente");
-      loadEmployees();
-    } catch (err) {
-      console.error(err);
-      alert(err.message);
-    }
-  };
+  // ──────────────────────────────────────────────
+  // SAVE edits
+  // ──────────────────────────────────────────────
+  window.guardarEdicion = async function (idEmpleado) {
+    const nombre1 = document.getElementById('edit-nombre1')?.value.trim();
+    const nombre2 = document.getElementById('edit-nombre2')?.value.trim();
+    const apellido1 = document.getElementById('edit-apellido1')?.value.trim();
+    const apellido2 = document.getElementById('edit-apellido2')?.value.trim();
+    const usuario = document.getElementById('edit-usuario')?.value.trim();
+    const password = document.getElementById('edit-password')?.value.trim();
+    const idVentanilla = document.getElementById('edit-ventanilla')?.value;
+    const idEstado = document.getElementById('edit-estado')?.value;
 
-  window.quitarVentanilla = async function(idEmpleado) {
-    try {
-        const res = await fetch(`${API_BASE_URL}/api/employees/${idEmpleado}/ventanilla`, {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ id_ventanilla: null })
-        });
-
-        const data = await res.json();
-
-        if (!res.ok) {
-            alert(data.error || "Error al quitar ventanilla");
-            loadEmployees();
-            return;
-        }
-
-        alert("Ventanilla eliminada correctamente");
-        loadEmployees();
-
-    } catch (err) {
-        console.error(err);
-        alert("Error al quitar la ventanilla");
-    }
-  };
-
-
-  // Función global para cambiar estado
-  window.cambiarEstado = async function(idEmpleado, nuevoEstado) {
-    const estadoNombre = {
-      1: 'activar', 
-      3: 'despedir', 
-      4: 'desactivar'
-    };
-    
-    const select = document.querySelector(`select[onchange="cambiarEstado(${idEmpleado}, this.value)"]`);
-    const estadoAnterior = select ? select.value : null;
-
-    // Confirmar la acción
-    const confirmar = confirm(`¿Está seguro de ${estadoNombre[nuevoEstado]} este empleado?`);
-    if (!confirmar) {
-      // Si cancela, volver al valor anterior y refrescar la tabla
-      if (select) select.value = estadoAnterior;
-      loadEmployees();
+    if (!nombre1 || !apellido1 || !usuario) {
+      alert("Primer nombre, primer apellido y usuario son obligatorios.");
       return;
     }
 
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/employees/${idEmpleado}/estado`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ estado: parseInt(nuevoEstado) })
-      });
-
-      const data = await res.json();
-      
-      if (!res.ok) {
-        alert(data.error || `Error al cambiar estado del empleado`);
-        if (select) select.value = estadoAnterior;
-        loadEmployees();
+    if (password) {
+      if (password.length < 8) {
+        alert("La contraseña debe tener al menos 8 caracteres");
         return;
       }
+      if (!/[A-Z]/.test(password)) {
+        alert("La contraseña debe contener al menos una letra mayúscula");
+        return;
+      }
+      if (!/[0-9]/.test(password)) {
+        alert("La contraseña debe contener al menos un número");
+        return;
+      }
+    }
 
-      alert(`Estado del empleado actualizado correctamente`);
+    try {
+      // 1) Update basic data
+      const bodyData = { nombre1, nombre2, apellido1, apellido2, usuario };
+      if (password) bodyData.passwd = password;
+
+      const res = await fetch(`${API_BASE_URL}/api/employees/${idEmpleado}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(bodyData)
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Error al actualizar empleado");
+      }
+
+      // 2) Update ventanilla
+      const idVentNum = parseInt(idVentanilla);
+      await fetch(`${API_BASE_URL}/api/employees/${idEmpleado}/ventanilla`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id_ventanilla: idVentNum === 0 ? null : idVentNum })
+      });
+
+      // 3) Update estado
+      await fetch(`${API_BASE_URL}/api/employees/${idEmpleado}/estado`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ estado: parseInt(idEstado) })
+      });
+
+      alert("Empleado actualizado correctamente");
+      cancelarEdicion();
       loadEmployees();
     } catch (err) {
       console.error(err);
-      alert(`Error al cambiar estado del empleado`);
-      if (select) select.value = estadoAnterior;
-      loadEmployees();
+      alert(err.message || "Error al guardar cambios");
     }
   };
 
-  // Agregar empleado
+  // ──────────────────────────────────────────────
+  // CANCEL edit — restore placeholder
+  // ──────────────────────────────────────────────
+  window.cancelarEdicion = function () {
+    const container = document.getElementById('editEmpleadoContainer');
+    container.innerHTML = `
+      <div id="editPlaceholder" class="flex flex-col items-center justify-center py-10 text-slate-400">
+        <svg class="w-12 h-12 mb-3 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+        </svg>
+        <p class="font-medium text-sm">Selecciona un empleado en la lista para editarlo</p>
+      </div>
+    `;
+  };
+
+  // ──────────────────────────────────────────────
+  // Helper: format ventanilla name
+  // ──────────────────────────────────────────────
+  function formatearNombreVentanilla(nombre) {
+    if (!nombre) return '';
+    if (nombre.startsWith('ServiciosEscolares')) {
+      const num = nombre.replace('ServiciosEscolares', '');
+      return `Sev ${num}`;
+    }
+    return nombre;
+  }
+
+  // ──────────────────────────────────────────────
+  // ADD employee form submit
+  // ──────────────────────────────────────────────
   empleadoForm.addEventListener("submit", async (e) => {
     e.preventDefault();
 
@@ -303,31 +307,23 @@ document.addEventListener("DOMContentLoaded", async() => {
       return;
     }
 
-   // Validar contraseña segura
     const password = data.passwd;
-
     if (password.length < 8) {
       alert("La contraseña debe tener al menos 8 caracteres");
       return;
     }
-
-    // Debe tener al menos una letra mayúscula
     if (!/[A-Z]/.test(password)) {
       alert("La contraseña debe contener al menos una letra mayúscula");
       return;
     }
-
-    // Debe tener al menos un número
     if (!/[0-9]/.test(password)) {
       alert("La contraseña debe contener al menos un número");
       return;
     }
 
-
     try {
       const verificarUsuario = await fetch(`${API_BASE_URL}/api/employees/exists/${encodeURIComponent(data.usuario)}`);
       const existe = await verificarUsuario.json();
-
       if (existe.exists) {
         alert("El nombre de usuario ya existe. Por favor elija otro.");
         return;
@@ -354,52 +350,14 @@ document.addEventListener("DOMContentLoaded", async() => {
     }
   });
 
-
-  // Cargar sectores
-  let cachedSectores = null;
-  async function obtenerSectores() {
-    if (cachedSectores) return cachedSectores;
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/sectores`);
-      cachedSectores = await res.json();
-      return cachedSectores;
-    } catch (err) {
-      console.error("Error al cargar sectores:", err);
-      return [];
-    }
-  }
-
-  async function cargarSectoresEnForm() {
-    const sectores = await obtenerSectores();
-    const sectorSelect = document.getElementById("sector-form");
-    sectorSelect.innerHTML = '<option value="0">Sin sector</option>';
-    sectores.forEach(s => {
-      const opt = document.createElement("option");
-      opt.value = s.ID_Sector;
-      opt.textContent = s.Sector;
-      sectorSelect.appendChild(opt);
-    });
-  }
-
-  // Listener para rol
-  document.getElementById("rol").addEventListener("change", function() {
-    const sectorContainer = document.getElementById("sector-container");
-    if (this.value === "6") { // Jefe de Departamento
-      sectorContainer.classList.remove("hidden");
-      document.getElementById("sector-form").required = true;
-    } else {
-      sectorContainer.classList.add("hidden");
-      document.getElementById("sector-form").required = false;
-    }
-  });
-
-  // Cargar roles
+  // ──────────────────────────────────────────────
+  // Load roles for the add-employee form
+  // ──────────────────────────────────────────────
   async function cargarRoles() {
     try {
       const res = await fetch(`${API_BASE_URL}/api/roles`);
       const roles = await res.json();
       const rolSelect = document.getElementById("rol");
-      
       roles.forEach(r => {
         const opt = document.createElement("option");
         opt.value = r.ID_Rol;
@@ -411,9 +369,9 @@ document.addEventListener("DOMContentLoaded", async() => {
     }
   }
 
-  // Inicializar
+  // ──────────────────────────────────────────────
+  // Init
+  // ──────────────────────────────────────────────
   cargarRoles();
-  cargarSectoresEnForm();
-  //cargarEstados();
   loadEmployees();
 });

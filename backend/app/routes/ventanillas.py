@@ -173,13 +173,14 @@ def get_ventanillas_disponibles(id_rol):
         
         ventanillas = cursor.fetchall()
         return jsonify(ventanillas), 200
-        
+
     except Exception as e:
         print(f"Error al obtener ventanillas: {e}")
         return jsonify({"error": str(e)}), 500
     finally:
         cursor.close()
         conn.close()
+
 
 @bp.route("/employees/<int:id_empleado>/ventanilla", methods=["PUT"])
 def update_employee_ventanilla(id_empleado):

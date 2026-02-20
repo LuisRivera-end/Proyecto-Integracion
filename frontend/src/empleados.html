@@ -1,31 +1,31 @@
 <script type="module">
-import Config from './js/config.js';
+  import Config from './js/config.js';
 
-async function verificarSesion() {
+  async function verificarSesion() {
     try {
-        const res = await fetch(`${Config.API_BASE_URL}/api/check_session`, {
-            credentials: 'include' // para enviar cookies de sesión
-        });
-        if (!res.ok) {
-            window.location.href = 'login.html';
-        }
-    } catch (err) {
+      const res = await fetch(`${Config.API_BASE_URL}/api/check_session`, {
+        credentials: 'include'
+      });
+      if (!res.ok) {
         window.location.href = 'login.html';
+      }
+    } catch (err) {
+      window.location.href = 'login.html';
     }
-}
+  }
 
-verificarSesion();
+  verificarSesion();
 </script>
 
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Gestión de Empleados</title>
   <link rel="stylesheet" href="./dist/output.css">
   <link rel="stylesheet" href="style.css">
-
   <style>
     /* Accordion animation */
     .accordion-content {
@@ -97,11 +97,11 @@ verificarSesion();
         <a href="pantalla.html"
           class="flex items-center gap-4 px-5 py-3.5 rounded-xl text-slate-600 hover:text-emerald-700 hover:bg-emerald-50/80 transition-all duration-200 group relative overflow-hidden">
           <svg class="w-6 h-6 text-slate-400 group-hover:text-emerald-500 transition-colors duration-300" fill="none"
-          stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
               d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-        </svg>
-        <span class="font-bold tracking-wide text-sm relative z-10">Ver Pantalla</span>
+          </svg>
+          <span class="font-bold tracking-wide text-sm relative z-10">Ver Pantalla</span>
         </a>
 
         <a href="empleados.html"
@@ -151,14 +151,20 @@ verificarSesion();
           </div>
         </div>
       </div>
+    </aside>
+
+    <!-- Mobile Backdrop -->
+    <div id="mobileBackdrop"
+      class="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 hidden lg:hidden transition-opacity duration-300 opacity-0">
     </div>
     </aside>
 
     <!-- Mobile Backdrop -->
-    <div id="mobileBackdrop"class="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 hidden lg:hidden transition-opacity duration-300 opacity-0">
+    <div id="mobileBackdrop"
+      class="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 hidden lg:hidden transition-opacity duration-300 opacity-0">
     </div>
 
-      <!-- Main Content -->
+    <!-- Main Content -->
     <main class="flex-1 h-full relative overflow-y-auto overflow-x-hidden scroll-smooth bg-transparent">
 
       <!-- Mobile Header -->
@@ -231,7 +237,7 @@ verificarSesion();
                           class="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-medium" />
                       </div>
                     </div>
-                
+
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
                         <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Primer
@@ -278,9 +284,9 @@ verificarSesion();
                     </button>
                   </form>
                 </div>
-                </div>
+              </div>
             </div>
-            
+
             <!-- ===== PANEL 2: Lista de Empleados ===== -->
             <div class="rounded-xl border border-slate-200 overflow-hidden shadow-sm">
               <button id="header-lista"
@@ -294,8 +300,8 @@ verificarSesion();
                     </svg>
                   </div>
                   <span class="font-bold text-slate-800">Lista de Empleados</span>
-                  </div>
-                  <svg class="accordion-arrow rotate-180 w-5 h-5 text-slate-400" fill="none" stroke="currentColor"
+                </div>
+                <svg class="accordion-arrow rotate-180 w-5 h-5 text-slate-400" fill="none" stroke="currentColor"
                   viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                 </svg>
@@ -321,7 +327,7 @@ verificarSesion();
                 </div>
               </div>
             </div>
-          
+
             <!-- ===== PANEL 3: Editar Empleado ===== -->
             <div class="rounded-xl border border-slate-200 overflow-hidden shadow-sm">
               <button id="header-editar"
@@ -358,12 +364,12 @@ verificarSesion();
               </div>
             </div>
 
-      </div>
-      </div>
+          </div>
+        </div>
 
       </div>
 
-       <!-- Floating Language Selector -->
+      <!-- Floating Language Selector -->
       <div class="fixed bottom-6 right-6 z-50">
         <div class="gtranslate_wrapper" title="Cambiar idioma"></div>
       </div>
@@ -417,4 +423,5 @@ verificarSesion();
     }
   </script>
 </body>
+
 </html>

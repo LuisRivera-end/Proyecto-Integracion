@@ -27,191 +27,261 @@
   <link rel="stylesheet" href="style.css">
 </head>
 
-<body class="min-h-screen">
-  <div class="bg-gradient-to-br from-slate-600 via-slate-500 to-emerald-300 p-8 min-h-screen">
-    <div class="max-w-4xl mx-auto">
-      <div class="fixed right-4 top-4 z-50" id="dropdown">
-        <div class="relative inline-block text-left">
-          <button id="dropdownButton"
-            class="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-gray-200">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2"
-              stroke="currentColor" class="w-5 h-5 text-gray-700">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
-            <span class="text-sm font-medium text-gray-700">Menú</span>
-            <svg id="dropdownIcon" class="w-4 h-4 text-gray-500 transition-transform duration-200" fill="none"
-              stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-            </svg>
-          </button>
+<body
+  class="bg-gradient-to-br from-slate-600 via-slate-500 to-emerald-300 min-h-screen text-slate-800 font-sans antialiased overflow-hidden">
+  <div class="flex h-screen w-full relative">
 
-          <div id="dropdownMenu"
-            class="absolute right-0 mt-2 w-52 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden hidden">
-            <div class="py-1">
-              <a href="pantalla.html"
-                class="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors duration-150">
-                <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                </svg>
-                <span>Ver Pantalla</span>
-              </a>
+    <!-- Sidebar -->
+    <aside id="sidebar"
+      class="w-72 h-full flex flex-col bg-white border-r border-slate-200 shadow-xl z-50 transition-transform duration-300 fixed inset-y-0 left-0 transform -translate-x-full lg:translate-x-0 lg:relative lg:block">
 
-              <div class="border-t border-gray-100"></div>
-
-              <a href="empleados.html"
-                class="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors duration-150">
-                <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                </svg>
-                <span>Empleados</span>
-              </a>
-
-              <div class="border-t border-gray-100"></div>
-              <a href="historial.html"
-                class="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors duration-150">
-                <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M4 4h16v16H4V4zM4 9h16M4 15h16M9 4v16M15 4v16" />
-                </svg>
-                <span>Historial de Tickets</span>
-              </a>
-
-              <div class="border-t border-gray-100"></div>
-              <a href="admin.html"
-                class="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors duration-150">
-                <svg class="w-6 h-6 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
-                </svg>
-                <span>Admin</span>
-              </a>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="bg-white rounded-lg shadow-lg p-8 mb-8">
-        <h1 class="text-3xl font-bold text-gray-900 mb-2">Resumen de Tickets</h1>
-        <p class="text-gray-900" id="fecha-actual"></p>
-      </div>
-
-      <div class="bg-white rounded-lg shadow-lg p-8 mb-6 relative">
-        <!-- Botón de recarga mejorado -->
-        <button onclick="actualizarDatosCabecera()"
-          class="absolute top-4 right-4 bg-gradient-to-r from-slate-600 to-emerald-600 hover:from-slate-700 hover:to-emerald-700 text-white p-3 rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105 active:scale-95"
-          title="Recargar Total Tickets Atendidos">
+      <!-- Header -->
+      <div class="px-6 py-6 border-b border-slate-100 relative flex flex-col items-center bg-white">
+        <!-- Close Button (Mobile Only) -->
+        <button id="closeSidebar" class="lg:hidden text-slate-400 hover:text-slate-600 absolute right-4 top-4">
           <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
           </svg>
         </button>
-
-        <!-- Contenido centrado -->
-        <div class="text-center">
-          <p class="text-gray-600 text-lg mb-2">Total de Tickets Atendidos Hoy</p>
-          <p class="text-6xl font-bold text-gray-600" id="total-tickets">0</p>
+        <!-- Logo -->
+        <div class="flex flex-col items-center gap-2 cursor-default hover:scale-105 transition-transform duration-300">
+          <img src="./public/ual.png" alt="UAL" class="h-20 w-auto object-contain" />
+          <p class="text-xs text-emerald-600 font-bold tracking-[0.2em] uppercase">Admin Panel</p>
         </div>
       </div>
 
-      <div class="bg-white rounded-lg shadow p-6 mb-6">
-        <h3 class="text-lg font-semibold text-gray-900 mb-4">Conteo Total por Estado</h3>
-        <!-- Resumen -->
-        <div class="mt-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 text-center">
-          <div class="bg-slate-100 p-4 rounded-lg shadow">
-            <p class="text-gray-600 text-sm">Total Agregados</p>
-            <p id="total-agregados" class="text-3xl font-bold text-gray-900">0</p>
+      <!-- Navigation -->
+      <nav class="flex-1 overflow-y-auto py-6 px-4 space-y-2 custom-scrollbar bg-white">
+
+        <a href="pantalla.html"
+          class="flex items-center gap-4 px-5 py-3.5 rounded-xl text-slate-600 hover:text-emerald-700 hover:bg-emerald-50/80 transition-all duration-200 group relative overflow-hidden">
+          <svg class="w-6 h-6 text-slate-400 group-hover:text-emerald-500 transition-colors duration-300" fill="none"
+            stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+          </svg>
+          <span class="font-bold tracking-wide text-sm relative z-10">Ver Pantalla</span>
+        </a>
+
+        <a href="empleados.html"
+          class="flex items-center gap-4 px-5 py-3.5 rounded-xl text-slate-600 hover:text-emerald-700 hover:bg-emerald-50/80 transition-all duration-200 group relative overflow-hidden">
+          <svg class="w-6 h-6 text-slate-400 group-hover:text-emerald-500 transition-colors duration-300" fill="none"
+            stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+          </svg>
+          <span class="font-bold tracking-wide text-sm relative z-10">Empleados</span>
+        </a>
+
+        <a href="historial.html"
+          class="flex items-center gap-4 px-5 py-3.5 rounded-xl bg-emerald-50 text-emerald-800 shadow-sm border border-emerald-100 relative overflow-hidden group">
+          <svg class="w-6 h-6 relative z-10 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M4 4h16v16H4V4zM4 9h16M4 15h16M9 4v16M15 4v16" />
+          </svg>
+          <span class="font-bold tracking-wide text-sm relative z-10">Historial de Tickets</span>
+          <div class="absolute right-4 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse">
           </div>
-          <div class="bg-slate-100 p-4 rounded-lg shadow">
-            <p class="text-gray-600 text-sm">Completados</p>
-            <p id="total-completados" class="text-3xl font-bold text-green-600">0</p>
+        </a>
+
+        <div class="my-4 mx-5 border-t border-slate-100"></div>
+
+        <a href="admin.html"
+          class="flex items-center gap-4 px-5 py-3.5 rounded-xl text-slate-600 hover:text-emerald-700 hover:bg-emerald-50/80 transition-all duration-200 group relative overflow-hidden">
+          <svg class="w-6 h-6 text-slate-400 group-hover:text-emerald-500 transition-colors duration-300" fill="none"
+            stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+          </svg>
+          <span class="font-bold tracking-wide text-sm relative z-10">Administración</span>
+        </a>
+      </nav>
+
+      <!-- Footer User Info -->
+      <div class="border-t border-slate-200 bg-slate-50 min-h-[88px] flex items-center flex-shrink-0">
+        <div class="w-full px-8 py-5 flex items-center gap-4 cursor-pointer hover:bg-slate-100 transition-colors">
+          <div
+            class="w-10 h-10 rounded-full bg-emerald-100 border border-emerald-200 flex items-center justify-center text-emerald-700 text-sm font-bold shadow-sm">
+            A
           </div>
-          <div class="bg-slate-100 p-4 rounded-lg shadow">
-            <p class="text-gray-600 text-sm">Atendiendo</p>
-            <p id="total-atendiendo" class="text-3xl font-bold text-blue-600">0</p>
-          </div>
-          <div class="bg-slate-100 p-4 rounded-lg shadow">
-            <p class="text-gray-600 text-sm">Cancelados</p>
-            <p id="total-cancelados" class="text-3xl font-bold text-red-600">0</p>
-          </div>
-          <div class="bg-slate-100 p-4 rounded-lg shadow">
-            <p class="text-gray-600 text-sm">Pendientes</p>
-            <p id="total-pendientes" class="text-3xl font-bold text-yellow-600">0</p>
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-bold text-slate-800 truncate">Admin User</p>
+            <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider truncate">Sistema</p>
           </div>
         </div>
       </div>
+    </aside>
 
+    <!-- Mobile Backdrop -->
+    <div id="mobileBackdrop"
+      class="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 hidden lg:hidden transition-opacity duration-300 opacity-0">
+    </div>
 
+    <!-- Main Content -->
+    <main class="flex-1 h-full relative overflow-y-auto overflow-x-hidden scroll-smooth bg-transparent">
 
+      <!-- Mobile Header -->
+      <div
+        class="lg:hidden flex items-center justify-between p-4 bg-white/10 backdrop-blur-md shadow-sm border-b border-white/10 sticky top-0 z-30">
+        <button id="openSidebar" class="text-slate-800 p-2 rounded-lg hover:bg-white/20 transition-colors">
+          <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+          </svg>
+        </button>
+        <h1 class="text-xl font-bold text-slate-800 tracking-tight">Historial</h1>
+        <div class="w-8"></div> <!-- Spacer for centering -->
+      </div>
 
-      <!-- HISTORIAL DE TICKETS -->
-      <div class="bg-white rounded-lg shadow-lg p-8 mt-10">
-        <h2 class="text-2xl font-semibold text-gray-900 mb-6 text-center">Historial de Tickets</h2>
+      <!-- Content Wrapper -->
+      <div class="p-6 md:p-10 lg:p-14 max-w-7xl mx-auto w-full flex flex-col gap-8">
 
-        <!-- Filtros -->
-        <div class="flex flex-wrap justify-between items-center mb-6 gap-4">
-          <div class="flex items-center gap-2">
-            <label for="filtro-status" class="text-gray-700 font-medium">Estado:</label>
-            <select id="filtro-status"
-              class="border-gray-300 rounded-lg p-2 focus:ring-emerald-400 focus:border-emerald-400">
-              <option value="todos">Todos los estados</option>
-              <option value="Completado">Completado</option>
-              <option value="Cancelado">Cancelado</option>
-              <option value="Pendiente">Pendiente</option>
-              <option value="Atendiendo">Atendiendo</option>
-            </select>
+        <!-- Header / Summary Card -->
+        <div
+          class="bg-white/95 backdrop-blur-sm rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-8 border border-white/60 relative overflow-hidden">
+          <div class="relative z-10 flex flex-col md:flex-row justify-between items-center gap-4">
+            <div>
+              <h1 class="text-3xl font-bold text-slate-800 tracking-tight">Resumen de Tickets</h1>
+              <p class="text-slate-500 mt-1 font-medium" id="fecha-actual"></p>
+            </div>
+            <button onclick="actualizarDatos()"
+              class="flex items-center gap-2 bg-gradient-to-r from-emerald-500 to-teal-500 text-white px-5 py-2.5 rounded-xl font-bold shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/30 hover:-translate-y-0.5 active:translate-y-0 active:scale-95 transition-all duration-200"
+              title="Recargar Total Tickets Atendidos">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              <span>Recargar</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Stats Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <!-- Total Today -->
+          <div
+            class="bg-white/90 backdrop-blur rounded-2xl p-6 shadow-sm border border-slate-100 flex flex-col items-center justify-center md:col-span-4 lg:col-span-1 lg:row-span-2">
+            <p class="text-sm font-bold text-slate-400 uppercase tracking-wider mb-2">Tickets Hoy</p>
+            <p class="text-6xl font-black text-slate-800 tracking-tighter" id="total-tickets">0</p>
           </div>
 
-          <div class="flex items-center gap-2">
-            <label for="filtro-sector" class="text-gray-700 font-medium">Sector:</label>
-            <select id="filtro-sector"
-              class="border-gray-300 rounded-lg p-2 focus:ring-emerald-400 focus:border-emerald-400">
-              <option value="todos">Todos</option>
-            </select>
+          <!-- Status Cards -->
+          <div
+            class="bg-white/80 rounded-2xl p-5 shadow-sm border border-slate-100 text-center hover:bg-white transition-colors">
+            <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Agregados</p>
+            <p id="total-agregados" class="text-3xl font-bold text-slate-800">0</p>
           </div>
+          <div
+            class="bg-white/80 rounded-2xl p-5 shadow-sm border border-slate-100 text-center hover:bg-white transition-colors">
+            <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Completados</p>
+            <p id="total-completados" class="text-3xl font-bold text-emerald-500">0</p>
+          </div>
+          <div
+            class="bg-white/80 rounded-2xl p-5 shadow-sm border border-slate-100 text-center hover:bg-white transition-colors">
+            <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Atendiendo</p>
+            <p id="total-atendiendo" class="text-3xl font-bold text-blue-500">0</p>
+          </div>
+          <div
+            class="bg-white/80 rounded-2xl p-5 shadow-sm border border-slate-100 text-center hover:bg-white transition-colors">
+            <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Cancelados</p>
+            <p id="total-cancelados" class="text-3xl font-bold text-rose-500">0</p>
+          </div>
+          <div
+            class="bg-white/80 rounded-2xl p-5 shadow-sm border border-slate-100 text-center hover:bg-white transition-colors">
+            <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Pendientes</p>
+            <p id="total-pendientes" class="text-3xl font-bold text-amber-500">0</p>
+          </div>
+        </div>
 
-          <!-- Nuevo filtro por rango de fechas -->
-          <div class="flex flex-col gap-2">
-            <label class="text-gray-700 font-medium">Rango de Fechas:</label>
-            <div class="flex gap-2">
-              <input id="filtro-fecha-inicio" type="date"
-                class="border-gray-300 rounded-lg p-2 focus:ring-emerald-400 focus:border-emerald-400 w-32">
-              <span class="self-center">a</span>
-              <input id="filtro-fecha-fin" type="date"
-                class="border-gray-300 rounded-lg p-2 focus:ring-emerald-400 focus:border-emerald-400 w-32">
+        <!-- History List -->
+        <div class="bg-white/95 backdrop-blur-sm rounded-3xl shadow-lg border border-white/60 p-8">
+          <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+            <h2 class="text-2xl font-bold text-slate-800">Historial Detallado</h2>
+
+            <!-- Filter Bar -->
+            <div class="flex flex-wrap gap-3">
+              <select id="filtro-status"
+                class="px-4 py-2 rounded-xl bg-slate-50 border border-slate-200 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500/20">
+                <option value="todos">Todos los estados</option>
+                <option value="Completado">Completado</option>
+                <option value="Cancelado">Cancelado</option>
+                <option value="Pendiente">Pendiente</option>
+                <option value="Atendiendo">Atendiendo</option>
+              </select>
+              <select id="filtro-sector"
+                class="px-4 py-2 rounded-xl bg-slate-50 border border-slate-200 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500/20">
+                <option value="todos">Todos los sectores</option>
+                <option value="cajas">Cajas</option>
+                <option value="becas">Becas</option>
+                <option value="servicios escolares">Servicios Escolares</option>
+              </select>
+              <div class="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-2 py-1">
+                <input id="filtro-fecha-inicio" type="date"
+                  class="bg-transparent border-none text-sm text-slate-700 focus:ring-0">
+                <span class="text-slate-400">-</span>
+                <input id="filtro-fecha-fin" type="date"
+                  class="bg-transparent border-none text-sm text-slate-700 focus:ring-0">
+              </div>
               <button id="btn-limpiar-fechas"
-                class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-3 rounded-lg transition-colors">Limpiar</button>
+                class="px-3 py-2 rounded-xl bg-slate-200 text-slate-600 hover:bg-slate-300 text-xs font-bold transition-colors">Limpiar</button>
             </div>
           </div>
-        </div>
 
-        <!-- Tabla de Tickets -->
-        <div class="overflow-x-auto">
-          <table class="min-w-full border border-gray-200 rounded-lg text-sm text-left text-gray-700">
-            <thead class="bg-gray-100">
-              <tr>
-                <th class="py-3 px-4 border-b">ID</th>
-                <th class="py-3 px-4 border-b">Sector</th>
-                <th class="py-3 px-4 border-b">Estado</th>
-                <th class="py-3 px-4 border-b">Creado</th>
-                <th class="py-3 px-4 border-b">Ultima Actualización</th>
-              </tr>
-            </thead>
-            <tbody id="tabla-historial" class="divide-y divide-gray-100"></tbody>
-          </table>
+          <div class="overflow-hidden rounded-2xl border border-slate-200">
+            <table class="w-full text-sm text-left">
+              <thead class="bg-slate-50 border-b border-slate-200">
+                <tr>
+                  <th class="px-6 py-4 font-bold text-slate-600 uppercase tracking-wider text-xs">ID</th>
+                  <th class="px-6 py-4 font-bold text-slate-600 uppercase tracking-wider text-xs">Sector</th>
+                  <th class="px-6 py-4 font-bold text-slate-600 uppercase tracking-wider text-xs">Estado</th>
+                  <th class="px-6 py-4 font-bold text-slate-600 uppercase tracking-wider text-xs">Creado</th>
+                  <th class="px-6 py-4 font-bold text-slate-600 uppercase tracking-wider text-xs">Ultima Actualización
+                  </th>
+                </tr>
+              </thead>
+              <tbody id="tabla-historial" class="divide-y divide-slate-100 bg-white"></tbody>
+            </table>
+          </div>
         </div>
 
       </div>
-    </div>
+
+      <!-- Floating Language Selector -->
+      <div class="fixed bottom-6 right-6 z-50">
+        <div class="gtranslate_wrapper" title="Cambiar idioma"></div>
+      </div>
+
+    </main>
   </div>
-  <!-- idiomas -->
-  <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
-  <div class="gtranslate_wrapper" title="Cambiar idioma"></div>
+
   <script src="https://cdn.gtranslate.net/widgets/latest/float.js" defer></script>
   <script src="./js/idioma.js"></script>
-  </div>
   <script type="module" src="./js/historial.js"></script>
-  <script src="./js/desplegable.js"></script>
+
+  <!-- Sidebar Toggle Script -->
+  <script>
+    const sidebar = document.getElementById('sidebar');
+    const openBtn = document.getElementById('openSidebar');
+    const closeBtn = document.getElementById('closeSidebar');
+    const backdrop = document.getElementById('mobileBackdrop');
+
+    function toggleSidebar() {
+      sidebar.classList.toggle('-translate-x-full');
+
+      if (!sidebar.classList.contains('-translate-x-full')) {
+        // Open
+        backdrop.classList.remove('hidden');
+        setTimeout(() => backdrop.classList.remove('opacity-0'), 10);
+      } else {
+        // Close
+        backdrop.classList.add('opacity-0');
+        setTimeout(() => backdrop.classList.add('hidden'), 300);
+      }
+    }
+
+    openBtn.addEventListener('click', toggleSidebar);
+    closeBtn.addEventListener('click', toggleSidebar);
+    backdrop.addEventListener('click', toggleSidebar);
+  </script>
 </body>
 
 </html>
