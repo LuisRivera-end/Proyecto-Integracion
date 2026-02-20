@@ -132,16 +132,9 @@ def iniciar_ventanilla():
 def get_ventanillas_disponibles(id_rol):
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
-
-    # Optional: exclude the ventanilla of this employee from the "occupied" filter
-    # so their current ventanilla still shows as selected
     excluir_empleado = request.args.get("excluir_empleado", type=int)
-
     try:
         if excluir_empleado:
-            # Return ventanillas that are:
-            # 1. Linked to this role
-            # 2. NOT actively occupied by someone else (other than the employee being edited)
             cursor.execute("""
                 SELECT
                     v.ID_Ventanilla,
@@ -162,7 +155,6 @@ def get_ventanillas_disponibles(id_rol):
                 ORDER BY v.ID_Ventanilla
             """, (id_rol, excluir_empleado))
         else:
-            # Return only ventanillas that are completely free
             cursor.execute("""
                 SELECT
                     v.ID_Ventanilla,
@@ -178,7 +170,7 @@ def get_ventanillas_disponibles(id_rol):
                   )
                 ORDER BY v.ID_Ventanilla
             """, (id_rol,))
-
+        
         ventanillas = cursor.fetchall()
         return jsonify(ventanillas), 200
 

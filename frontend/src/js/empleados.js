@@ -299,6 +299,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       usuario: document.getElementById("usuario").value.trim(),
       passwd: document.getElementById("password").value.trim(),
       id_rol: parseInt(document.getElementById("rol").value),
+      id_sector: document.getElementById("rol").value === "6" ? (parseInt(document.getElementById("sector-form").value) || null) : null
     };
 
     if (!data.nombre1 || !data.apellido1 || !data.usuario || !data.passwd) {
@@ -341,6 +342,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       alert("Empleado agregado exitosamente");
       empleadoForm.reset();
+      document.getElementById("sector-container").classList.add("hidden");
       loadEmployees();
     } catch (err) {
       console.error(err);

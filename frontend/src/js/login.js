@@ -58,12 +58,15 @@ document.addEventListener("DOMContentLoaded", async () => {
                 }
 
                 const ventanillaActiva = await ventanillaActivaRes.json();
-                if (ventanillaActiva && ventanillaActiva.ID_Ventanilla) {
-                    console.log("Usando ventanilla asignada:", ventanillaActiva);
-                    currentUser.ventanilla = {
-                        id: ventanillaActiva.ID_Ventanilla,
-                        nombre: ventanillaActiva.Ventanilla
-                    };
+                if ((ventanillaActiva && ventanillaActiva.ID_Ventanilla) || currentUser.rol === 6) {
+                    console.log("Sesión válida:", currentUser.rol === 6 ? "Jefe de Departamento" : "Operador con ventanilla");
+                    
+                    if (ventanillaActiva && ventanillaActiva.ID_Ventanilla) {
+                        currentUser.ventanilla = {
+                            id: ventanillaActiva.ID_Ventanilla,
+                            nombre: ventanillaActiva.Ventanilla
+                        };
+                    }
                     
                     // Guardar sesión en localStorage
                     localStorage.setItem('currentUser', JSON.stringify(currentUser));

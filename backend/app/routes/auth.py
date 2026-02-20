@@ -22,7 +22,8 @@ def login():
                 ee.Nombre as Estado_Empleado,
                 ev.ID_Ventanilla,
                 v.Ventanilla,
-                s.Sector as Sector_Ventanilla
+                s.Sector as Sector_Ventanilla,
+                sj.Sector as Sector_Jefe
             FROM Empleado e 
             LEFT JOIN Rol r ON e.ID_ROL = r.ID_Rol 
             LEFT JOIN Estado_Empleado ee ON e.ID_Estado = ee.ID_Estado
@@ -31,6 +32,7 @@ def login():
                 AND ev.Fecha_Termino IS NULL
             LEFT JOIN Ventanillas v ON ev.ID_Ventanilla = v.ID_Ventanilla
             LEFT JOIN Sectores s ON v.ID_Sector = s.ID_Sector
+            LEFT JOIN Sectores sj ON e.ID_Sector = sj.ID_Sector
             WHERE e.Usuario = %s
         """, (username,))
         user = cursor.fetchone()
@@ -46,16 +48,17 @@ def login():
         if user["Passwd"] != hashed_pw:
             return jsonify({"error": "Contraseña incorrecta"}), 401
         
-        rol_a_sector = {
-            1: "Admin",
-            2: "Cajas", 
-            3: "Becas",
-            4: "Servicios Escolares",
-            5: "Tesoreria",
-            6: "Jefe de Departamento"
-        }
-        
-        sector = rol_a_sector.get(user["ID_ROL"], "Desconocido")
+        if user["ID_ROL"] == 6:
+            sector = user["Sector_Jefe"] or "Sin Sector"
+        else:
+            rol_a_sector = {
+                1: "Admin",
+                2: "Cajas", 
+                3: "Becas",
+                4: "Servicios Escolares",
+                5: "Tesoreria"
+            }
+            sector = rol_a_sector.get(user["ID_ROL"], "Desconocido")
         
         session['user_id'] = user["ID_Empleado"]
         session['username'] = user["Usuario"]

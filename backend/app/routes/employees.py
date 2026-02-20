@@ -61,7 +61,9 @@ def get_employees_full():
                 v.Ventanilla,
                 s.Sector as Sector_Ventanilla,
                 ev.ID_Estado as Estado_Ventanilla,
-                eev.Nombre as Nombre_Estado_Ventanilla
+                eev.Nombre as Nombre_Estado_Ventanilla,
+                e.ID_Sector as ID_Sector_Jefe,
+                sj.Sector as Nombre_Sector_Jefe
             FROM Empleado e
             LEFT JOIN Rol r ON e.ID_ROL = r.ID_Rol
             LEFT JOIN Estado_Empleado ee ON e.ID_Estado = ee.ID_Estado
@@ -69,6 +71,7 @@ def get_employees_full():
                 AND ev.Fecha_Termino IS NULL
             LEFT JOIN Ventanillas v ON ev.ID_Ventanilla = v.ID_Ventanilla
             LEFT JOIN Sectores s ON v.ID_Sector = s.ID_Sector
+            LEFT JOIN Sectores sj ON e.ID_Sector = sj.ID_Sector
             LEFT JOIN Estado_empleado_ventanilla eev ON ev.ID_Estado = eev.ID_Estado
             ORDER BY e.ID_Empleado
         """)
@@ -173,11 +176,11 @@ def add_employee():
 
         cursor.execute("""
             INSERT INTO Empleado
-            (ID_ROL, nombre1, nombre2, Apellido1, Apellido2, Usuario, Passwd, ID_Estado)
-            VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
+            (ID_ROL, nombre1, nombre2, Apellido1, Apellido2, Usuario, Passwd, ID_Estado, ID_Sector)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
         """, (
             data['id_rol'], data['nombre1'], data['nombre2'], data['apellido1'],
-            data['apellido2'], data['usuario'], passwd_hash, 1
+            data['apellido2'], data['usuario'], passwd_hash, 1, data.get('id_sector')
         ))
         conn.commit()
         return jsonify({"message": "Empleado agregado"}), 201
@@ -306,7 +309,6 @@ def update_employee(id_empleado):
         cursor.close()
         conn.close()
 
-
 # --------------------------------------------------------
 # VERIFICAR SI UN USUARIO YA EXISTE
 # --------------------------------------------------------
@@ -320,6 +322,49 @@ def check_user_exists(usuario):
         return jsonify({"exists": exists}), 200
     except Exception as e:
         print(f"Error en check_user_exists: {e}")
+        return jsonify({"error": str(e)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+# --------------------------------------------------------
+# LISTA DE SECTORES
+# --------------------------------------------------------
+@bp.route("/sectores", methods=["GET"])
+def get_sectores():
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    try:
+        cursor.execute("SELECT ID_Sector, Sector FROM Sectores ORDER BY Sector")
+        sectores = cursor.fetchall()
+        return jsonify(sectores), 200
+    except Exception as e:
+        print(f"Error en get_sectores: {e}")
+        return jsonify({"error": str(e)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+# --------------------------------------------------------
+# ASIGNAR SECTOR A UN EMPLEADO (PARA JEFES)
+# --------------------------------------------------------
+@bp.route("/employees/<int:id_empleado>/sector", methods=["PUT"])
+def update_employee_sector(id_empleado):
+    data = request.get_json()
+    id_sector = data.get("id_sector")
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute("""
+            UPDATE Empleado
+            SET ID_Sector = %s
+            WHERE ID_Empleado = %s
+        """, (id_sector, id_empleado))
+        conn.commit()
+        return jsonify({"message": "Sector actualizado correctamente"}), 200
+    except Exception as e:
+        print(f"Error en update_employee_sector: {e}")
         return jsonify({"error": str(e)}), 500
     finally:
         cursor.close()

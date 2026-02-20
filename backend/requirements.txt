@@ -1,12 +1,14 @@
 # backend/requirements.txt
 Flask
-mysql-connector-python
+PyMySQL
 flask_cors
 FPDF
 requests
 Flask-SocketIO
 python-socketio
-eventlet
+gevent
+gevent-websocket
 flask_session
 pytz
 python-dotenv
+gunicorn
