@@ -132,27 +132,55 @@ def iniciar_ventanilla():
 def get_ventanillas_disponibles(id_rol):
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
-    
+    excluir_empleado = request.args.get("excluir_empleado", type=int)
     try:
-        cursor.execute("""
-            SELECT 
-                v.ID_Ventanilla,
-                v.Ventanilla
-            FROM Ventanillas v
-            JOIN Rol_Ventanilla rv ON v.ID_Ventanilla = rv.ID_Ventanilla
-            WHERE rv.ID_Rol = %s
-            ORDER BY v.ID_Ventanilla
-        """, (id_rol,))
+        if excluir_empleado:
+            cursor.execute("""
+                SELECT
+                    v.ID_Ventanilla,
+                    v.Ventanilla
+                FROM Ventanillas v
+                JOIN Rol_Ventanilla rv ON v.ID_Ventanilla = rv.ID_Ventanilla
+                WHERE rv.ID_Rol = %s
+                  AND (
+                    -- not occupied at all
+                    v.ID_Ventanilla NOT IN (
+                        SELECT ev.ID_Ventanilla
+                        FROM Empleado_Ventanilla ev
+                        WHERE ev.Fecha_Termino IS NULL
+                          AND ev.ID_Estado = 1
+                          AND ev.ID_Empleado != %s
+                    )
+                  )
+                ORDER BY v.ID_Ventanilla
+            """, (id_rol, excluir_empleado))
+        else:
+            cursor.execute("""
+                SELECT
+                    v.ID_Ventanilla,
+                    v.Ventanilla
+                FROM Ventanillas v
+                JOIN Rol_Ventanilla rv ON v.ID_Ventanilla = rv.ID_Ventanilla
+                WHERE rv.ID_Rol = %s
+                  AND v.ID_Ventanilla NOT IN (
+                      SELECT ev.ID_Ventanilla
+                      FROM Empleado_Ventanilla ev
+                      WHERE ev.Fecha_Termino IS NULL
+                        AND ev.ID_Estado = 1
+                  )
+                ORDER BY v.ID_Ventanilla
+            """, (id_rol,))
         
         ventanillas = cursor.fetchall()
         return jsonify(ventanillas), 200
-        
+
     except Exception as e:
         print(f"Error al obtener ventanillas: {e}")
         return jsonify({"error": str(e)}), 500
     finally:
         cursor.close()
         conn.close()
+
 
 @bp.route("/employees/<int:id_empleado>/ventanilla", methods=["PUT"])
 def update_employee_ventanilla(id_empleado):
