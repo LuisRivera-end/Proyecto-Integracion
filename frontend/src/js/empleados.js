@@ -6,21 +6,76 @@ document.addEventListener("DOMContentLoaded", async () => {
   const tablaEmpleados = document.getElementById("tablaEmpleados");
 
   // ──────────────────────────────────────────────
-  // LOAD & RENDER employees (table, no Ventanilla/Estado columns)
+  // Helper: CSS classes for estado badge/select
+  // ──────────────────────────────────────────────
+  function getEstadoClass(idEstado) {
+    switch (idEstado) {
+      case 1: return 'bg-green-100 text-green-800 border-green-200';   // Activo
+      case 2: return 'bg-yellow-100 text-yellow-800 border-yellow-200'; // Descanso
+      case 3: return 'bg-red-100 text-red-800 border-red-200';          // Despedido
+      case 4: return 'bg-gray-100 text-gray-600 border-gray-200';       // Inactivo
+      default: return 'bg-slate-100 text-slate-600 border-slate-200';
+    }
+  }
+
+  // ──────────────────────────────────────────────
+  // Helper: format ventanilla name
+  // ──────────────────────────────────────────────
+  function formatearNombreVentanilla(nombre) {
+    if (!nombre) return '';
+    if (nombre.startsWith('ServiciosEscolares')) {
+      const num = nombre.replace('ServiciosEscolares', '');
+      return `Sev ${num}`;
+    }
+    return nombre;
+  }
+
+  // ──────────────────────────────────────────────
+  // Cache: sectores
+  // ──────────────────────────────────────────────
+  let cachedSectores = null;
+  async function obtenerSectores() {
+    if (cachedSectores) return cachedSectores;
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/sectores`);
+      cachedSectores = await res.json();
+      return cachedSectores;
+    } catch (err) {
+      console.error("Error al cargar sectores:", err);
+      return [];
+    }
+  }
+
+  // ──────────────────────────────────────────────
+  // Helper: load ventanillas available for a role
+  // ──────────────────────────────────────────────
+  async function cargarVentanillasParaRol(idRol) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/ventanillas/disponibles/${idRol}`);
+      if (!res.ok) return [];
+      return await res.json();
+    } catch (err) {
+      console.error("Error al cargar ventanillas:", err);
+      return [];
+    }
+  }
+
+  // ──────────────────────────────────────────────
+  // LOAD & RENDER employees
   // ──────────────────────────────────────────────
   async function loadEmployees() {
     try {
       const res = await fetch(`${API_BASE_URL}/api/employees/full`);
       if (!res.ok) throw new Error("Error al cargar empleados");
       const empleados = await res.json();
-      renderEmployees(empleados);
+      await renderEmployees(empleados);
     } catch (err) {
       console.error(err);
       alert("Error al cargar empleados");
     }
   }
 
-  function renderEmployees(empleados) {
+  async function renderEmployees(empleados) {
     tablaEmpleados.innerHTML = "";
 
     for (const emp of empleados) {
@@ -33,7 +88,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       const esAdmin = emp.ID_ROL === 1;
 
-      // Edit button — admin is excluded
+      // ── Acciones cell ──
       const accionesCell = esAdmin
         ? `<span class="text-slate-300 text-xs italic">Sin acciones</span>`
         : `<button class="edit-btn" onclick="abrirEdicion(${emp.ID_Empleado})">Editar</button>`;
@@ -52,48 +107,137 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   // ──────────────────────────────────────────────
+  // Inline state change (from table select)
+  // ──────────────────────────────────────────────
+  window.cambiarEstado = async function (idEmpleado, idEstado) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/employees/${idEmpleado}/estado`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ estado: parseInt(idEstado) })
+      });
+      if (!res.ok) throw new Error("Error al cambiar estado");
+      loadEmployees();
+    } catch (err) {
+      console.error(err);
+      alert(err.message);
+    }
+  };
+
+  // ──────────────────────────────────────────────
+  // Inline ventanilla assignment (from table select)
+  // ──────────────────────────────────────────────
+  window.asignarVentanilla = async function (idEmpleado, idVentanilla) {
+    try {
+      const idVentNum = parseInt(idVentanilla);
+      const res = await fetch(`${API_BASE_URL}/api/employees/${idEmpleado}/ventanilla`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id_ventanilla: idVentNum === 0 ? null : idVentNum })
+      });
+      if (!res.ok) throw new Error("Error al asignar ventanilla");
+      loadEmployees();
+    } catch (err) {
+      console.error(err);
+      alert(err.message);
+    }
+  };
+
+  // ──────────────────────────────────────────────
+  // Inline sector assignment (from table select)
+  // ──────────────────────────────────────────────
+  window.asignarSector = async function (idEmpleado, idSector) {
+    if (idSector === undefined || idSector === null) return;
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/employees/${idEmpleado}/sector`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id_sector: idSector === "0" ? null : parseInt(idSector) })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Error al asignar sector");
+      loadEmployees();
+    } catch (err) {
+      console.error(err);
+      alert(err.message);
+    }
+  };
+
+  // ──────────────────────────────────────────────
   // OPEN EDIT panel for a specific employee
   // ──────────────────────────────────────────────
   window.abrirEdicion = async function (idEmpleado) {
     // Open the edit accordion panel
     const content = document.getElementById('content-editar');
     const header = document.getElementById('header-editar');
-    const arrow = header.querySelector('.accordion-arrow');
-    if (!content.classList.contains('open')) {
+    const arrow = header ? header.querySelector('.accordion-arrow') : null;
+    if (content && !content.classList.contains('open')) {
       content.classList.add('open');
-      header.classList.add('open');
-      arrow.classList.add('rotate-180');
+      if (header) header.classList.add('open');
+      if (arrow) arrow.classList.add('rotate-180');
     }
-    // Scroll the panel into view
-    content.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (content) content.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
     const container = document.getElementById('editEmpleadoContainer');
     container.innerHTML = `<p class="text-slate-400 text-sm text-center py-6">Cargando datos...</p>`;
 
     try {
-      // Fetch employee detail
       const res = await fetch(`${API_BASE_URL}/api/employees/full`);
       if (!res.ok) throw new Error();
       const todos = await res.json();
       const emp = todos.find(e => e.ID_Empleado === idEmpleado);
       if (!emp) throw new Error("Empleado no encontrado");
 
-      // Fetch ventanillas for their role
-      let ventanillas = [];
-      try {
-        const vRes = await fetch(`${API_BASE_URL}/api/ventanillas/disponibles/${emp.ID_ROL}?excluir_empleado=${emp.ID_Empleado}`);
-        if (vRes.ok) ventanillas = await vRes.json();
-      } catch (_) { }
+      // Determine if Jefe de Departamento (Rol 6)
+      const esJefe = emp.ID_ROL === 6;
 
-      // Build ventanilla options
-      const ventanillaOptions = [
-        `<option value="0" ${emp.ID_Ventanilla === null ? 'selected' : ''}>Sin ventanilla</option>`,
-        ...ventanillas.map(v =>
-          `<option value="${v.ID_Ventanilla}" ${emp.ID_Ventanilla === v.ID_Ventanilla ? 'selected' : ''}>${formatearNombreVentanilla(v.Ventanilla)}</option>`
-        )
-      ].join('');
+      let locationFieldHtml = '';
 
-      // Estado options (same states as before, excluding Descanso)
+      if (esJefe) {
+        // Fetch sectors
+        const sectores = await obtenerSectores();
+        const sectorOptions = [
+          `<option value="0" ${emp.ID_Sector_Jefe === null ? 'selected' : ''}>Sin sector</option>`,
+          ...sectores.map(s =>
+            `<option value="${s.ID_Sector}" ${emp.ID_Sector_Jefe === s.ID_Sector ? 'selected' : ''}>${s.Sector}</option>`
+          )
+        ].join('');
+
+        locationFieldHtml = `
+          <div>
+            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Sector</label>
+            <select id="edit-sector"
+              class="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-all appearance-none cursor-pointer font-medium">
+              ${sectorOptions}
+            </select>
+          </div>
+        `;
+      } else {
+        // Fetch ventanillas for their role (Operador, etc)
+        let ventanillas = [];
+        try {
+          const vRes = await fetch(`${API_BASE_URL}/api/ventanillas/disponibles/${emp.ID_ROL}?excluir_empleado=${emp.ID_Empleado}`);
+          if (vRes.ok) ventanillas = await vRes.json();
+        } catch (_) { }
+
+        const ventanillaOptions = [
+          `<option value="0" ${emp.ID_Ventanilla === null ? 'selected' : ''}>Sin ventanilla</option>`,
+          ...ventanillas.map(v =>
+            `<option value="${v.ID_Ventanilla}" ${emp.ID_Ventanilla === v.ID_Ventanilla ? 'selected' : ''}>${formatearNombreVentanilla(v.Ventanilla)}</option>`
+          )
+        ].join('');
+
+        locationFieldHtml = `
+          <div>
+            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Ventanilla</label>
+            <select id="edit-ventanilla"
+              class="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-all appearance-none cursor-pointer font-medium">
+              ${ventanillaOptions}
+            </select>
+          </div>
+        `;
+      }
+
       const estadoOptions = `
         <option value="1" ${emp.ID_Estado === 1 ? 'selected' : ''}>Activo</option>
         <option value="3" ${emp.ID_Estado === 3 ? 'selected' : ''}>Despedido</option>
@@ -112,16 +256,17 @@ document.addEventListener("DOMContentLoaded", async () => {
         </div>
 
         <div class="space-y-5">
+          <input type="hidden" id="edit-rol-id" value="${emp.ID_ROL}">
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Primer Nombre *</label>
               <input id="edit-nombre1" type="text" value="${emp.nombre1 || ''}"
-                class="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-400/30 focus:border-amber-400 transition-all font-medium"/>
+                class="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-all font-medium"/>
             </div>
             <div>
               <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Segundo Nombre</label>
               <input id="edit-nombre2" type="text" value="${emp.nombre2 || ''}" placeholder="Opcional"
-                class="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-400/30 focus:border-amber-400 transition-all font-medium"/>
+                class="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-all font-medium"/>
             </div>
           </div>
 
@@ -129,12 +274,12 @@ document.addEventListener("DOMContentLoaded", async () => {
             <div>
               <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Primer Apellido *</label>
               <input id="edit-apellido1" type="text" value="${emp.Apellido1 || ''}"
-                class="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-400/30 focus:border-amber-400 transition-all font-medium"/>
+                class="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-all font-medium"/>
             </div>
             <div>
               <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Segundo Apellido</label>
               <input id="edit-apellido2" type="text" value="${emp.Apellido2 || ''}" placeholder="Opcional"
-                class="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-400/30 focus:border-amber-400 transition-all font-medium"/>
+                class="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-all font-medium"/>
             </div>
           </div>
 
@@ -142,27 +287,21 @@ document.addEventListener("DOMContentLoaded", async () => {
             <div>
               <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Usuario *</label>
               <input id="edit-usuario" type="text" value="${emp.Usuario || ''}"
-                class="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-400/30 focus:border-amber-400 transition-all font-medium"/>
+                class="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-all font-medium"/>
             </div>
             <div>
               <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Contraseña <span class="normal-case font-normal text-slate-400">(dejar vacío para no cambiar)</span></label>
               <input id="edit-password" type="password" placeholder="••••••••"
-                class="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-800 placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-amber-400/30 focus:border-amber-400 transition-all font-medium"/>
+                class="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-800 placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-all font-medium"/>
             </div>
           </div>
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Ventanilla</label>
-              <select id="edit-ventanilla"
-                class="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-400/30 focus:border-amber-400 transition-all appearance-none cursor-pointer font-medium">
-                ${ventanillaOptions}
-              </select>
-            </div>
+            ${locationFieldHtml}
             <div>
               <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Estado</label>
               <select id="edit-estado"
-                class="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-400/30 focus:border-amber-400 transition-all appearance-none cursor-pointer font-medium">
+                class="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-all appearance-none cursor-pointer font-medium">
                 ${estadoOptions}
               </select>
             </div>
@@ -196,8 +335,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     const apellido2 = document.getElementById('edit-apellido2')?.value.trim();
     const usuario = document.getElementById('edit-usuario')?.value.trim();
     const password = document.getElementById('edit-password')?.value.trim();
-    const idVentanilla = document.getElementById('edit-ventanilla')?.value;
     const idEstado = document.getElementById('edit-estado')?.value;
+
+    // Check fields based on existence
+    const elVentanilla = document.getElementById('edit-ventanilla');
+    const elSector = document.getElementById('edit-sector');
 
     if (!nombre1 || !apellido1 || !usuario) {
       alert("Primer nombre, primer apellido y usuario son obligatorios.");
@@ -234,20 +376,34 @@ document.addEventListener("DOMContentLoaded", async () => {
         throw new Error(err.error || "Error al actualizar empleado");
       }
 
-      // 2) Update ventanilla
-      const idVentNum = parseInt(idVentanilla);
-      await fetch(`${API_BASE_URL}/api/employees/${idEmpleado}/ventanilla`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id_ventanilla: idVentNum === 0 ? null : idVentNum })
-      });
+      // 2) Update ventanilla IF exists
+      if (elVentanilla) {
+        const idVentNum = parseInt(elVentanilla.value);
+        await fetch(`${API_BASE_URL}/api/employees/${idEmpleado}/ventanilla`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id_ventanilla: idVentNum === 0 ? null : idVentNum })
+        });
+      }
+
+      // 2b) Update Sector IF exists
+      if (elSector) {
+        const idSecNum = parseInt(elSector.value);
+        await fetch(`${API_BASE_URL}/api/employees/${idEmpleado}/sector`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id_sector: idSecNum === 0 ? null : idSecNum })
+        });
+      }
 
       // 3) Update estado
-      await fetch(`${API_BASE_URL}/api/employees/${idEmpleado}/estado`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ estado: parseInt(idEstado) })
-      });
+      if (idEstado !== undefined) {
+        await fetch(`${API_BASE_URL}/api/employees/${idEmpleado}/estado`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ estado: parseInt(idEstado) })
+        });
+      }
 
       alert("Empleado actualizado correctamente");
       cancelarEdicion();
@@ -274,18 +430,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   };
 
   // ──────────────────────────────────────────────
-  // Helper: format ventanilla name
-  // ──────────────────────────────────────────────
-  function formatearNombreVentanilla(nombre) {
-    if (!nombre) return '';
-    if (nombre.startsWith('ServiciosEscolares')) {
-      const num = nombre.replace('ServiciosEscolares', '');
-      return `Sev ${num}`;
-    }
-    return nombre;
-  }
-
-  // ──────────────────────────────────────────────
   // ADD employee form submit
   // ──────────────────────────────────────────────
   empleadoForm.addEventListener("submit", async (e) => {
@@ -299,7 +443,9 @@ document.addEventListener("DOMContentLoaded", async () => {
       usuario: document.getElementById("usuario").value.trim(),
       passwd: document.getElementById("password").value.trim(),
       id_rol: parseInt(document.getElementById("rol").value),
-      id_sector: document.getElementById("rol").value === "6" ? (parseInt(document.getElementById("sector-form").value) || null) : null
+      id_sector: document.getElementById("rol").value === "6"
+        ? (parseInt(document.getElementById("sector-form").value) || null)
+        : null
     };
 
     if (!data.nombre1 || !data.apellido1 || !data.usuario || !data.passwd) {
@@ -351,6 +497,22 @@ document.addEventListener("DOMContentLoaded", async () => {
   });
 
   // ──────────────────────────────────────────────
+  // Load sectors into add-employee form
+  // ──────────────────────────────────────────────
+  async function cargarSectoresEnForm() {
+    const sectores = await obtenerSectores();
+    const sectorSelect = document.getElementById("sector-form");
+    if (!sectorSelect) return;
+    sectorSelect.innerHTML = '<option value="0">Sin sector</option>';
+    sectores.forEach(s => {
+      const opt = document.createElement("option");
+      opt.value = s.ID_Sector;
+      opt.textContent = s.Sector;
+      sectorSelect.appendChild(opt);
+    });
+  }
+
+  // ──────────────────────────────────────────────
   // Load roles for the add-employee form
   // ──────────────────────────────────────────────
   async function cargarRoles() {
@@ -370,8 +532,27 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   // ──────────────────────────────────────────────
+  // Rol select → show/hide sector field
+  // ──────────────────────────────────────────────
+  const rolSelect = document.getElementById("rol");
+  if (rolSelect) {
+    rolSelect.addEventListener("change", function () {
+      const sectorContainer = document.getElementById("sector-container");
+      const sectorForm = document.getElementById("sector-form");
+      if (this.value === "6") {
+        sectorContainer.classList.remove("hidden");
+        if (sectorForm) sectorForm.required = true;
+      } else {
+        sectorContainer.classList.add("hidden");
+        if (sectorForm) sectorForm.required = false;
+      }
+    });
+  }
+
+  // ──────────────────────────────────────────────
   // Init
   // ──────────────────────────────────────────────
   cargarRoles();
+  cargarSectoresEnForm();
   loadEmployees();
 });

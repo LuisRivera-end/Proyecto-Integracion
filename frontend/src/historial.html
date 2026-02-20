@@ -1,21 +1,3 @@
-<script type="module">
-  import Config from './js/config.js';
-
-  async function verificarSesion() {
-    try {
-      const res = await fetch(`${Config.API_BASE_URL}/api/check_session`, {
-        credentials: 'include' // para enviar cookies de sesión
-      });
-      if (!res.ok) {
-        window.location.href = 'login.html';
-      }
-    } catch (err) {
-      window.location.href = 'login.html';
-    }
-  }
-
-  verificarSesion();
-</script>
 <!DOCTYPE html>
 <html lang="es">
 
@@ -25,6 +7,24 @@
   <title>Tickets Atendidos - Sistema de Turnos</title>
   <link rel="stylesheet" href="../dist/output.css">
   <link rel="stylesheet" href="style.css">
+  <script type="module">
+    import Config from './js/config.js';
+
+    async function verificarSesion() {
+      try {
+        const res = await fetch(`${Config.API_BASE_URL}/api/check_session`, {
+          credentials: 'include'
+        });
+        if (!res.ok) {
+          window.location.href = 'login.html';
+        }
+      } catch (err) {
+        window.location.href = 'login.html';
+      }
+    }
+
+    verificarSesion();
+  </script>
 </head>
 
 <body
@@ -259,28 +259,32 @@
 
   <!-- Sidebar Toggle Script -->
   <script>
-    const sidebar = document.getElementById('sidebar');
-    const openBtn = document.getElementById('openSidebar');
-    const closeBtn = document.getElementById('closeSidebar');
-    const backdrop = document.getElementById('mobileBackdrop');
+    document.addEventListener('DOMContentLoaded', function () {
+      const sidebar = document.getElementById('sidebar');
+      const openBtn = document.getElementById('openSidebar');
+      const closeBtn = document.getElementById('closeSidebar');
+      const backdrop = document.getElementById('mobileBackdrop');
 
-    function toggleSidebar() {
-      sidebar.classList.toggle('-translate-x-full');
+      if (!sidebar || !openBtn || !closeBtn || !backdrop) return;
 
-      if (!sidebar.classList.contains('-translate-x-full')) {
-        // Open
-        backdrop.classList.remove('hidden');
-        setTimeout(() => backdrop.classList.remove('opacity-0'), 10);
-      } else {
-        // Close
-        backdrop.classList.add('opacity-0');
-        setTimeout(() => backdrop.classList.add('hidden'), 300);
+      function toggleSidebar() {
+        sidebar.classList.toggle('-translate-x-full');
+
+        if (!sidebar.classList.contains('-translate-x-full')) {
+          // Open
+          backdrop.classList.remove('hidden');
+          setTimeout(() => backdrop.classList.remove('opacity-0'), 10);
+        } else {
+          // Close
+          backdrop.classList.add('opacity-0');
+          setTimeout(() => backdrop.classList.add('hidden'), 300);
+        }
       }
-    }
 
-    openBtn.addEventListener('click', toggleSidebar);
-    closeBtn.addEventListener('click', toggleSidebar);
-    backdrop.addEventListener('click', toggleSidebar);
+      openBtn.addEventListener('click', toggleSidebar);
+      closeBtn.addEventListener('click', toggleSidebar);
+      backdrop.addEventListener('click', toggleSidebar);
+    });
   </script>
 </body>
 
