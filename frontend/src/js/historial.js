@@ -121,14 +121,7 @@ async function mostrarHistorialInteligente(filtroEstado = "todos", filtroSector 
 
             let sectorCoincide = true;
             if (filtroSector !== "todos") {
-                const mapeoSectores = {
-                    'cajas': 'Cajas',
-                    'becas': 'Becas',
-                    'servicios escolares': 'Servicios Escolares',
-                    'tesoreria': 'Tesoreria'
-                };
-                const sectorBd = mapeoSectores[filtroSector.toLowerCase()];
-                sectorCoincide = ticket.sector === sectorBd;
+                sectorCoincide = ticket.sector === filtroSector;
             }
 
             let fechaCoincide = true;
@@ -222,6 +215,25 @@ function actualizarResumen(lista) {
     document.getElementById("total-pendientes").textContent = conteo.Pendiente;
 }
 
+// Cargar sectores para el filtro
+async function cargarSectoresFiltro() {
+    try {
+        const res = await fetch(`${API_BASE_URL}/api/sectores`);
+        const sectores = await res.json();
+        const sectorSelect = document.getElementById("filtro-sector");
+        sectorSelect.innerHTML = '<option value="todos">Todos</option>';
+        
+        sectores.forEach(s => {
+            const opt = document.createElement("option");
+            opt.value = s.Sector;
+            opt.textContent = s.Sector;
+            sectorSelect.appendChild(opt);
+        });
+    } catch (err) {
+        console.error("Error al cargar sectores para filtro:", err);
+    }
+}
+
 // LÓGICA DE WEBSOCKETS SUSTITUYENDO INTERVALOS
 socket.on('connect', () => {
     console.log('🔗 Historial conectado al WebSocket');
@@ -236,6 +248,8 @@ socket.on('tickets_updated', () => {
 window.onload = async function () {
     mostrarFecha();
     actualizarDatosCabecera();
+    // ✅ Cargar sectores dinámicamente
+    await cargarSectoresFiltro();
     await mostrarHistorialInteligente();
 };
 
