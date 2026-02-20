@@ -324,6 +324,31 @@
   <script src="./js/idioma.js"></script>
   <script type="module" src="./js/historial.js"></script>
   <script src="./js/desplegable.js"></script>
+  <!-- Sidebar Toggle Script -->
+  <script>
+    const sidebar = document.getElementById('sidebar');
+    const openBtn = document.getElementById('openSidebar');
+    const closeBtn = document.getElementById('closeSidebar');
+    const backdrop = document.getElementById('mobileBackdrop');
+
+    function toggleSidebar() {
+      sidebar.classList.toggle('-translate-x-full');
+
+      if (!sidebar.classList.contains('-translate-x-full')) {
+        // Open
+        backdrop.classList.remove('hidden');
+        setTimeout(() => backdrop.classList.remove('opacity-0'), 10);
+      } else {
+        // Close
+        backdrop.classList.add('opacity-0');
+        setTimeout(() => backdrop.classList.add('hidden'), 300);
+      }
+    }
+
+    if (openBtn) openBtn.addEventListener('click', toggleSidebar);
+    if (closeBtn) closeBtn.addEventListener('click', toggleSidebar);
+    if (backdrop) backdrop.addEventListener('click', toggleSidebar);
+  </script>
 </body>
 
 </html>
