@@ -245,6 +245,69 @@ def asignar_ventanilla(id_empleado):
         conn.close()
 
 # --------------------------------------------------------
+# ACTUALIZAR DATOS BÁSICOS DE UN EMPLEADO
+# --------------------------------------------------------
+@bp.route("/employees/<int:id_empleado>", methods=["PUT"])
+def update_employee(id_empleado):
+    data = request.get_json()
+
+    nombre1   = data.get("nombre1", "").strip()
+    nombre2   = data.get("nombre2", "").strip()
+    apellido1 = data.get("apellido1", "").strip()
+    apellido2 = data.get("apellido2", "").strip()
+    usuario   = data.get("usuario", "").strip()
+    passwd    = data.get("passwd", "").strip()
+
+    if not nombre1 or not apellido1 or not usuario:
+        return jsonify({"error": "nombre1, apellido1 y usuario son obligatorios"}), 400
+
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    try:
+        # Protect admin
+        cursor.execute("SELECT ID_ROL FROM Empleado WHERE ID_Empleado = %s", (id_empleado,))
+        emp = cursor.fetchone()
+        if not emp:
+            return jsonify({"error": "Empleado no encontrado"}), 404
+        if emp["ID_ROL"] == 1:
+            return jsonify({"error": "No se puede editar al administrador"}), 403
+
+        # Check username uniqueness (excluding current employee)
+        cursor.execute(
+            "SELECT 1 FROM Empleado WHERE Usuario = %s AND ID_Empleado != %s LIMIT 1",
+            (usuario, id_empleado)
+        )
+        if cursor.fetchone():
+            return jsonify({"error": "El nombre de usuario ya está en uso"}), 409
+
+        if passwd:
+            passwd_hash = sha256(passwd.encode()).hexdigest()
+            cursor.execute("""
+                UPDATE Empleado
+                SET nombre1=%s, nombre2=%s, Apellido1=%s, Apellido2=%s, Usuario=%s, Passwd=%s
+                WHERE ID_Empleado=%s
+            """, (nombre1, nombre2, apellido1, apellido2, usuario, passwd_hash, id_empleado))
+        else:
+            cursor.execute("""
+                UPDATE Empleado
+                SET nombre1=%s, nombre2=%s, Apellido1=%s, Apellido2=%s, Usuario=%s
+                WHERE ID_Empleado=%s
+            """, (nombre1, nombre2, apellido1, apellido2, usuario, id_empleado))
+
+        conn.commit()
+        return jsonify({"message": "Empleado actualizado correctamente"}), 200
+
+    except Exception as e:
+        conn.rollback()
+        print(f"Error en update_employee: {e}")
+        return jsonify({"error": str(e)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+
+# --------------------------------------------------------
 # VERIFICAR SI UN USUARIO YA EXISTE
 # --------------------------------------------------------
 @bp.route("/employees/exists/<usuario>", methods=["GET"])

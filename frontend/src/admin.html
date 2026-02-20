@@ -1,20 +1,20 @@
 <script type="module">
-import Config from './js/config.js';
+    import Config from './js/config.js';
 
-async function verificarSesion() {
-    try {
-        const res = await fetch(`${Config.API_BASE_URL}/api/check_session`, {
-            credentials: 'include' // para enviar cookies de sesión
-        });
-        if (!res.ok) {
+    async function verificarSesion() {
+        try {
+            const res = await fetch(`${Config.API_BASE_URL}/api/check_session`, {
+                credentials: 'include' // para enviar cookies de sesión
+            });
+            if (!res.ok) {
+                window.location.href = 'login.html';
+            }
+        } catch (err) {
             window.location.href = 'login.html';
         }
-    } catch (err) {
-        window.location.href = 'login.html';
     }
-}
 
-verificarSesion();
+    verificarSesion();
 </script>
 
 <!DOCTYPE html>
@@ -28,102 +28,185 @@ verificarSesion();
     <link rel="stylesheet" href="style.css">
 </head>
 
-<body class="min-h-screen">
-    <div class="bg-gradient-to-br from-slate-600 via-slate-500 to-emerald-300 min-h-screen">
+<body
+    class="bg-gradient-to-br from-slate-600 via-slate-500 to-emerald-300 min-h-screen text-slate-800 font-sans antialiased overflow-hidden">
+    <div class="flex h-screen w-full relative">
 
-        <div class="min-h-screen p-8">
+        <!-- Sidebar -->
+        <aside id="sidebar"
+            class="w-72 h-full flex flex-col bg-white border-r border-slate-200 shadow-xl z-50 transition-transform duration-300 fixed inset-y-0 left-0 transform -translate-x-full lg:translate-x-0 lg:relative lg:block">
 
-            <div class="fixed right-4 top-4 z-50" id="dropdown">
-                <div class="relative inline-block text-left">
-                    <button id="dropdownButton"
-                        class="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-gray-200">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2"
-                            stroke="currentColor" class="w-5 h-5 text-gray-700">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-                        </svg>
-                        <span class="text-sm font-medium text-gray-700">Menú</span>
-                        <svg id="dropdownIcon" class="w-4 h-4 text-gray-500 transition-transform duration-200"
-                            fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                        </svg>
-                    </button>
+            <!-- Header -->
+            <div class="px-6 py-6 border-b border-slate-100 relative flex flex-col items-center bg-white">
+                <!-- Close Button (Mobile Only) -->
+                <button id="closeSidebar" class="lg:hidden text-slate-400 hover:text-slate-600 absolute right-4 top-4">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12">
+                        </path>
+                    </svg>
+                </button>
+                <!-- Logo -->
+                <div
+                    class="flex flex-col items-center gap-2 cursor-default hover:scale-105 transition-transform duration-300">
+                    <img src="./public/ual.png" alt="UAL" class="h-20 w-auto object-contain" />
+                    <p class="text-xs text-emerald-600 font-bold tracking-[0.2em] uppercase">Admin Panel</p>
+                </div>
+            </div>
 
-                    <div id="dropdownMenu"
-                        class="absolute right-0 mt-2 w-52 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden hidden">
-                        <div class="py-1">
-                            <a href="pantalla.html"
-                                class="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors duration-150">
-                                <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor"
-                                    viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                                </svg>
-                                <span>Ver Pantalla</span>
-                            </a>
+            <!-- Navigation -->
+            <nav class="flex-1 overflow-y-auto py-6 px-4 space-y-2 custom-scrollbar bg-white">
 
-                            <div class="border-t border-gray-100"></div>
+                <a href="pantalla.html"
+                    class="flex items-center gap-4 px-5 py-3.5 rounded-xl text-slate-600 hover:text-emerald-700 hover:bg-emerald-50/80 transition-all duration-200 group relative overflow-hidden">
+                    <svg class="w-6 h-6 text-slate-400 group-hover:text-emerald-500 transition-colors duration-300"
+                        fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                    <span class="font-bold tracking-wide text-sm relative z-10">Ver Pantalla</span>
+                </a>
 
-                            <a href="empleados.html"
-                                class="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors duration-150">
-                                <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor"
-                                    viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                                </svg>
-                                <span>Empleados</span>
-                            </a>
+                <a href="empleados.html"
+                    class="flex items-center gap-4 px-5 py-3.5 rounded-xl text-slate-600 hover:text-emerald-700 hover:bg-emerald-50/80 transition-all duration-200 group relative overflow-hidden">
+                    <svg class="w-6 h-6 text-slate-400 group-hover:text-emerald-500 transition-colors duration-300"
+                        fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                    <span class="font-bold tracking-wide text-sm relative z-10">Empleados</span>
+                </a>
 
-                            <div class="border-t border-gray-100"></div>
-                            <a href="historial.html"
-                                class="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors duration-150">
-                                <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor"
-                                    viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M4 4h16v16H4V4zM4 9h16M4 15h16M9 4v16M15 4v16" />
-                                </svg>
-                                <span>Historial de Tickets</span>
-                            </a>
+                <a href="historial.html"
+                    class="flex items-center gap-4 px-5 py-3.5 rounded-xl text-slate-600 hover:text-emerald-700 hover:bg-emerald-50/80 transition-all duration-200 group relative overflow-hidden">
+                    <svg class="w-6 h-6 text-slate-400 group-hover:text-emerald-500 transition-colors duration-300"
+                        fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M4 4h16v16H4V4zM4 9h16M4 15h16M9 4v16M15 4v16" />
+                    </svg>
+                    <span class="font-bold tracking-wide text-sm relative z-10">Historial de Tickets</span>
+                </a>
 
-                            <div class="border-t border-gray-100"></div>
-                            <a href="admin.html"
-                                class="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors duration-150">
-                                <svg class="w-6 h-6 text-gray-900" fill="none" stroke="currentColor"
-                                    viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
-                                </svg>
-                                <span>Admin</span>
-                            </a>
-                        </div>
+                <div class="my-4 mx-5 border-t border-slate-100"></div>
+
+                <a href="admin.html"
+                    class="flex items-center gap-4 px-5 py-3.5 rounded-xl bg-emerald-50 text-emerald-800 shadow-sm border border-emerald-100 relative overflow-hidden group">
+                    <svg class="w-6 h-6 relative z-10 text-emerald-600" fill="none" stroke="currentColor"
+                        viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                    </svg>
+                    <span class="font-bold tracking-wide text-sm relative z-10">Administración</span>
+                    <div
+                        class="absolute right-4 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse">
+                    </div>
+                </a>
+            </nav>
+
+            <!-- Footer User Info -->
+            <div class="border-t border-slate-200 bg-slate-50 min-h-[88px] flex items-center flex-shrink-0">
+                <div
+                    class="w-full px-8 py-5 flex items-center gap-4 cursor-pointer hover:bg-slate-100 transition-colors">
+                    <div
+                        class="w-10 h-10 rounded-full bg-emerald-100 border border-emerald-200 flex items-center justify-center text-emerald-700 text-sm font-bold shadow-sm">
+                        A
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-sm font-bold text-slate-800 truncate">Admin User</p>
+                        <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider truncate">Sistema</p>
                     </div>
                 </div>
             </div>
-            <div class="max-w-6xl mx-auto">
+        </aside>
+
+        <!-- Mobile Backdrop -->
+        <div id="mobileBackdrop"
+            class="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 hidden lg:hidden transition-opacity duration-300 opacity-0">
+        </div>
+
+        <!-- Main Content -->
+        <main class="flex-1 h-full relative overflow-y-auto overflow-x-hidden scroll-smooth bg-transparent">
+
+            <!-- Mobile Header -->
+            <div
+                class="lg:hidden flex items-center justify-between p-4 bg-white/10 backdrop-blur-md shadow-sm border-b border-white/10 sticky top-0 z-30">
+                <button id="openSidebar" class="text-slate-800 p-2 rounded-lg hover:bg-white/20 transition-colors">
+                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M4 6h16M4 12h16M4 18h16"></path>
+                    </svg>
+                </button>
+                <h1 class="text-xl font-bold text-slate-800 tracking-tight">UAL Admin</h1>
+                <div class="w-8"></div> <!-- Spacer for centering -->
+            </div>
+
+            <!-- Content Wrapper -->
+            <div class="p-6 md:p-10 lg:p-14 max-w-7xl mx-auto w-full flex flex-col items-center">
+
+                <!-- Notification Banner -->
                 <div
-                    class="bg-white/95 backdrop-blur-sm rounded-3xl shadow-xl p-8 mb-8 flex justify-between items-center border border-slate-200">
+                    class="w-full bg-white/95 backdrop-blur-sm shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-2xl p-6 md:p-8 flex items-center justify-between gap-6 border border-white/60 relative overflow-hidden group hover:scale-[1.01] transition-transform duration-300">
+                    <div class="absolute top-0 left-0 w-1.5 h-full bg-emerald-500"></div>
                     <div>
-                        <h1 class="text-3xl font-bold text-slate-800">Panel de Administración</h1>
-                        <p class="text-slate-600 mt-2">Configura las agendas de turnos y tickets</p>
+                        <h2 class="text-2xl font-bold text-slate-800 tracking-tight mb-1">Panel de Administración</h2>
+                        <p class="text-slate-500 font-medium">Configura las agendas de turnos y tickets</p>
                     </div>
                     <button onclick="logout()"
-                        class="flex items-center gap-2 bg-gradient-to-r from-slate-600 to-slate-800 text-white px-5 sm:px-5 py-2.5 sm:py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl hover:scale-105 hover:brightness-110 active:scale-95 transition-all duration-300 ease-in-out text-sm sm:text-base">
-                        <svg class="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 
-                    01-3 3H6a3 3 0 01-3-3V7a3 3 0 
-                    013-3h4a3 3 0 013 3v1"></path>
+                        class="px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-xs uppercase tracking-wider transition-all hover:shadow-md flex items-center gap-2 group/btn">
+                        <svg class="w-4 h-4 transition-transform group-hover/btn:-translate-x-1" fill="none"
+                            stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1">
+                            </path>
                         </svg>
-                        <span>Cerrar sesión</span>
+                        Cerrar sesión
                     </button>
                 </div>
+
+                <!-- Admin Content Area -->
+                <div
+                    class="w-full mt-8 h-96 border-2 border-dashed border-slate-300/50 rounded-3xl flex flex-col items-center justify-center text-slate-400 bg-white/30 backdrop-blur-sm">
+                    <p class="text-sm font-medium">Contenido del panel aquí...</p>
+                </div>
+
             </div>
-        </div>
-        <!-- idiomas -->
-        <div class="gtranslate_wrapper" title="Cambiar idioma"></div>
-        <script src="https://cdn.gtranslate.net/widgets/latest/float.js" defer></script>
-        <script src="./js/idioma.js"></script>
+
+            <!-- Floating Language Selector -->
+            <div class="fixed bottom-6 right-6 z-50">
+                <div class="gtranslate_wrapper" title="Cambiar idioma"></div>
+            </div>
+
+        </main>
     </div>
+
+    <script src="https://cdn.gtranslate.net/widgets/latest/float.js" defer></script>
+    <script src="./js/idioma.js"></script>
     <script type="module" src="./js/admin.js"></script>
-    <script type="module" src="./js/desplegable.js"></script>
+
+    <!-- Sidebar Toggle Script -->
+    <script>
+        const sidebar = document.getElementById('sidebar');
+        const openBtn = document.getElementById('openSidebar');
+        const closeBtn = document.getElementById('closeSidebar');
+        const backdrop = document.getElementById('mobileBackdrop');
+
+        function toggleSidebar() {
+            sidebar.classList.toggle('-translate-x-full');
+
+            if (!sidebar.classList.contains('-translate-x-full')) {
+                // Open
+                backdrop.classList.remove('hidden');
+                setTimeout(() => backdrop.classList.remove('opacity-0'), 10);
+            } else {
+                // Close
+                backdrop.classList.add('opacity-0');
+                setTimeout(() => backdrop.classList.add('hidden'), 300);
+            }
+        }
+
+        openBtn.addEventListener('click', toggleSidebar);
+        closeBtn.addEventListener('click', toggleSidebar);
+        backdrop.addEventListener('click', toggleSidebar);
+    </script>
 </body>
 
 </html>
