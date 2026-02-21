@@ -19,7 +19,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     // Elementos de la UI
-    const managementScreen = document.getElementById("management-screen"); // En gestion.html el id es management-screen
+    const managementScreen = document.getElementById("management-screen"); // En ventanilla.html el id es management-screen
     const userSector = document.getElementById("user-sector");
     const userName = document.getElementById("user-name");
     const logoutBtn = document.getElementById("logout-btn");

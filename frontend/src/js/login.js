@@ -71,8 +71,8 @@ document.addEventListener("DOMContentLoaded", async () => {
                     // Guardar sesión en localStorage
                     localStorage.setItem('currentUser', JSON.stringify(currentUser));
                     
-                    // Redirigir a gestion.html
-                    window.location.href = "gestion.html";
+                    // Redirigir a ventanilla.html
+                    window.location.href = "ventanilla.html";
                     return;
                 }
 
