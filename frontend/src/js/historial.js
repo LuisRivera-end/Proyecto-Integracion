@@ -85,8 +85,8 @@ async function cargarHistorialReal() {
 
         return historial.map(ticket => ({
             ...ticket,
-            creado: new Date(ticket.fecha_ticket),
-            finalizado: ticket.fecha_ultimo_estado ? new Date(ticket.fecha_ultimo_estado) : null
+            creado: ticket.fecha_ticket,
+            finalizado: ticket.fecha_ultimo_estado || null
         }));
     } catch (error) {
         console.error("Error al cargar historial:", error);
@@ -110,7 +110,7 @@ function crearFilaHistorialHTML(ticket) {
     `;
 }
 
-async function mostrarHistorialInteligente(filtroEstado = "todos", filtroSector = "todos", fechaInicio = null, fechaFin = null) {
+async function mostrarHistorialInteligente(filtroEstado = "todos", filtroSector = "todos", fechaInicio = null, fechaFin = null, buscarFolio = "") {
     const cuerpo = document.getElementById("tabla-historial");
 
     try {
@@ -124,16 +124,33 @@ async function mostrarHistorialInteligente(filtroEstado = "todos", filtroSector 
                 sectorCoincide = ticket.sector === filtroSector;
             }
 
-            let fechaCoincide = true;
-            if (fechaInicio && fechaFin) {
-                const fechaTicket = new Date(ticket.creado);
-                fechaCoincide = fechaTicket >= fechaInicio && fechaTicket <= fechaFin;
+            // Filtro por folio (búsqueda parcial, case-insensitive)
+            let folioCoincide = true;
+            if (buscarFolio) {
+                folioCoincide = ticket.folio.toLowerCase().includes(buscarFolio.toLowerCase());
             }
 
-            return estadoCoincide && sectorCoincide && fechaCoincide;
+            let fechaCoincide = true;
+            if (fechaInicio && fechaFin) {
+                const fechaTicket = parseFechaLocal(ticket.creado);
+                if (fechaTicket) {
+                    // Usar UTC para obtener la fecha CDMX real almacenada
+                    const y = fechaTicket.getUTCFullYear();
+                    const m = String(fechaTicket.getUTCMonth() + 1).padStart(2, '0');
+                    const d = String(fechaTicket.getUTCDate()).padStart(2, '0');
+                    const cdmxDate = new Date(`${y}-${m}-${d}T00:00:00`);
+                    fechaCoincide = cdmxDate >= fechaInicio && cdmxDate <= fechaFin;
+                }
+            }
+
+            return estadoCoincide && sectorCoincide && fechaCoincide && folioCoincide;
         });
 
-        filtrado.sort((a, b) => b.creado - a.creado);
+        filtrado.sort((a, b) => {
+            const dateA = parseFechaLocal(a.creado);
+            const dateB = parseFechaLocal(b.creado);
+            return dateB - dateA;
+        });
 
         const nuevoEstado = new Map();
         filtrado.forEach(ticket => {
@@ -186,10 +203,27 @@ function getEstadoColor(estado) {
     return colores[estado] || 'text-gray-600';
 }
 
-function formatearFecha(fecha) {
-    return new Date(fecha).toLocaleString('es-ES', {
-        year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'
-    });
+// Parsea una fecha del backend y la convierte a hora CDMX
+// Flask serializa datetimes en formato RFC 2822 UTC: "Sat, 21 Feb 2026 21:51:59 GMT"
+function parseFechaLocal(fechaStr) {
+    if (!fechaStr) return null;
+    // new Date() puede parsear RFC 2822 correctamente como UTC
+    const fecha = new Date(fechaStr);
+    if (isNaN(fecha)) return null;
+    return fecha;
+}
+
+function formatearFecha(fechaStr) {
+    const fecha = parseFechaLocal(fechaStr);
+    if (!fecha) return '-';
+    // Flask serializa las fechas CDMX como "GMT", así que usamos getUTC*
+    // para obtener los valores originales almacenados (que ya son hora CDMX)
+    const dd = String(fecha.getUTCDate()).padStart(2, '0');
+    const mm = String(fecha.getUTCMonth() + 1).padStart(2, '0');
+    const yyyy = fecha.getUTCFullYear();
+    const hh = String(fecha.getUTCHours()).padStart(2, '0');
+    const min = String(fecha.getUTCMinutes()).padStart(2, '0');
+    return `${dd}/${mm}/${yyyy}, ${hh}:${min}`;
 }
 
 function aplicarFiltros() {
@@ -197,11 +231,12 @@ function aplicarFiltros() {
     const filtroSector = document.getElementById("filtro-sector").value;
     const fInicio = document.getElementById("filtro-fecha-inicio").value;
     const fFin = document.getElementById("filtro-fecha-fin").value;
+    const buscarFolio = document.getElementById("buscar-folio").value.trim();
 
     let fechaInicio = fInicio ? new Date(fInicio + "T00:00:00") : null;
     let fechaFin = fFin ? new Date(fFin + "T23:59:59") : null;
 
-    mostrarHistorialInteligente(filtroEstado, filtroSector, fechaInicio, fechaFin);
+    mostrarHistorialInteligente(filtroEstado, filtroSector, fechaInicio, fechaFin, buscarFolio);
 }
 
 function actualizarResumen(lista) {
@@ -258,13 +293,60 @@ document.querySelectorAll("#filtro-status, #filtro-sector, #filtro-fecha-inicio,
     el.addEventListener("change", aplicarFiltros);
 });
 
+// Búsqueda instantánea al escribir
+document.getElementById("buscar-folio").addEventListener("input", aplicarFiltros);
+
 document.getElementById("btn-limpiar-fechas").addEventListener("click", () => {
     document.getElementById("filtro-status").value = "todos";
     document.getElementById("filtro-sector").value = "todos";
     document.getElementById("filtro-fecha-inicio").value = "";
     document.getElementById("filtro-fecha-fin").value = "";
+    document.getElementById("buscar-folio").value = "";
     aplicarFiltros();
 });
 
 
 window.actualizarDatosCabecera = actualizarDatosCabecera;
+
+// --- Reporte PDF ---
+async function generarReportePDF() {
+    const btn = document.getElementById("btn-reporte-pdf");
+    const textoOriginal = btn.innerHTML;
+    
+    try {
+        btn.disabled = true;
+        btn.innerHTML = `
+            <svg class="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+            </svg>
+            <span>Generando...</span>
+        `;
+        
+        const response = await fetch(`${API_BASE_URL}/api/reporte/semanal`);
+        
+        if (!response.ok) {
+            const err = await response.json();
+            throw new Error(err.error || "Error al generar reporte");
+        }
+        
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `reporte_semanal.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+        
+    } catch (error) {
+        console.error("Error al generar reporte PDF:", error);
+        alert("Error al generar el reporte: " + error.message);
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = textoOriginal;
+    }
+}
+
+document.getElementById("btn-reporte-pdf").addEventListener("click", generarReportePDF);

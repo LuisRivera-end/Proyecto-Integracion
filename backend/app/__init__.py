@@ -13,6 +13,7 @@ from app.routes.auth import bp as auth_bp
 from app.routes.tickets import bp as tickets_bp
 from app.routes.employees import bp as employees_bp
 from app.routes.ventanillas import bp as ventanillas_bp
+from app.routes.reporte import bp as reporte_bp
 
 from app.websocket.print_handlers import register_socket_handlers
 
@@ -52,5 +53,6 @@ def create_app():
     app.register_blueprint(tickets_bp)
     app.register_blueprint(employees_bp)
     app.register_blueprint(ventanillas_bp)
+    app.register_blueprint(reporte_bp)
     
     return app, socketio

@@ -12,3 +12,4 @@ flask_session
 pytz
 python-dotenv
 gunicorn
+matplotlib
