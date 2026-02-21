@@ -222,7 +222,7 @@ async function cargarSectoresFiltro() {
         const sectores = await res.json();
         const sectorSelect = document.getElementById("filtro-sector");
         sectorSelect.innerHTML = '<option value="todos">Todos</option>';
-        
+
         sectores.forEach(s => {
             const opt = document.createElement("option");
             opt.value = s.Sector;
@@ -259,6 +259,8 @@ document.querySelectorAll("#filtro-status, #filtro-sector, #filtro-fecha-inicio,
 });
 
 document.getElementById("btn-limpiar-fechas").addEventListener("click", () => {
+    document.getElementById("filtro-status").value = "todos";
+    document.getElementById("filtro-sector").value = "todos";
     document.getElementById("filtro-fecha-inicio").value = "";
     document.getElementById("filtro-fecha-fin").value = "";
     aplicarFiltros();
