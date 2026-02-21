@@ -1,9 +1,8 @@
 from flask import Blueprint, request, jsonify, send_from_directory
 from app.models.database import get_db_connection
 from app.utils.helpers import speak_to_file
-import os
 
-API_BASE_URL = os.getenv("IP_ADDRESS", "https://localhost:4443")
+
 
 bp = Blueprint('ventanillas', __name__, url_prefix='/api')
 
@@ -233,7 +232,7 @@ def llamar_turno():
 
     return jsonify({
         "mensaje": "Turno llamado",
-        "audio_url": f"{API_BASE_URL}/api/audio/{audio_file}"
+        "audio_url": f"/api/audio/{audio_file}"
     })
 @bp.route("/audio/<filename>")
 def get_audio(filename):

@@ -371,6 +371,38 @@ def total_tickets():
     finally:
         cursor.close()
         conn.close()
+
+@bp.route('/tickets/activo/<int:id_ventanilla>', methods=['GET'])
+def get_ticket_activo(id_ventanilla):
+    """Obtiene el ticket actualmente en atención (estado 3) para una ventanilla específica."""
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    
+    try:
+        cursor.execute("""
+            SELECT t.Folio AS folio
+            FROM Turno t
+            WHERE t.ID_Ventanilla = %s AND t.ID_Estados = 3
+            ORDER BY t.Fecha_Ultimo_Estado DESC
+            LIMIT 1
+        """, (id_ventanilla,))
+        
+        ticket = cursor.fetchone()
+        
+        if not ticket:
+            return jsonify({"activo": False}), 200
+        
+        return jsonify({
+            "activo": True,
+            "folio": ticket["folio"]
+        }), 200
+        
+    except Exception as e:
+        print(f"Error en get_ticket_activo: {e}")
+        return jsonify({"error": "Error interno del servidor"}), 500
+    finally:
+        cursor.close()
+        conn.close()
         
 @bp.route('/tickets/llamar-siguiente', methods=['POST'])
 def llamar_siguiente_ticket():

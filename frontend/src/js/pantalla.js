@@ -7,32 +7,59 @@ document.addEventListener("DOMContentLoaded", function () {
     const tickets = document.getElementById("tickets");
     const contenedor = document.getElementById("contenedor");
     const sinTickets = document.getElementById("sinTickets");
-    const alertaAudio = document.getElementById("alertaAudio");
 
     // Variable para almacenar el estado anterior
     let estadoAnterior = new Map();
     let audioHabilitado = false;
+    let audioContext = null;
 
     // Botón para habilitar audio (recomendado en pantallas)
     const activarAudioBtn = document.getElementById("activarAudio");
     if (activarAudioBtn) {
         activarAudioBtn.addEventListener("click", () => {
             audioHabilitado = true;
-            // Desbloquea el contexto de audio
-            if (alertaAudio) {
-                alertaAudio.play().catch(() => { });
+
+            // Crear y desbloquear AudioContext con gesto del usuario (requerido por iOS Safari)
+            const AudioCtx = window.AudioContext || window.webkitAudioContext;
+            audioContext = new AudioCtx();
+
+            // En iOS Safari, el contexto inicia en "suspended" hasta un gesto del usuario
+            if (audioContext.state === "suspended") {
+                audioContext.resume();
             }
+
+            // Reproducir un buffer silencioso para desbloquear completamente en iOS
+            const silentBuffer = audioContext.createBuffer(1, 1, 22050);
+            const source = audioContext.createBufferSource();
+            source.buffer = silentBuffer;
+            source.connect(audioContext.destination);
+            source.start(0);
+
             activarAudioBtn.textContent = "🔊 Audio activado";
             activarAudioBtn.disabled = true;
+            activarAudioBtn.classList.add("opacity-60", "cursor-not-allowed");
         });
     }
 
     async function reproducirAudio(url) {
-        if (!audioHabilitado) return;
+        if (!audioHabilitado || !audioContext) return;
 
-        const audio = new Audio(url);
         try {
-            await audio.play();
+            // Asegurar que el contexto esté activo
+            if (audioContext.state === "suspended") {
+                await audioContext.resume();
+            }
+
+            // Descargar el audio como ArrayBuffer y decodificarlo
+            const response = await fetch(url);
+            const arrayBuffer = await response.arrayBuffer();
+            const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+
+            // Crear un nodo fuente y reproducir
+            const source = audioContext.createBufferSource();
+            source.buffer = audioBuffer;
+            source.connect(audioContext.destination);
+            source.start(0);
         } catch (err) {
             console.error("🔇 Error al reproducir audio:", err);
         }
@@ -53,7 +80,11 @@ document.addEventListener("DOMContentLoaded", function () {
             const data = await res.json();
 
             if (data.audio_url) {
-                reproducirAudio(data.audio_url);
+                // Si la URL es relativa, construir la URL absoluta con la IP correcta
+                const audioUrl = data.audio_url.startsWith('http')
+                    ? data.audio_url
+                    : `${API_BASE_URL}${data.audio_url}`;
+                reproducirAudio(audioUrl);
             } else if (data.texto) {
                 // fallback si usas Web Speech API
                 hablar(data.texto);

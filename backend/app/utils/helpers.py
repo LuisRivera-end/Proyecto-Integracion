@@ -8,6 +8,7 @@ import pytz
 import subprocess
 import os
 import uuid
+import threading
 
 def get_sector_prefix_and_length(sector_nombre):
     """Mapea el nombre del sector a su prefijo y la longitud de la parte aleatoria."""
@@ -76,6 +77,19 @@ def login_required(f):
 
 AUDIO_DIR = "/app/audio"
 
+def _cleanup_audio(filepath, delay=30):
+    """Elimina un archivo de audio después de un delay en segundos."""
+    def _delete():
+        try:
+            if os.path.exists(filepath):
+                os.remove(filepath)
+                print(f"🗑️ Audio eliminado: {filepath}")
+        except OSError as e:
+            print(f"⚠️ Error al eliminar audio {filepath}: {e}")
+    timer = threading.Timer(delay, _delete)
+    timer.daemon = True
+    timer.start()
+
 def speak_to_file(text):
     os.makedirs(AUDIO_DIR, exist_ok=True)
 
@@ -86,5 +100,8 @@ def speak_to_file(text):
     subprocess.run([
         "espeak", "-v", "es", "-w", filepath, text
     ], check=True)
+
+    # Programar eliminación automática del archivo en 30 segundos
+    _cleanup_audio(filepath)
 
     return filename

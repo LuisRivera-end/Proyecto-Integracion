@@ -81,7 +81,38 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
         
         setupEventListeners();
+        await recuperarTicketActivo();
         startTicketPolling();
+    }
+
+    // -----------------------------
+    // RECUPERAR TICKET ACTIVO (tras cerrar pestaña)
+    // -----------------------------
+    async function recuperarTicketActivo() {
+        if (!currentUser?.ventanilla) return;
+
+        try {
+            const res = await fetch(`${API_BASE_URL}/api/tickets/activo/${currentUser.ventanilla.id}`);
+            if (!res.ok) return;
+
+            const data = await res.json();
+
+            if (data.activo && data.folio) {
+                console.log("🔄 Ticket activo recuperado:", data.folio);
+                currentTicket = { folio: data.folio };
+
+                updateCurrentTicketUI();
+
+                // Restaurar estado de botones
+                callNextBtn.disabled = true;
+                callNextBtn.classList.add("opacity-50", "cursor-not-allowed");
+                completeCurrentBtn.classList.remove("hidden");
+                cancelCurrentBtn.classList.remove("hidden");
+                currentTicketSection.classList.remove("hidden");
+            }
+        } catch (err) {
+            console.error("Error al recuperar ticket activo:", err);
+        }
     }
 
     // -----------------------------
