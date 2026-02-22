@@ -149,23 +149,41 @@ document.addEventListener("DOMContentLoaded", function () {
         return "Por asignar";
     }
 
-    // Función para crear el HTML de una fila
+    // Función para crear el HTML de una fila (Tailwind)
     function crearFilaHTML(ticket, index) {
         const textoVentanilla = obtenerTextoVentanilla(ticket);
         if (textoVentanilla === null) return null;
 
         const estado = ticket.estado_id || ticket.ID_Estados || ticket.estado;
-        const colorFolio = (estado === 3 || estado === 'Atendiendo') ? "text-blue-600" : "text-emerald-700";
-        const bgColor = index % 2 === 0 ? "bg-slate-50" : "bg-white";
+        const esAtendiendo = (estado === 3 || estado === 'Atendiendo');
+
+        // Chip de color por sector
+        const sector = (ticket.sector || '').toLowerCase();
+        let chipClass = 'inline-block px-4 py-1.5 rounded-full text-base font-bold';
+        if (sector.includes('caja')) chipClass += ' chip-cajas';
+        else if (sector.includes('serv') || sector.includes('escolar')) chipClass += ' chip-servicios';
+        else if (sector.includes('beca')) chipClass += ' chip-becas';
+        else if (sector.includes('tesorer')) chipClass += ' chip-tesoreria';
+        else chipClass += ' bg-slate-200 text-slate-700';
+
+        const ventanillaDisplay = textoVentanilla.replace(/ventanilla\s*/i, '') || textoVentanilla;
+
+        if (index === 0) {
+            return `
+                <div class="grid grid-cols-3 items-center px-8 py-5 bg-green-700 border-b-2 border-green-900" data-folio="${ticket.folio}">
+                    <span class="text-4xl font-black text-white tracking-tight">${ticket.folio}</span>
+                    <span><span class="${chipClass} text-sm px-3 py-1">${ticket.sector}</span></span>
+                    <span class="text-4xl font-black text-white">${esAtendiendo ? ventanillaDisplay : '—'}</span>
+                </div>
+            `;
+        }
 
         return `
-            <tr class="${bgColor} border-b border-slate-200 hover:bg-slate-100 transition-colors" data-folio="${ticket.folio}">
-                <td class="px-4 sm:px-6 md:px-8 py-3 sm:py-4 ${colorFolio} font-bold text-xl sm:text-2xl">${ticket.folio}</td>
-                <td class="px-4 sm:px-6 md:px-8 py-3 sm:py-4 text-slate-700 font-medium text-sm sm:text-lg">${ticket.sector}</td>
-                <td class="px-4 sm:px-6 md:px-8 py-3 sm:py-4 text-slate-700 font-medium text-sm sm:text-lg">
-                    ${textoVentanilla}
-                </td>
-            </tr>
+            <div class="grid grid-cols-3 items-center px-8 py-4 border-b border-white/10 hover:bg-white/5 transition-colors" data-folio="${ticket.folio}">
+                <span class="text-2xl font-extrabold text-white">${ticket.folio}</span>
+                <span><span class="${chipClass}">${ticket.sector}</span></span>
+                <span class="text-2xl font-extrabold text-white">${esAtendiendo ? ventanillaDisplay : '—'}</span>
+            </div>
         `;
     }
 
@@ -183,8 +201,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
             if (!ticketsData || ticketsData.length === 0) {
                 // No hay tickets
-                sinTickets.classList.remove("hidden");
-                tickets.classList.add("hidden");
+                sinTickets.style.display = 'flex';
+                contenedor.innerHTML = '';
                 estadoAnterior.clear();
                 return;
             }
@@ -195,15 +213,14 @@ document.addEventListener("DOMContentLoaded", function () {
             );
 
             if (ticketsValidos.length === 0) {
-                sinTickets.classList.remove("hidden");
-                tickets.classList.add("hidden");
+                sinTickets.style.display = 'flex';
+                contenedor.innerHTML = '';
                 estadoAnterior.clear();
                 return;
             }
 
-            // Mostrar tabla
-            sinTickets.classList.add("hidden");
-            tickets.classList.remove("hidden");
+            // Mostrar tablero
+            sinTickets.style.display = 'none';
 
             // Generar nuevo estado
             const nuevoEstado = new Map();
@@ -278,9 +295,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
         } catch (error) {
             console.error("Error al cargar tickets:", error);
-            // En caso de error, mostrar estado de no hay tickets
-            sinTickets.classList.remove("hidden");
-            tickets.classList.add("hidden");
+            sinTickets.style.display = 'flex';
+            contenedor.innerHTML = '';
         }
     }
 
