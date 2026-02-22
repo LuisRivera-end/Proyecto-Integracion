@@ -288,21 +288,24 @@ document.addEventListener("DOMContentLoaded", function () {
     cargarTicketsInteligente();
 
     // Configurar Socket.IO para escuchar actualizaciones en tiempo real
-    const socket = io(API_BASE_URL);
+    if (typeof io !== 'undefined') {
+        const socket = io(API_BASE_URL);
 
-    socket.on('connect', () => {
-        console.log('🔗 Conectado al servidor de WebSockets');
-    });
+        socket.on('connect', () => {
+            console.log('Conectado al servidor de WebSockets');
+        });
 
-    socket.on('tickets_updated', () => {
-        console.log('🔄 Actualización de tickets recibida por WebSocket');
-        cargarTicketsInteligente();
-    });
+        socket.on('tickets_updated', () => {
+            console.log('Actualización de tickets recibida por WebSocket');
+            cargarTicketsInteligente();
+        });
 
-    socket.on('disconnect', () => {
-        console.log('⚠️ Desconectado del servidor de WebSockets');
-    });
-
+        socket.on('disconnect', () => {
+            console.error('Desconectado del servidor de WebSockets');
+        });
+    } else {
+        console.error('No se pudo conectar al WebSocket');
+    }
     // Exponer la función si deseas recargar externamente
     window.cargarTickets = cargarTicketsInteligente;
 });
