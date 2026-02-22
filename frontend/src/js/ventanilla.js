@@ -23,20 +23,19 @@ document.addEventListener("DOMContentLoaded", async () => {
     const userSector = document.getElementById("user-sector");
     const userName = document.getElementById("user-name");
     const logoutBtn = document.getElementById("logout-btn");
-    
+
     // Variables de estado
     let callNextBtn, completeCurrentBtn, cancelCurrentBtn, currentTicketSection;
     let currentTicketFolio, currentTicketMatricula, currentTicketAlumno, ticketsContainer, noTicketsMessage;
     let normalTicketLayout, invitadoTicketLayout, currentTicketFolioInvitado, currentTicketInvitado;
-    
-    let refreshInterval = null;
+
     let currentTicket = null;
 
     // Inicializar UI
     if (managementScreen) {
         managementScreen.classList.remove("hidden");
     }
-    
+
     // Inicializar referencias a elementos
     function initializeManagementElements() {
         callNextBtn = document.getElementById("call-next-btn");
@@ -48,7 +47,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         currentTicketAlumno = document.getElementById("current-ticket-alumno");
         ticketsContainer = document.getElementById("tickets-container");
         noTicketsMessage = document.getElementById("no-tickets-message");
-        
+
         // ELEMENTOS PARA INVITADOS
         normalTicketLayout = document.getElementById("normal-ticket-layout");
         invitadoTicketLayout = document.getElementById("invitado-ticket-layout");
@@ -72,17 +71,17 @@ document.addEventListener("DOMContentLoaded", async () => {
                 userSector.textContent = currentUser.sector;
                 // Si es jefe y no tiene ventanilla, ocultar botón de llamar
                 if (currentUser.rol === 6 && callNextBtn) {
-                   callNextBtn.classList.add("hidden");
+                    callNextBtn.classList.add("hidden");
                 }
             }
         }
         if (userName) {
             userName.textContent = currentUser.username;
         }
-        
+
         setupEventListeners();
         await recuperarTicketActivo();
-        startTicketPolling();
+        await fetchTickets();
     }
 
     // -----------------------------
@@ -98,7 +97,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             const data = await res.json();
 
             if (data.activo && data.folio) {
-                console.log("🔄 Ticket activo recuperado:", data.folio);
+                console.log("Ticket activo recuperado:", data.folio);
                 currentTicket = { folio: data.folio };
 
                 updateCurrentTicketUI();
@@ -130,7 +129,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     // -----------------------------
     async function llamarSiguienteTicket() {
         if (!currentUser?.ventanilla) return;
-        
+
         if (currentTicket) {
             alert("Debes completar o cancelar el ticket actual antes de llamar al siguiente.");
             return;
@@ -140,7 +139,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             const res = await fetch(`${API_BASE_URL}/api/tickets/llamar-siguiente`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ 
+                body: JSON.stringify({
                     id_ventanilla: currentUser.ventanilla.id,
                     id_empleado: currentUser.id
                 })
@@ -150,25 +149,25 @@ document.addEventListener("DOMContentLoaded", async () => {
                 const errorData = await res.json();
                 throw new Error(errorData.error || "No se pudo llamar siguiente ticket");
             }
-            
+
             const data = await res.json();
-            
+
             currentTicket = {
                 folio: data.folio,
             };
-            
+
             console.log("Ticket actual establecido:", currentTicket);
             updateCurrentTicketUI();
-            
+
             // Actualizar estado botones
             callNextBtn.disabled = true;
             callNextBtn.classList.add("opacity-50", "cursor-not-allowed");
             completeCurrentBtn.classList.remove("hidden");
             cancelCurrentBtn.classList.remove("hidden");
             currentTicketSection.classList.remove("hidden");
-            
+
             await fetchTickets();
-            
+
         } catch (err) {
             console.error("Error al llamar siguiente ticket:", err);
             alert(err.message || "Error al llamar siguiente ticket");
@@ -180,9 +179,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     // -----------------------------
     function updateCurrentTicketUI() {
         if (!currentTicket) return;
-        
+
         if (currentTicketFolio) currentTicketFolio.textContent = currentTicket.folio;
-        
+
         // Show/hide layouts only if elements exist
         if (normalTicketLayout) normalTicketLayout.classList.remove("hidden");
         if (invitadoTicketLayout) invitadoTicketLayout.classList.add("hidden");
@@ -207,11 +206,11 @@ document.addEventListener("DOMContentLoaded", async () => {
 
             const completedFolio = currentTicket.folio;
             currentTicket = null;
-            
+
             resetCurrentTicketUI();
             await fetchTickets();
             alert(`Ticket ${completedFolio} completado exitosamente`);
-            
+
         } catch (err) {
             console.error("Error al completar ticket:", err);
             alert(err.message || "Error al completar el ticket");
@@ -241,11 +240,11 @@ document.addEventListener("DOMContentLoaded", async () => {
 
             const canceledFolio = currentTicket.folio;
             currentTicket = null;
-            
+
             resetCurrentTicketUI();
             await fetchTickets();
             alert(`Ticket ${canceledFolio} cancelado exitosamente`);
-            
+
         } catch (err) {
             console.error("Error al cancelar ticket:", err);
             alert(err.message || "Error al cancelar el ticket");
@@ -261,31 +260,16 @@ document.addEventListener("DOMContentLoaded", async () => {
         completeCurrentBtn.classList.add("hidden");
         cancelCurrentBtn.classList.add("hidden");
         currentTicketSection.classList.add("hidden");
-        
+
         if (normalTicketLayout) normalTicketLayout.classList.add("hidden");
         if (invitadoTicketLayout) invitadoTicketLayout.classList.add("hidden");
-    }
-
-    // -----------------------------
-    // POLLING PARA TICKETS
-    // -----------------------------
-    function startTicketPolling() {
-        fetchTickets();
-        refreshInterval = setInterval(fetchTickets, 5000);
-    }
-    
-    function stopTicketPolling() {
-        if (refreshInterval) {
-            clearInterval(refreshInterval);
-            refreshInterval = null;
-        }
     }
 
     async function getAllTickets() {
         try {
             const res = await fetch(`${API_BASE_URL}/api/tickets?sector=${encodeURIComponent(currentUser.sector)}`);
             if (!res.ok) return [];
-            
+
             const tickets = await res.json();
             if (Array.isArray(tickets)) return tickets;
             else if (tickets && Array.isArray(tickets.tickets)) return tickets.tickets;
@@ -316,7 +300,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         ticketsContainer.innerHTML = "";
         const normSector = String(sector ?? "").trim().toLowerCase();
-        
+
         const pendientes = tickets.filter(t => {
             if (!t || t.sector == null) return false;
             const ticketSector = String(t.sector).trim().toLowerCase();
@@ -332,13 +316,13 @@ document.addEventListener("DOMContentLoaded", async () => {
         } else {
             noTicketsMessage.classList.add("hidden");
             ticketsContainer.classList.remove("hidden");
-            
+
             pendientes.forEach(ticket => {
                 const div = document.createElement("div");
                 div.className = "p-4 bg-gray-50 border rounded-lg shadow-sm";
                 const ticketId = ticket.folio || ticket.Folio || ticket.ID_Ticket;
                 const esInvitado = ticket.tipo === 'invitado' || ticket.nombre_alumno === 'Invitado' || !ticket.matricula;
-                
+
                 div.innerHTML = `
                   <div class="text-center">
                     <p class="font-semibold text-gray-800">
@@ -357,11 +341,27 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
     }
 
+    // socket
+    // Verificamos si la librería existe antes de usarla
+    if (typeof io !== 'undefined') {
+        const socket = io(API_BASE_URL);
+
+        socket.on('connect', () => {
+            console.log('Conectado al sistema de tiempo real (Ventanilla)');
+        });
+
+        socket.on('tickets_updated', async () => {
+            console.log('Cambio detectado, refrescando...');
+            await fetchTickets();
+            await recuperarTicketActivo();
+        });
+    } else {
+        console.error("No se pudo conectar al WebSocket");
+    }
     // -----------------------------
     // CERRAR SESIÓN
     // -----------------------------
     function cerrarSesion() {
-        stopTicketPolling();
         localStorage.removeItem('currentUser');
         window.location.href = "login.html";
     }

@@ -5,9 +5,6 @@ const API_BASE_URL = Config.API_BASE_URL;
 let estadoAnteriorHistorial = new Map();
 let primeraCargaCompletada = false;
 
-// Configuración de Socket.IO
-const socket = io(API_BASE_URL);
-
 // Función para mostrar la fecha actual
 function mostrarFecha() {
     const fecha = new Date();
@@ -25,7 +22,7 @@ async function totalTickets() {
         }
 
         const data = await response.json();
-        console.log("📊 Respuesta de total_tickets:", data);
+        console.log("Respuesta de total_tickets:", data);
 
         let cantidad = 0;
 
@@ -37,7 +34,7 @@ async function totalTickets() {
             cantidad = data;
         }
 
-        console.log("🎫 Tickets obtenidos:", cantidad);
+        console.log("Tickets obtenidos:", cantidad);
         return cantidad;
 
     } catch (error) {
@@ -269,21 +266,27 @@ async function cargarSectoresFiltro() {
     }
 }
 
-// LÓGICA DE WEBSOCKETS SUSTITUYENDO INTERVALOS
-socket.on('connect', () => {
-    console.log('🔗 Historial conectado al WebSocket');
-});
+// Configuración de Socket.IO
 
-socket.on('tickets_updated', () => {
-    console.log('⚡ Cambio detectado: actualizando historial y contadores');
-    actualizarDatosCabecera();
-    aplicarFiltros(); // Esto refresca la tabla con los filtros actuales
-});
+if (typeof io !== 'undefined') {
+    const socket = io(API_BASE_URL);
+    socket.on('connect', () => {
+        console.log('Historial conectado al WebSocket');
+    });
+
+    socket.on('tickets_updated', () => {
+        console.log('Cambio detectado: actualizando historial y contadores');
+        actualizarDatosCabecera();
+        aplicarFiltros(); // Esto refresca la tabla con los filtros actuales
+    });
+} else {
+    console.error('No se pudo conectar al WebSocket');
+}
 
 window.onload = async function () {
     mostrarFecha();
     actualizarDatosCabecera();
-    // ✅ Cargar sectores dinámicamente
+    // Cargar sectores dinámicamente
     await cargarSectoresFiltro();
     await mostrarHistorialInteligente();
 };
@@ -312,7 +315,7 @@ window.actualizarDatosCabecera = actualizarDatosCabecera;
 async function generarReportePDF() {
     const btn = document.getElementById("btn-reporte-pdf");
     const textoOriginal = btn.innerHTML;
-    
+
     try {
         btn.disabled = true;
         btn.innerHTML = `
@@ -322,14 +325,14 @@ async function generarReportePDF() {
             </svg>
             <span>Generando...</span>
         `;
-        
+
         const response = await fetch(`${API_BASE_URL}/api/reporte/semanal`);
-        
+
         if (!response.ok) {
             const err = await response.json();
             throw new Error(err.error || "Error al generar reporte");
         }
-        
+
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement("a");
@@ -339,7 +342,7 @@ async function generarReportePDF() {
         a.click();
         document.body.removeChild(a);
         window.URL.revokeObjectURL(url);
-        
+
     } catch (error) {
         console.error("Error al generar reporte PDF:", error);
         alert("Error al generar el reporte: " + error.message);

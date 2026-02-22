@@ -1,4 +1,5 @@
 import Config from './config.js';
+import { lanzarAlerta } from './alertas/notifier.js';
 const API_BASE_URL = Config.API_BASE_URL;
 
 document.addEventListener("DOMContentLoaded", async () => {
@@ -405,12 +406,12 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
       }
 
-      alert("Empleado actualizado correctamente");
+      lanzarAlerta("Empleado actualizado correctamente", "success");
       cancelarEdicion();
       loadEmployees();
     } catch (err) {
       console.error(err);
-      alert(err.message || "Error al guardar cambios");
+      lanzarAlerta(err.message || "Error al guardar cambios", "error");
     }
   };
 
@@ -449,21 +450,21 @@ document.addEventListener("DOMContentLoaded", async () => {
     };
 
     if (!data.nombre1 || !data.apellido1 || !data.usuario || !data.passwd) {
-      alert("Por favor complete los campos obligatorios");
+      lanzarAlerta("Por favor complete los campos obligatorios", "error");
       return;
     }
 
     const password = data.passwd;
     if (password.length < 8) {
-      alert("La contraseña debe tener al menos 8 caracteres");
+      lanzarAlerta("La contraseña debe tener al menos 8 caracteres", "error");
       return;
     }
     if (!/[A-Z]/.test(password)) {
-      alert("La contraseña debe contener al menos una letra mayúscula");
+      lanzarAlerta("La contraseña debe contener al menos una letra mayúscula", "error");
       return;
     }
     if (!/[0-9]/.test(password)) {
-      alert("La contraseña debe contener al menos un número");
+      lanzarAlerta("La contraseña debe contener al menos un número", "error");
       return;
     }
 
@@ -471,7 +472,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       const verificarUsuario = await fetch(`${API_BASE_URL}/api/employees/exists/${encodeURIComponent(data.usuario)}`);
       const existe = await verificarUsuario.json();
       if (existe.exists) {
-        alert("El nombre de usuario ya existe. Por favor elija otro.");
+        lanzarAlerta("El nombre de usuario ya existe. Por favor elija otro.", "error");
         return;
       }
 
@@ -486,13 +487,13 @@ document.addEventListener("DOMContentLoaded", async () => {
         throw new Error(error.error || "No se pudo agregar empleado");
       }
 
-      alert("Empleado agregado exitosamente");
+      lanzarAlerta("Empleado agregado exitosamente", "success");
       empleadoForm.reset();
       document.getElementById("sector-container").classList.add("hidden");
       loadEmployees();
     } catch (err) {
       console.error(err);
-      alert(err.message || "Error al agregar empleado");
+      lanzarAlerta(err.message || "Error al agregar empleado", "error");
     }
   });
 

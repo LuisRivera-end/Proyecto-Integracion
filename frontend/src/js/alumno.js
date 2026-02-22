@@ -7,6 +7,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const ticketResult = document.getElementById("ticket-result");
     const errorMessage = document.getElementById("error-message");
     const errorText = document.getElementById("error-text");
+    const submitBtn = form.querySelector("button[type='submit']");
 
     // Cargar sectores dinámicamente desde la API
     async function cargarSectores() {
@@ -28,6 +29,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     form.addEventListener("submit", async (e) => {
         e.preventDefault();
+
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<svg class="animate-spin h-5 w-5 mr-2 border-b-2 border-blue-600 rounded-full" viewBox="0 0 24 24"></svg> Generando ticket...';
         const sector = document.getElementById("sector").value;
 
         if (!sector) {
@@ -37,13 +41,13 @@ document.addEventListener("DOMContentLoaded", () => {
         try {
             // 1. Generar el ticket
             let response, data;
-                response = await fetch(`${API_BASE_URL}/api/ticket`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        sector
-                    })
-                });
+            response = await fetch(`${API_BASE_URL}/api/ticket`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    sector
+                })
+            });
 
             data = await response.json();
 
@@ -64,6 +68,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
         } catch (err) {
             showError(err.message);
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = 'Generar Ticket';
         }
     });
 
@@ -89,11 +96,11 @@ async function imprimir() {
     console.log('🖨️ Enviando a impresión directa...');
 
     console.log('🖨️ Datos para impresión:', {
-        numero_ticket, 
-        sector, 
-        fecha, 
+        numero_ticket,
+        sector,
+        fecha,
         tiempo_estimado,
-    }); 
+    });
 
     try {
         const response = await fetch(`${API_BASE_URL}/api/ticket/print`, {
