@@ -1,5 +1,3 @@
-import random
-import string
 from datetime import datetime
 from app.models.database import get_db_connection
 from functools import wraps
@@ -10,51 +8,40 @@ import os
 import uuid
 import threading
 
-def get_sector_prefix_and_length(sector_nombre):
-    """Mapea el nombre del sector a su prefijo y la longitud de la parte aleatoria."""
-    # Los prefijos de ejemplo son 'C', 'B' y 'SE'.
-    # La longitud total del folio será 6 caracteres.
-    if sector_nombre == "Cajas":
-        return "C", 5 # C (1 char) + 5 random chars = 6 total
-    elif sector_nombre == "Becas":
-        return "B", 5 # B (1 char) + 5 random chars = 6 total
-    elif sector_nombre == "Servicios Escolares":
-        return "SE", 4 # SE (2 chars) + 4 random chars = 6 total
-    elif sector_nombre == "Tesoreria":
-        return "T"  , 5 # T (1 char) + 5 random chars = 6 total
-    else:
-        # Valor por defecto si el sector no coincide.
-        return "", 6
+def get_sector_prefix(sector_nombre):
+    """Mapea el nombre del sector a su prefijo para el folio."""
+    prefijos = {
+        "Cajas": "C",
+        "Becas": "B",
+        "Servicios Escolares": "SE",
+        "Tesoreria": "T",
+    }
+    return prefijos.get(sector_nombre, "X")
 
 def generar_folio_unico(sector_nombre):
-    estados_activos = (1, 3)
-    # Obtener el prefijo y cuántos caracteres aleatorios generar
-    prefix, random_part_length = get_sector_prefix_and_length(sector_nombre)
+    prefix = get_sector_prefix(sector_nombre)
+    prefix_len = len(prefix)
+    
+    # Obtener la fecha actual en zona horaria de México
+    tz_mexico = pytz.timezone('America/Mexico_City')
+    hoy = datetime.now(tz_mexico).strftime('%Y-%m-%d')
         
     conn = get_db_connection()
     cursor = conn.cursor()
     
     try:
-        while True:
-            # Generar la parte aleatoria
-            # Se usa string.ascii_uppercase + string.digits para alfanumérico
-            random_part = ''.join(random.choices(string.ascii_uppercase + string.digits, k=random_part_length))
-            
-            # Crear el folio completo de 6 caracteres
-            folio = prefix + random_part
-            
-            # Verificar unicidad en la base de datos
-            placeholders = ','.join(['%s'] * len(estados_activos))
-            query_normal = f"""
-                SELECT 1 FROM Turno 
-                WHERE Folio = %s AND ID_Estados IN ({placeholders})
-            """
-            cursor.execute(query_normal, (folio, *estados_activos))
-            
-            if cursor.fetchone():
-                continue  # Folio ya existe en Turno, generar otro
-            if not cursor.fetchone():
-                return folio
+        # Obtener el número máximo de hoy entre los folios de este sector
+        cursor.execute("""
+            SELECT MAX(CAST(SUBSTRING(Folio, %s + 1) AS UNSIGNED)) AS max_num
+            FROM Turno
+            WHERE Folio LIKE CONCAT(%s, '%%') AND DATE(Fecha_Ticket) = %s
+        """, (prefix_len, prefix, hoy))
+        
+        result = cursor.fetchone()
+        max_num = result[0] if result and result[0] is not None else 0
+        
+        folio = prefix + str(max_num + 1)
+        return folio
     finally:
         cursor.close()
         conn.close()

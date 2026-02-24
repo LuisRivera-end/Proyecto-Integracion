@@ -98,7 +98,7 @@ CREATE TABLE Turno (
     ID_Sector INT(1) NOT NULL,
     ID_Ventanilla INT(6),
     Fecha_Ticket DATETIME(6) NOT NULL,
-    Folio VARCHAR(6) NOT NULL,
+    Folio VARCHAR(10) NOT NULL,
     ID_Estados INT(1) NOT NULL,
     Fecha_Ultimo_Estado DATETIME(3) NOT NULL,
     FOREIGN KEY (ID_Sector) REFERENCES Sectores (ID_Sector),
