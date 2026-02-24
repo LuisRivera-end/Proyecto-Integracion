@@ -1,8 +1,22 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, session
 from hashlib import sha256
 from app.models.database import get_db_connection
 
 bp = Blueprint('employees', __name__, url_prefix='/api')
+
+
+def _get_jefe_sector_filter(cursor):
+    """Devuelve el ID de sector del jefe autenticado (rol 6), si aplica."""
+    if session.get("rol") != 6:
+        return None
+
+    user_id = session.get("user_id")
+    if not user_id:
+        return None
+
+    cursor.execute("SELECT ID_Sector FROM Empleado WHERE ID_Empleado = %s", (user_id,))
+    jefe = cursor.fetchone()
+    return jefe["ID_Sector"] if jefe and jefe.get("ID_Sector") else None
 
 # --------------------------------------------------------
 # LISTA GENERAL DE EMPLEADOS (sin actualizar estados)
@@ -13,7 +27,9 @@ def get_employees():
     cursor = conn.cursor(dictionary=True)
 
     try:
-        cursor.execute("""
+        jefe_sector_id = _get_jefe_sector_filter(cursor)
+
+        query = """
             SELECT 
                 e.ID_Empleado AS id, 
                 e.ID_ROL AS rol_id,
@@ -23,7 +39,22 @@ def get_employees():
             FROM Empleado e
             LEFT JOIN Rol r ON e.ID_ROL = r.ID_Rol
             LEFT JOIN Estado_Empleado ee ON e.ID_Estado = ee.ID_Estado
-        """)
+            LEFT JOIN Empleado_Ventanilla ev ON e.ID_Empleado = ev.ID_Empleado
+                AND ev.Fecha_Termino IS NULL
+            LEFT JOIN Ventanillas v ON ev.ID_Ventanilla = v.ID_Ventanilla
+        """
+        params = []
+
+        if jefe_sector_id is not None:
+            query += """
+                WHERE (
+                    e.ID_Sector = %s
+                    OR v.ID_Sector = %s
+                )
+            """
+            params.extend([jefe_sector_id, jefe_sector_id])
+
+        cursor.execute(query, params)
 
         empleados = cursor.fetchall()
         return jsonify(empleados), 200
@@ -45,7 +76,9 @@ def get_employees_full():
     cursor = conn.cursor(dictionary=True)
     
     try:
-        cursor.execute("""
+        jefe_sector_id = _get_jefe_sector_filter(cursor)
+
+        query = """
             SELECT 
                 e.ID_Empleado,
                 e.nombre1,
@@ -73,8 +106,21 @@ def get_employees_full():
             LEFT JOIN Sectores s ON v.ID_Sector = s.ID_Sector
             LEFT JOIN Sectores sj ON e.ID_Sector = sj.ID_Sector
             LEFT JOIN Estado_empleado_ventanilla eev ON ev.ID_Estado = eev.ID_Estado
-            ORDER BY e.ID_Empleado
-        """)
+        """
+        params = []
+
+        if jefe_sector_id is not None:
+            query += """
+                WHERE (
+                    e.ID_Sector = %s
+                    OR s.ID_Sector = %s
+                )
+            """
+            params.extend([jefe_sector_id, jefe_sector_id])
+
+        query += " ORDER BY e.ID_Empleado"
+
+        cursor.execute(query, params)
         
         empleados = cursor.fetchall()
         return jsonify(empleados), 200
