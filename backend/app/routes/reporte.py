@@ -1,7 +1,7 @@
-from flask import Blueprint, send_file
+from flask import Blueprint, send_file, request, jsonify
 from app.models.database import get_db_connection
 from fpdf import FPDF
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -13,6 +13,34 @@ bp = Blueprint('reporte', __name__, url_prefix='/api')
 
 DIAS_SEMANA = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
 COLORES_CHART = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4']
+
+# ─── Utilidades de semestre ───
+
+def obtener_semestre(fecha):
+    """Retorna (inicio, fin) del semestre al que pertenece la fecha."""
+    if fecha.month <= 6:
+        return date(fecha.year, 1, 1), date(fecha.year, 6, 30)
+    else:
+        return date(fecha.year, 7, 1), date(fecha.year, 12, 31)
+
+def obtener_semestre_anterior(fecha):
+    """Retorna (inicio, fin) del semestre anterior al actual."""
+    if fecha.month <= 6:
+        return date(fecha.year - 1, 7, 1), date(fecha.year - 1, 12, 31)
+    else:
+        return date(fecha.year, 1, 1), date(fecha.year, 6, 30)
+
+def validar_rango_semestral(desde, hasta):
+    """Valida que ambas fechas estén dentro del mismo semestre."""
+    sem_desde = obtener_semestre(desde)
+    sem_hasta = obtener_semestre(hasta)
+    if sem_desde != sem_hasta:
+        return False, "El rango de fechas no puede cruzar entre semestres (Ene-Jun / Jul-Dic)"
+    if desde > hasta:
+        return False, "La fecha de inicio no puede ser posterior a la fecha fin"
+    return True, None
+
+# ─── Generadores de gráficos ───
 
 def _generar_grafico_barras(datos, titulo, xlabel, ylabel, filename, color='#10b981'):
     """Genera un gráfico de barras y lo guarda como imagen."""
@@ -67,11 +95,14 @@ def _generar_grafico_pastel(datos, titulo, filename):
     plt.close(fig)
 
 
+# ─── Clase PDF ───
+
 class ReportePDF(FPDF):
-    def __init__(self, fecha_inicio, fecha_fin):
+    def __init__(self, fecha_inicio, fecha_fin, titulo="Reporte de Tickets"):
         super().__init__('P', 'mm', 'Letter')
         self.fecha_inicio = fecha_inicio
         self.fecha_fin = fecha_fin
+        self.titulo_reporte = titulo
     
     def header(self):
         script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -81,13 +112,12 @@ class ReportePDF(FPDF):
         except Exception:
             pass
         self.set_font("Arial", "B", 16)
-        self.cell(0, 10, "Reporte Semanal de Tickets", ln=True, align="C")
+        self.cell(0, 10, self.titulo_reporte, ln=True, align="C")
         self.set_font("Arial", "", 10)
         self.set_text_color(100, 116, 139)
         self.cell(0, 6, f"{self.fecha_inicio} - {self.fecha_fin}", ln=True, align="C")
         self.set_text_color(0, 0, 0)
         self.ln(5)
-        # Linea separadora
         self.set_draw_color(226, 232, 240)
         self.line(15, self.get_y(), 200, self.get_y())
         self.ln(5)
@@ -99,19 +129,12 @@ class ReportePDF(FPDF):
         self.cell(0, 10, f"Pagina {self.page_no()} | Generado el {datetime.now(pytz.timezone('America/Mexico_City')).strftime('%d/%m/%Y %H:%M')}", 0, 0, "C")
 
 
-@bp.route('/reporte/semanal', methods=['GET'])
-def generar_reporte_semanal():
-    """Genera un reporte PDF con estadísticas de la última semana."""
+# ─── Función compartida para generar PDF ───
+
+def _construir_reporte_pdf(fecha_inicio_str, fecha_fin_str, titulo="Reporte de Tickets"):
+    """Genera el PDF completo y retorna la ruta del archivo temporal."""
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
-    
-    tz = pytz.timezone('America/Mexico_City')
-    hoy = datetime.now(tz)
-    hace_7_dias = hoy - timedelta(days=7)
-    
-    fecha_inicio_str = hace_7_dias.strftime('%Y-%m-%d')
-    fecha_fin_str = hoy.strftime('%Y-%m-%d')
-    
     tmpdir = tempfile.mkdtemp()
     
     try:
@@ -128,24 +151,73 @@ def generar_reporte_semanal():
         """, (fecha_inicio_str, fecha_fin_str))
         resumen = cursor.fetchone()
         
-        # 2. Tickets por día de la semana
+        # 2. Tickets por fecha
         cursor.execute("""
-            SELECT DAYOFWEEK(Fecha_Ticket) as dia, COUNT(*) as cantidad
+            SELECT DATE(Fecha_Ticket) as fecha, COUNT(*) as cantidad
             FROM Turno
             WHERE DATE(Fecha_Ticket) BETWEEN %s AND %s
-            GROUP BY DAYOFWEEK(Fecha_Ticket)
-            ORDER BY dia
+            GROUP BY DATE(Fecha_Ticket)
+            ORDER BY fecha
         """, (fecha_inicio_str, fecha_fin_str))
-        por_dia_raw = cursor.fetchall()
+        por_fecha_raw = cursor.fetchall()
         
-        # Mapear DAYOFWEEK (1=Domingo en MySQL) a nombres
-        dia_map = {2: 'Lunes', 3: 'Martes', 4: 'Miércoles', 5: 'Jueves', 6: 'Viernes', 7: 'Sábado', 1: 'Domingo'}
-        por_dia = {}
-        for d in DIAS_SEMANA:
-            por_dia[d] = 0
-        for row in por_dia_raw:
-            nombre = dia_map.get(row['dia'], '?')
-            por_dia[nombre] = row['cantidad']
+        # Crear lookup de fecha → cantidad
+        fecha_cantidades = {}
+        for row in por_fecha_raw:
+            f = row['fecha']
+            if hasattr(f, 'strftime'):
+                fecha_cantidades[f] = row['cantidad']
+            else:
+                fecha_cantidades[datetime.strptime(str(f), '%Y-%m-%d').date()] = row['cantidad']
+        
+        desde_dt_temp = datetime.strptime(fecha_inicio_str, '%Y-%m-%d').date()
+        hasta_dt_temp = datetime.strptime(fecha_fin_str, '%Y-%m-%d').date()
+        total_dias = (hasta_dt_temp - desde_dt_temp).days + 1
+        
+        dia_nombres = {1: 'Lun', 2: 'Mar', 3: 'Mié', 4: 'Jue', 5: 'Vie', 6: 'Sáb', 7: 'Dom'}
+        meses_nombres = {1: 'Enero', 2: 'Febrero', 3: 'Marzo', 4: 'Abril', 5: 'Mayo', 6: 'Junio',
+                         7: 'Julio', 8: 'Agosto', 9: 'Septiembre', 10: 'Octubre', 11: 'Noviembre', 12: 'Diciembre'}
+        
+        if total_dias <= 14:
+            # DIARIO: "24/02 (Lun)"
+            chart_datos = {}
+            current = desde_dt_temp
+            while current <= hasta_dt_temp:
+                label = f"{current.strftime('%d/%m')} ({dia_nombres[current.isoweekday()]})"
+                chart_datos[label] = fecha_cantidades.get(current, 0)
+                current += timedelta(days=1)
+            chart_titulo = 'Tickets por Fecha'
+            chart_xlabel = 'Fecha'
+        elif total_dias <= 90:
+            # SEMANAL: "Sem 03/02"
+            from collections import OrderedDict
+            chart_datos = OrderedDict()
+            current = desde_dt_temp
+            while current <= hasta_dt_temp:
+                # Inicio de la semana (lunes)
+                week_start = current - timedelta(days=current.weekday())
+                if week_start < desde_dt_temp:
+                    week_start = desde_dt_temp
+                label = f"Sem {week_start.strftime('%d/%m')}"
+                if label not in chart_datos:
+                    chart_datos[label] = 0
+                chart_datos[label] += fecha_cantidades.get(current, 0)
+                current += timedelta(days=1)
+            chart_titulo = 'Tickets por Semana'
+            chart_xlabel = 'Semana'
+        else:
+            # MENSUAL: "Febrero 2026"
+            from collections import OrderedDict
+            chart_datos = OrderedDict()
+            current = desde_dt_temp
+            while current <= hasta_dt_temp:
+                label = f"{meses_nombres[current.month]} {current.year}"
+                if label not in chart_datos:
+                    chart_datos[label] = 0
+                chart_datos[label] += fecha_cantidades.get(current, 0)
+                current += timedelta(days=1)
+            chart_titulo = 'Tickets por Mes'
+            chart_xlabel = 'Mes'
         
         # 3. Tickets por ventanilla (completados)
         cursor.execute("""
@@ -183,7 +255,7 @@ def generar_reporte_semanal():
         
         # --- Generar gráficos ---
         chart_dias = os.path.join(tmpdir, 'chart_dias.png')
-        _generar_grafico_barras(por_dia, 'Tickets por Día de la Semana', 'Día', 'Cantidad', chart_dias, '#10b981')
+        _generar_grafico_barras(chart_datos, chart_titulo, chart_xlabel, 'Cantidad', chart_dias, '#10b981')
         
         chart_ventanillas = os.path.join(tmpdir, 'chart_ventanillas.png')
         if por_ventanilla:
@@ -191,15 +263,18 @@ def generar_reporte_semanal():
         
         chart_sectores = os.path.join(tmpdir, 'chart_sectores.png')
         if por_sector:
-            _generar_grafico_pastel(por_sector, 'Distribución por Sector', chart_sectores)
+            _generar_grafico_pastel(por_sector, 'Distribucion por Sector', chart_sectores)
         
         # --- Construir PDF ---
-        fecha_i_fmt = hace_7_dias.strftime('%d/%m/%Y')
-        fecha_f_fmt = hoy.strftime('%d/%m/%Y')
-        pdf = ReportePDF(fecha_i_fmt, fecha_f_fmt)
+        desde_dt = datetime.strptime(fecha_inicio_str, '%Y-%m-%d')
+        hasta_dt = datetime.strptime(fecha_fin_str, '%Y-%m-%d')
+        fecha_i_fmt = desde_dt.strftime('%d/%m/%Y')
+        fecha_f_fmt = hasta_dt.strftime('%d/%m/%Y')
+        
+        pdf = ReportePDF(fecha_i_fmt, fecha_f_fmt, titulo)
         pdf.add_page()
         
-        # Resumen general (tarjetas)
+        # Resumen general
         pdf.set_font("Arial", "B", 13)
         pdf.cell(0, 8, "Resumen General", ln=True)
         pdf.ln(3)
@@ -213,7 +288,6 @@ def generar_reporte_semanal():
         col_w = 43
         pdf.set_font("Arial", "B", 10)
         
-        # Fila de métricas
         metricas = [
             ("Total", str(total), (30, 41, 59)),
             ("Completados", str(completados), (16, 185, 129)),
@@ -254,7 +328,7 @@ def generar_reporte_semanal():
         # Gráfico: Tickets por día
         if os.path.exists(chart_dias):
             pdf.set_font("Arial", "B", 13)
-            pdf.cell(0, 8, "Tickets por Dia de la Semana", ln=True)
+            pdf.cell(0, 8, chart_titulo, ln=True)
             pdf.ln(2)
             pdf.image(chart_dias, x=15, w=180)
             pdf.ln(8)
@@ -268,7 +342,6 @@ def generar_reporte_semanal():
             pdf.image(chart_ventanillas, x=15, w=180)
             pdf.ln(8)
             
-            # Tabla de ventanillas
             pdf.set_font("Arial", "B", 10)
             pdf.set_fill_color(241, 245, 249)
             pdf.cell(100, 8, "Ventanilla", 1, 0, "C", True)
@@ -288,22 +361,127 @@ def generar_reporte_semanal():
             pdf.image(chart_sectores, x=40, w=130)
         
         # Guardar PDF
-        pdf_path = os.path.join(tmpdir, 'reporte_semanal.pdf')
+        pdf_path = os.path.join(tmpdir, 'reporte.pdf')
         pdf.output(pdf_path)
+        
+        return pdf_path
+        
+    finally:
+        cursor.close()
+        conn.close()
+
+
+# ─── Endpoints ───
+
+@bp.route('/reporte/generar', methods=['GET'])
+def generar_reporte():
+    """Genera un reporte PDF para un rango de fechas específico."""
+    desde = request.args.get('desde')
+    hasta = request.args.get('hasta')
+    
+    if not desde or not hasta:
+        return jsonify({"error": "Parámetros 'desde' y 'hasta' son requeridos"}), 400
+    
+    try:
+        desde_date = datetime.strptime(desde, '%Y-%m-%d').date()
+        hasta_date = datetime.strptime(hasta, '%Y-%m-%d').date()
+    except ValueError:
+        return jsonify({"error": "Formato de fecha inválido. Use YYYY-MM-DD"}), 400
+    
+    # Validar rango semestral
+    valido, error = validar_rango_semestral(desde_date, hasta_date)
+    if not valido:
+        return jsonify({"error": error}), 400
+    
+    try:
+        pdf_path = _construir_reporte_pdf(desde, hasta, "Reporte de Tickets")
         
         return send_file(
             pdf_path,
             mimetype='application/pdf',
             as_attachment=True,
-            download_name=f'reporte_semanal_{fecha_inicio_str}_{fecha_fin_str}.pdf'
+            download_name=f'reporte_{desde}_{hasta}.pdf'
+        )
+    except Exception as e:
+        print(f"Error en generar_reporte: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": f"Error al generar reporte: {str(e)}"}), 500
+
+
+@bp.route('/reporte/limpieza-semestral', methods=['GET'])
+def limpieza_semestral():
+    """
+    Verifica si hay tickets del semestre anterior.
+    Si existen: genera PDF del semestre anterior, elimina esos tickets, retorna el PDF.
+    Si no existen: retorna 204 No Content.
+    """
+    tz = pytz.timezone('America/Mexico_City')
+    hoy = datetime.now(tz).date()
+    
+    sem_ant_inicio, sem_ant_fin = obtener_semestre_anterior(hoy)
+    
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    
+    try:
+        # Verificar si hay tickets del semestre anterior
+        cursor.execute("""
+            SELECT COUNT(*) as total
+            FROM Turno
+            WHERE DATE(Fecha_Ticket) BETWEEN %s AND %s
+        """, (sem_ant_inicio.strftime('%Y-%m-%d'), sem_ant_fin.strftime('%Y-%m-%d')))
+        
+        resultado = cursor.fetchone()
+        
+        if not resultado or resultado['total'] == 0:
+            return '', 204
+        
+        # Generar PDF del semestre anterior ANTES de eliminar
+        sem_label = f"Ene-Jun {sem_ant_inicio.year}" if sem_ant_inicio.month == 1 else f"Jul-Dic {sem_ant_inicio.year}"
+        pdf_path = _construir_reporte_pdf(
+            sem_ant_inicio.strftime('%Y-%m-%d'),
+            sem_ant_fin.strftime('%Y-%m-%d'),
+            f"Reporte Semestral - {sem_label}"
+        )
+        
+        # Eliminar SOLO tickets del semestre anterior (no los del actual)
+        cursor.execute("""
+            DELETE FROM Turno
+            WHERE DATE(Fecha_Ticket) BETWEEN %s AND %s
+        """, (sem_ant_inicio.strftime('%Y-%m-%d'), sem_ant_fin.strftime('%Y-%m-%d')))
+        
+        tickets_eliminados = cursor.rowcount
+        conn.commit()
+        print(f"Limpieza semestral: {tickets_eliminados} tickets eliminados del periodo {sem_ant_inicio} a {sem_ant_fin}")
+        
+        return send_file(
+            pdf_path,
+            mimetype='application/pdf',
+            as_attachment=True,
+            download_name=f'reporte_semestral_{sem_ant_inicio}_{sem_ant_fin}.pdf'
         )
         
     except Exception as e:
-        print(f"Error en generar_reporte_semanal: {e}")
+        conn.rollback()
+        print(f"Error en limpieza_semestral: {e}")
         import traceback
         traceback.print_exc()
-        from flask import jsonify
-        return jsonify({"error": f"Error al generar reporte: {str(e)}"}), 500
+        return jsonify({"error": f"Error en limpieza semestral: {str(e)}"}), 500
     finally:
         cursor.close()
         conn.close()
+
+
+@bp.route('/reporte/semestre-actual', methods=['GET'])
+def info_semestre_actual():
+    """Retorna las fechas del semestre actual para validación en frontend."""
+    tz = pytz.timezone('America/Mexico_City')
+    hoy = datetime.now(tz).date()
+    inicio, fin = obtener_semestre(hoy)
+    
+    return jsonify({
+        "inicio": inicio.strftime('%Y-%m-%d'),
+        "fin": fin.strftime('%Y-%m-%d'),
+        "label": f"Ene-Jun {inicio.year}" if inicio.month == 1 else f"Jul-Dic {inicio.year}"
+    })

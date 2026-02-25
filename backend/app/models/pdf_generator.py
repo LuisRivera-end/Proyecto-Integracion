@@ -29,10 +29,9 @@ def generar_ticket_PDF(numero_ticket, sector, fecha):
     pdf.ln(2)
 
     # Datos del ticket
-    pdf.set_font("Arial", "", 9)
+    pdf.set_font("Arial", "", 11)
     pdf.cell(0, 5, f"Folio: {numero_ticket}", ln=True)
     pdf.cell(0, 5, f"Sector: {sector}", ln=True)
-    pdf.cell(0, 5, f"Fecha: {fecha}", ln=True)
     
     pdf.ln(3)
     
@@ -44,6 +43,7 @@ def generar_ticket_PDF(numero_ticket, sector, fecha):
     pdf.set_font("Arial", "I", 8)
     pdf.cell(0, 4, "Conserve este ticket", ln=True, align="C")
     pdf.cell(0, 4, "para su atención", ln=True, align="C")
+    pdf.cell(0, 5, f"Fecha: {fecha}", ln=True, align="C")
     
     # Espacio para corte
     pdf.ln(10)
