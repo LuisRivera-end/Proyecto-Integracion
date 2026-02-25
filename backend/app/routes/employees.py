@@ -220,13 +220,23 @@ def add_employee():
     try:
         passwd_hash = sha256(data['passwd'].encode()).hexdigest()
 
+        # Si el usuario autenticado es Jefe (rol 6), forzar sector al suyo
+        id_sector = data.get('id_sector')
+        if session.get("rol") == 6:
+            jefe_id = session.get("user_id")
+            if jefe_id:
+                cursor.execute("SELECT ID_Sector FROM Empleado WHERE ID_Empleado = %s", (jefe_id,))
+                jefe_row = cursor.fetchone()
+                if jefe_row:
+                    id_sector = jefe_row.get("ID_Sector") if isinstance(jefe_row, dict) else jefe_row[0]
+
         cursor.execute("""
             INSERT INTO Empleado
             (ID_ROL, nombre1, nombre2, Apellido1, Apellido2, Usuario, Passwd, ID_Estado, ID_Sector)
             VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
         """, (
             data['id_rol'], data['nombre1'], data['nombre2'], data['apellido1'],
-            data['apellido2'], data['usuario'], passwd_hash, 1, data.get('id_sector')
+            data['apellido2'], data['usuario'], passwd_hash, 1, id_sector
         ))
         conn.commit()
         return jsonify({"message": "Empleado agregado"}), 201
@@ -315,12 +325,18 @@ def update_employee(id_empleado):
 
     try:
         # Protect admin
-        cursor.execute("SELECT ID_ROL FROM Empleado WHERE ID_Empleado = %s", (id_empleado,))
+        cursor.execute("SELECT ID_ROL, ID_Sector FROM Empleado WHERE ID_Empleado = %s", (id_empleado,))
         emp = cursor.fetchone()
         if not emp:
             return jsonify({"error": "Empleado no encontrado"}), 404
         if emp["ID_ROL"] == 1:
             return jsonify({"error": "No se puede editar al administrador"}), 403
+
+        # Si el usuario autenticado es Jefe (rol 6), verificar que el empleado pertenece a su sector
+        if session.get("rol") == 6:
+            jefe_sector_id = _get_jefe_sector_filter(cursor)
+            if jefe_sector_id is not None and emp.get("ID_Sector") != jefe_sector_id:
+                return jsonify({"error": "No tiene permisos para editar este empleado"}), 403
 
         # Check username uniqueness (excluding current employee)
         cursor.execute(

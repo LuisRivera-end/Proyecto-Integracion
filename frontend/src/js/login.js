@@ -61,6 +61,13 @@ document.addEventListener("DOMContentLoaded", async () => {
                     return;
                 }
 
+                if (currentUser.rol === 6) {
+                    // Jefe de Departamento → vista de empleados de su sector
+                    localStorage.setItem('currentUser', JSON.stringify(currentUser));
+                    window.location.href = "subjefes.html";
+                    return;
+                }
+
                 // Si pasa la validación, seguimos con la ventanilla
                 const ventanillaActivaRes = await fetch(`${API_BASE_URL}/api/empleado/${currentUser.id}/ventanilla-activa`);
                 if (!ventanillaActivaRes.ok) {
