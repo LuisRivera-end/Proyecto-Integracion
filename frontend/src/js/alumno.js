@@ -79,14 +79,15 @@ document.addEventListener("DOMContentLoaded", () => {
     form.addEventListener("submit", async (e) => {
         e.preventDefault();
 
-        submitBtn.disabled = true;
-        submitBtn.innerHTML = '<svg class="animate-spin h-5 w-5 mr-2 border-b-2 border-blue-600 rounded-full" viewBox="0 0 24 24"></svg> Generando ticket...';
         const sector = document.getElementById("sector").value;
 
         if (!sector) {
             showError("Por favor, selecciona un sector.");
             return;
         }
+
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<svg class="animate-spin h-5 w-5 mr-2 border-b-2 border-blue-600 rounded-full" viewBox="0 0 24 24"></svg> Generando ticket...';
         try {
             // 1. Generar el ticket
             let response, data;
