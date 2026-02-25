@@ -25,6 +25,7 @@
     <title>Sistema de Gestión</title>
     <link rel="stylesheet" href="./dist/output.css" />
     <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="./static/css/toastify.css">
 </head>
 
 <body class="min-h-screen">
@@ -119,9 +120,27 @@
                 </div>
             </div>
         </div>
+
+        <div id="confirm-modal" class="fixed inset-0 bg-opacity-50 hidden items-center justify-center z-50">
+            <div class="bg-white rounded-xl shadow-lg p-6 w-96 text-center">
+                <h2 id="confirm-title" class="text-lg font-semibold mb-4">Confirmación</h2>
+                <p id="confirm-message" class="text-gray-600 mb-6"></p>
+
+                <div class="flex justify-center gap-4">
+                    <button id="confirm-cancel" class="px-4 py-2 bg-gray-300 hover:bg-gray-400 rounded-lg">
+                        Cancelar
+                    </button>
+
+                    <button id="confirm-accept" class="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg">
+                        Aceptar
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script src="./js/lib/socket.io.min.js"></script>
+    <script src="./static/js/toastify.js"></script>
     <script type="module" src="./js/ventanilla.js"></script>
 </body>
 

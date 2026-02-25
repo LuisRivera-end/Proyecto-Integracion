@@ -6,13 +6,13 @@ const API_BASE_URL = Config.API_BASE_URL;
 document.addEventListener("DOMContentLoaded", async () => {
     const loginForm = document.getElementById("login-form");
     const loginError = document.getElementById("login-error");
-    const submitBtn = loginForm.querySelector("button[type='submit']");
 
 
     // Limpiar sesión anterior al cargar login
     localStorage.removeItem('currentUser');
 
     if (loginForm) {
+        const submitBtn = loginForm.querySelector("button[type='submit']");
         loginForm.addEventListener("submit", async (e) => {
             e.preventDefault();
 
