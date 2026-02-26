@@ -345,6 +345,37 @@ def get_sectores():
         conn.close()
 
 # --------------------------------------------------------
+# AGREGAR NUEVO SECTOR
+# --------------------------------------------------------
+@bp.route("/sectores", methods=["POST"])
+def add_sector():
+    data = request.get_json()
+    sector_nombre = (data.get("sector") or "").strip()
+
+    if not sector_nombre:
+        return jsonify({"error": "El nombre del sector es obligatorio"}), 400
+
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    try:
+        # Verificar duplicado
+        cursor.execute("SELECT 1 FROM Sectores WHERE Sector = %s LIMIT 1", (sector_nombre,))
+        if cursor.fetchone():
+            return jsonify({"error": "Ya existe un sector con ese nombre"}), 409
+
+        cursor.execute("INSERT INTO Sectores (Sector) VALUES (%s)", (sector_nombre,))
+        conn.commit()
+        return jsonify({"message": "Sector agregado correctamente"}), 201
+    except Exception as e:
+        conn.rollback()
+        print(f"Error en add_sector: {e}")
+        return jsonify({"error": "Error interno del servidor"}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+# --------------------------------------------------------
 # ASIGNAR SECTOR A UN EMPLEADO (PARA JEFES)
 # --------------------------------------------------------
 @bp.route("/employees/<int:id_empleado>/sector", methods=["PUT"])
