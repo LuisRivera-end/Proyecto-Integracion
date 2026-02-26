@@ -13,6 +13,10 @@ document.addEventListener("DOMContentLoaded", function () {
     let audioHabilitado = false;
     let audioContext = null;
 
+    // --- Cola de audio: reproduce un audio a la vez, en orden ---
+    const audioQueue = [];
+    let isPlaying = false;
+
     // Botón para habilitar audio (recomendado en pantallas)
     const activarAudioBtn = document.getElementById("activarAudio");
     if (activarAudioBtn) {
@@ -41,27 +45,45 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     }
 
-    async function reproducirAudio(url) {
+    function reproducirAudio(url) {
         if (!audioHabilitado || !audioContext) return;
+        audioQueue.push(url);
+        if (!isPlaying) {
+            _playNext();
+        }
+    }
+
+    async function _playNext() {
+        if (audioQueue.length === 0) {
+            isPlaying = false;
+            return;
+        }
+        isPlaying = true;
+        const url = audioQueue.shift();
 
         try {
-            // Asegurar que el contexto esté activo
             if (audioContext.state === "suspended") {
                 await audioContext.resume();
             }
 
-            // Descargar el audio como ArrayBuffer y decodificarlo
             const response = await fetch(url);
             const arrayBuffer = await response.arrayBuffer();
             const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
 
-            // Crear un nodo fuente y reproducir
             const source = audioContext.createBufferSource();
             source.buffer = audioBuffer;
             source.connect(audioContext.destination);
+
+            // Cuando termina este audio, reproducir el siguiente de la cola
+            source.onended = () => {
+                _playNext();
+            };
+
             source.start(0);
         } catch (err) {
             console.error("🔇 Error al reproducir audio:", err);
+            // Si falla, continuar con el siguiente
+            _playNext();
         }
     }
 

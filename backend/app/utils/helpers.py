@@ -105,7 +105,7 @@ def login_required(f):
 
 AUDIO_DIR = "/app/audio"
 
-def _cleanup_audio(filepath, delay=30):
+def _cleanup_audio(filepath, delay=120):
     """Elimina un archivo de audio después de un delay en segundos."""
     def _delete():
         try:
