@@ -50,9 +50,14 @@ def get_employees():
                 WHERE (
                     e.ID_Sector = %s
                     OR v.ID_Sector = %s
+                    OR EXISTS (
+                        SELECT 1 FROM Rol_Ventanilla rv
+                        JOIN Ventanillas vr ON rv.ID_Ventanilla = vr.ID_Ventanilla
+                        WHERE rv.ID_Rol = e.ID_ROL AND vr.ID_Sector = %s
+                    )
                 )
             """
-            params.extend([jefe_sector_id, jefe_sector_id])
+            params.extend([jefe_sector_id, jefe_sector_id, jefe_sector_id])
 
         cursor.execute(query, params)
 
@@ -114,9 +119,14 @@ def get_employees_full():
                 WHERE (
                     e.ID_Sector = %s
                     OR s.ID_Sector = %s
+                    OR EXISTS (
+                        SELECT 1 FROM Rol_Ventanilla rv
+                        JOIN Ventanillas vr ON rv.ID_Ventanilla = vr.ID_Ventanilla
+                        WHERE rv.ID_Rol = e.ID_ROL AND vr.ID_Sector = %s
+                    )
                 )
             """
-            params.extend([jefe_sector_id, jefe_sector_id])
+            params.extend([jefe_sector_id, jefe_sector_id, jefe_sector_id])
 
         query += " ORDER BY e.ID_Empleado"
 
