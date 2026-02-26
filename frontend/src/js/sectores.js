@@ -88,24 +88,6 @@ document.addEventListener("DOMContentLoaded", async () => {
 });
 
 // ──────────────────────────────────────────────
-// Logout (moved from admin.js)
-// ──────────────────────────────────────────────
-async function logout() {
-  try {
-    const res = await fetch(`${API_BASE_URL}/api/logout`, {
-      method: "POST",
-      credentials: "include"
-    });
-    const data = await res.json();
-    alert(data.message);
-    window.location.href = "/login.html";
-  } catch (error) {
-    console.error("Error al cerrar sesión:", error);
-  }
-}
-window.logout = logout;
-
-// ──────────────────────────────────────────────
 // Accordion toggle
 // ──────────────────────────────────────────────
 function toggleAccordion(id) {
