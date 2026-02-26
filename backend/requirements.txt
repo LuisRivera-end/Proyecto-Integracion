@@ -13,3 +13,4 @@ pytz
 python-dotenv
 gunicorn
 matplotlib
+gTTS

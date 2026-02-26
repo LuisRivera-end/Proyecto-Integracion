@@ -121,13 +121,20 @@ def _cleanup_audio(filepath, delay=30):
 def speak_to_file(text):
     os.makedirs(AUDIO_DIR, exist_ok=True)
 
-    filename = f"turno_{uuid.uuid4().hex}.wav"
+    filename = f"turno_{uuid.uuid4().hex}.mp3"
     filepath = os.path.join(AUDIO_DIR, filename)
 
-    # Usar espeak directamente para generar audio
-    subprocess.run([
-        "espeak", "-v", "es", "-w", filepath, text
-    ], check=True)
+    try:
+        from gtts import gTTS
+        tts = gTTS(text=text, lang='es', slow=False)
+        tts.save(filepath)
+    except Exception as e:
+        print(f"⚠️ gTTS falló ({e}), usando espeak como fallback")
+        filename = f"turno_{uuid.uuid4().hex}.wav"
+        filepath = os.path.join(AUDIO_DIR, filename)
+        subprocess.run([
+            "espeak", "-v", "es", "-w", filepath, text
+        ], check=True)
 
     # Programar eliminación automática del archivo en 30 segundos
     _cleanup_audio(filepath)
