@@ -4,16 +4,21 @@ const { exec } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
+// Detectar si corre como .exe (pkg) o como script normal
+const appDir = process.pkg ? path.dirname(process.execPath) : __dirname;
+require('dotenv').config({ path: path.join(appDir, '.env') });
+
 const app = express();
-const PORT = 3001;
+const PORT = process.env.PRINT_SERVICE_PORT || 3001;
 
-// Apunta al proxy HTTPS de Docker/Nginx
-const SERVER_URL = 'https://host.docker.internal:4443'; 
-
-const SUMATRA_PATH = '"C:\\Users\\lelie\\AppData\\Local\\SumatraPDF\\SumatraPDF.exe"';
-const PRINTER_NAME = 'POS-58';
+const SERVER_URL = process.env.PRINT_SERVER_URL || 'https://host.docker.internal:4443';
+const SUMATRA_PATH = `"${process.env.SUMATRA_PATH || 'C:\\Users\\lelie\\AppData\\Local\\SumatraPDF\\SumatraPDF.exe'}"`;
+const PRINTER_NAME = process.env.PRINTER_NAME || 'POS-58';
 
 console.log('🚀 Iniciando cliente de impresión...');
+console.log(`📂 Directorio: ${appDir}`);
+console.log(`🌐 Servidor: ${SERVER_URL}`);
+console.log(`🖨️ Impresora: ${PRINTER_NAME}`);
 
 const socket = io(SERVER_URL, {
     transports: ['websocket', 'polling'],
