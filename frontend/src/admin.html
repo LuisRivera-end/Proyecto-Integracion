@@ -4,7 +4,7 @@
     async function verificarSesion() {
         try {
             const res = await fetch(`${Config.API_BASE_URL}/api/check_session`, {
-                credentials: 'include' // para enviar cookies de sesión
+                credentials: 'include'
             });
             if (!res.ok) {
                 window.location.href = 'login.html';
@@ -23,29 +23,48 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Administrador</title>
+    <title>Administrador — Sectores</title>
     <link rel="stylesheet" href="./dist/output.css">
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="./static/css/toastify.css">
+    <style>
+        .accordion-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.35s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
+            opacity: 0;
+        }
+
+        .accordion-content.open {
+            max-height: 9999px;
+            opacity: 1;
+        }
+
+        .accordion-arrow {
+            transition: transform 0.3s ease;
+        }
+
+        .accordion-header.open .accordion-arrow {
+            transform: rotate(180deg);
+        }
+    </style>
 </head>
 
 <body
     class="bg-gradient-to-br from-slate-600 via-slate-500 to-emerald-300 min-h-screen text-slate-800 font-sans antialiased overflow-hidden">
     <div class="flex h-screen w-full relative">
 
-        <aside id="sidebar" class="w-72 h-full flex flex-col bg-white border-r border-slate-200 shadow-xl z-50 transition-transform duration-300 fixed inset-y-0 left-0 transform -translate-x-full lg:translate-x-0 lg:relative 
-            lg:block">
+        <aside id="sidebar"
+            class="w-72 h-full flex flex-col bg-white border-r border-slate-200 shadow-xl z-50 transition-transform duration-300 fixed inset-y-0 left-0 transform -translate-x-full lg:translate-x-0 lg:relative lg:flex">
 
             <!-- Header -->
             <div class="px-6 py-6 border-b border-slate-100 relative flex flex-col items-center bg-white">
-                <!-- Close Button (Mobile Only) -->
                 <button id="closeSidebar" class="lg:hidden text-slate-400 hover:text-slate-600 absolute right-4 top-4">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12">
-                        </path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M6 18L18 6M6 6l12 12"></path>
                     </svg>
                 </button>
-                <!-- Logo -->
                 <div
                     class="flex flex-col items-center gap-2 cursor-default hover:scale-105 transition-transform duration-300">
                     <img src="./public/ual.png" alt="UAL" class="h-20 w-auto object-contain" />
@@ -95,17 +114,16 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                             d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
                     </svg>
-                    <span class="font-bold tracking-wide text-sm relative z-10">Administración</span>
+                    <span class="font-bold tracking-wide text-sm relative z-10">Sectores</span>
                     <div
                         class="absolute right-4 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse">
                     </div>
                 </a>
             </nav>
 
-            <!-- Footer User Info -->
-            <div class="border-t border-slate-200 bg-slate-50 min-h-[88px] flex items-center flex-shrink-0">
-                <div
-                    class="w-full px-8 py-5 flex items-center gap-4 cursor-pointer hover:bg-slate-100 transition-colors">
+            <!-- Footer: User Info + Cerrar Sesión -->
+            <div class="border-t border-slate-200 bg-slate-50 flex-shrink-0 mt-auto">
+                <div class="w-full px-8 py-4 flex items-center gap-4">
                     <div
                         class="w-10 h-10 rounded-full bg-emerald-100 border border-emerald-200 flex items-center justify-center text-emerald-700 text-sm font-bold shadow-sm">
                         A
@@ -114,6 +132,18 @@
                         <p class="text-sm font-bold text-slate-800 truncate">Admin User</p>
                         <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider truncate">Sistema</p>
                     </div>
+                </div>
+                <div class="px-4 pb-4">
+                    <button onclick="logout()"
+                        class="w-full px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-red-50 text-slate-600 hover:text-red-600 font-bold text-xs uppercase tracking-wider transition-all hover:shadow-md flex items-center justify-center gap-2 group/btn">
+                        <svg class="w-4 h-4 transition-transform group-hover/btn:-translate-x-1" fill="none"
+                            stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1">
+                            </path>
+                        </svg>
+                        Cerrar Sesión
+                    </button>
                 </div>
             </div>
         </aside>
@@ -136,36 +166,114 @@
                     </svg>
                 </button>
                 <h1 class="text-xl font-bold text-slate-800 tracking-tight">UAL Admin</h1>
-                <div class="w-8"></div> <!-- Spacer for centering -->
+                <div class="w-8"></div>
             </div>
 
             <!-- Content Wrapper -->
             <div class="p-6 md:p-10 lg:p-14 max-w-7xl mx-auto w-full flex flex-col items-center">
 
-                <!-- Notification Banner -->
-                <div
-                    class="w-full bg-white/95 backdrop-blur-sm shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-2xl p-6 md:p-8 flex items-center justify-between gap-6 border border-white/60 relative overflow-hidden group hover:scale-[1.01] transition-transform duration-300">
-                    <div class="absolute top-0 left-0 w-1.5 h-full bg-emerald-500"></div>
-                    <div>
-                        <h2 class="text-2xl font-bold text-slate-800 tracking-tight mb-1">Panel de Administración</h2>
-                        <p class="text-slate-500 font-medium">Configura las agendas de turnos y tickets</p>
-                    </div>
-                    <button onclick="logout()"
-                        class="px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-xs uppercase tracking-wider transition-all hover:shadow-md flex items-center gap-2 group/btn">
-                        <svg class="w-4 h-4 transition-transform group-hover/btn:-translate-x-1" fill="none"
-                            stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1">
-                            </path>
-                        </svg>
-                        Cerrar sesión
-                    </button>
-                </div>
 
-                <!-- Admin Content Area -->
+                <!-- Gestión de Sectores -->
                 <div
-                    class="w-full mt-8 h-96 border-2 border-dashed border-slate-300/50 rounded-3xl flex flex-col items-center justify-center text-slate-400 bg-white/30 backdrop-blur-sm">
-                    <p class="text-sm font-medium">Contenido del panel aquí...</p>
+                    class="w-full mt-8 bg-white/95 backdrop-blur-sm shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-2xl border border-white/60">
+                    <div
+                        class="flex flex-col sm:flex-row justify-between sm:items-center border-b border-slate-100 p-6 md:p-8 gap-4 sm:gap-0">
+                        <div>
+                            <h1 class="text-2xl sm:text-3xl font-bold text-slate-800 tracking-tight">Gestión de
+                                Sectores</h1>
+                            <p class="text-slate-500 mt-1 font-medium">Administra los sectores del sistema</p>
+                        </div>
+                    </div>
+
+                    <!-- Accordion Panels Container -->
+                    <div class="p-6 md:p-8 flex flex-col gap-4">
+
+                        <!-- ===== PANEL 1: Agregar Sector ===== -->
+                        <div class="rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+                            <button id="header-agregar"
+                                class="accordion-header w-full flex items-center justify-between px-6 py-4 bg-slate-50 hover:bg-slate-100 transition-colors cursor-pointer text-left"
+                                onclick="toggleAccordion('agregar')">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center">
+                                        <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor"
+                                            viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                d="M12 4v16m8-8H4" />
+                                        </svg>
+                                    </div>
+                                    <span class="font-bold text-slate-800">Agregar Sector</span>
+                                </div>
+                                <svg class="accordion-arrow w-5 h-5 text-slate-400" fill="none" stroke="currentColor"
+                                    viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </button>
+                            <div id="content-agregar" class="accordion-content">
+                                <div class="p-6 sm:p-8 bg-white">
+                                    <p class="text-sm text-slate-500 mb-6 font-medium">Ingrese el nombre del nuevo
+                                        sector</p>
+                                    <form id="sectorForm" class="space-y-5">
+                                        <div>
+                                            <label
+                                                class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Nombre
+                                                del sector *</label>
+                                            <input id="sectorNombre" type="text" required
+                                                placeholder="Ej: Recursos Humanos"
+                                                class="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-medium" />
+                                        </div>
+                                        <button type="submit"
+                                            class="w-full bg-slate-800 hover:bg-slate-700 text-white font-bold py-3.5 rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl hover:-translate-y-0.5 mt-2 active:scale-95">
+                                            Agregar sector
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ===== PANEL 2: Lista de Sectores ===== -->
+                        <div class="rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+                            <button id="header-lista"
+                                class="accordion-header open w-full flex items-center justify-between px-6 py-4 bg-slate-50 hover:bg-slate-100 transition-colors cursor-pointer text-left"
+                                onclick="toggleAccordion('lista')">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-8 h-8 rounded-lg bg-sky-100 flex items-center justify-center">
+                                        <svg class="w-4 h-4 text-sky-600" fill="none" stroke="currentColor"
+                                            viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                                        </svg>
+                                    </div>
+                                    <span class="font-bold text-slate-800">Sectores Existentes</span>
+                                </div>
+                                <svg class="accordion-arrow rotate-180 w-5 h-5 text-slate-400" fill="none"
+                                    stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </button>
+                            <div id="content-lista" class="accordion-content open">
+                                <div class="bg-white overflow-x-auto">
+                                    <table class="w-full text-sm text-left">
+                                        <thead class="bg-slate-50 border-b border-slate-200">
+                                            <tr>
+                                                <th
+                                                    class="px-6 py-4 font-bold text-slate-600 uppercase tracking-wider text-xs text-center">
+                                                    #</th>
+                                                <th
+                                                    class="px-6 py-4 font-bold text-slate-600 uppercase tracking-wider text-xs">
+                                                    Nombre del Sector</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="tablaSectores" class="divide-y divide-slate-100">
+                                            <!-- Se llenará dinámicamente -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
                 </div>
 
             </div>
@@ -182,7 +290,9 @@
     <script src="./static/js/toastify.js"></script>
     <script src="./js/idioma.js"></script>
     <script type="module" src="./js/admin.js"></script>
-    !-- Sidebar Toggle Script -->
+    <script type="module" src="./js/sectores.js"></script>
+
+    <!-- Sidebar Toggle Script -->
     <script>
         const sidebar = document.getElementById('sidebar');
         const openBtn = document.getElementById('openSidebar');
@@ -193,11 +303,9 @@
             sidebar.classList.toggle('-translate-x-full');
 
             if (!sidebar.classList.contains('-translate-x-full')) {
-                // Open
                 backdrop.classList.remove('hidden');
                 setTimeout(() => backdrop.classList.remove('opacity-0'), 10);
             } else {
-                // Close
                 backdrop.classList.add('opacity-0');
                 setTimeout(() => backdrop.classList.add('hidden'), 300);
             }

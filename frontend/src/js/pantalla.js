@@ -156,33 +156,13 @@ document.addEventListener("DOMContentLoaded", function () {
 
         const estado = ticket.estado_id || ticket.ID_Estados || ticket.estado;
         const esAtendiendo = (estado === 3 || estado === 'Atendiendo');
-
-        // Chip de color por sector
-        const sector = (ticket.sector || '').toLowerCase();
-        let chipClass = 'inline-block px-4 py-1.5 rounded-full text-base font-bold';
-        if (sector.includes('caja')) chipClass += ' chip-cajas';
-        else if (sector.includes('serv') || sector.includes('escolar')) chipClass += ' chip-servicios';
-        else if (sector.includes('beca')) chipClass += ' chip-becas';
-        else if (sector.includes('tesorer')) chipClass += ' chip-tesoreria';
-        else chipClass += ' bg-slate-200 text-slate-700';
-
         const ventanillaDisplay = textoVentanilla.replace(/ventanilla\s*/i, '') || textoVentanilla;
 
-        if (index === 0) {
-            return `
-                <div class="grid grid-cols-3 items-center px-8 py-5 bg-green-700 border-b-2 border-green-900" data-folio="${ticket.folio}">
-                    <span class="text-4xl font-black text-white tracking-tight">${ticket.folio}</span>
-                    <span><span class="${chipClass} text-sm px-3 py-1">${ticket.sector}</span></span>
-                    <span class="text-4xl font-black text-white">${esAtendiendo ? ventanillaDisplay : '—'}</span>
-                </div>
-            `;
-        }
-
         return `
-            <div class="grid grid-cols-3 items-center px-8 py-4 border-b border-white/10 hover:bg-white/5 transition-colors" data-folio="${ticket.folio}">
-                <span class="text-2xl font-extrabold text-white">${ticket.folio}</span>
-                <span><span class="${chipClass}">${ticket.sector}</span></span>
-                <span class="text-2xl font-extrabold text-white">${esAtendiendo ? ventanillaDisplay : '—'}</span>
+            <div class="grid grid-cols-3 items-center px-8 py-5 border-b border-slate-200 hover:bg-slate-50 transition-colors" data-folio="${ticket.folio}">
+                <span class="text-4xl font-black text-slate-800 tracking-tight">${ticket.folio}</span>
+                <span class="text-4xl font-black text-slate-800">${ticket.sector}</span>
+                <span class="text-4xl font-black text-slate-800">${esAtendiendo ? ventanillaDisplay : '—'}</span>
             </div>
         `;
     }
@@ -199,10 +179,13 @@ document.addEventListener("DOMContentLoaded", function () {
         try {
             const ticketsData = await obtenerTickets();
 
+            const atendiendoContainer = document.getElementById('atendiendo-container');
+            const atendiendoFilas = document.getElementById('atendiendo-filas');
+
             if (!ticketsData || ticketsData.length === 0) {
-                // No hay tickets
                 sinTickets.style.display = 'flex';
                 contenedor.innerHTML = '';
+                if (atendiendoContainer) atendiendoContainer.classList.add('hidden');
                 estadoAnterior.clear();
                 return;
             }
@@ -215,83 +198,114 @@ document.addEventListener("DOMContentLoaded", function () {
             if (ticketsValidos.length === 0) {
                 sinTickets.style.display = 'flex';
                 contenedor.innerHTML = '';
+                if (atendiendoContainer) atendiendoContainer.classList.add('hidden');
+                const tc = document.getElementById('ticker-container');
+                if (tc) tc.classList.add('hidden');
                 estadoAnterior.clear();
                 return;
             }
 
-            // Mostrar tablero
-            sinTickets.style.display = 'none';
+            // Separar atendiendo vs pendientes
+            const atendiendo = ticketsValidos.filter(t => {
+                const est = t.estado_id || t.ID_Estados || t.estado;
+                return est === 3 || est === 'Atendiendo';
+            });
+            const pendientes = ticketsValidos.filter(t => {
+                const est = t.estado_id || t.ID_Estados || t.estado;
+                return est !== 3 && est !== 'Atendiendo';
+            });
+
+            // ── Renderizar sección "Atendiendo ahora" ──
+            if (atendiendoContainer && atendiendoFilas) {
+                if (atendiendo.length > 0) {
+                    atendiendoContainer.classList.remove('hidden');
+                    atendiendoFilas.innerHTML = atendiendo.map(ticket => {
+                        const ventanillaDisplay = (obtenerTextoVentanilla(ticket) || '').replace(/ventanilla\s*/i, '');
+
+                        return `
+                            <div class="grid grid-cols-3 items-center px-8 py-3 border-b border-amber-200" data-folio="${ticket.folio}">
+                                <span class="text-3xl font-black text-amber-800 tracking-tight">${ticket.folio}</span>
+                                <span class="text-3xl font-black text-amber-800">${ticket.sector}</span>
+                                <span class="text-3xl font-black text-amber-800">${ventanillaDisplay}</span>
+                            </div>
+                        `;
+                    }).join('');
+                } else {
+                    atendiendoContainer.classList.add('hidden');
+                    atendiendoFilas.innerHTML = '';
+                }
+            }
+
+            // ── Renderizar tickets pendientes ──
+            const MAX_VISIBLE = 7;
+            const visibles = pendientes.slice(0, MAX_VISIBLE);
+            const overflow = pendientes.slice(MAX_VISIBLE);
+
+            sinTickets.style.display = visibles.length === 0 ? 'flex' : 'none';
 
             // Generar nuevo estado
             const nuevoEstado = new Map();
-            ticketsValidos.forEach((ticket, index) => {
+            visibles.forEach((ticket, index) => {
                 nuevoEstado.set(ticket.folio, {
                     html: crearFilaHTML(ticket, index),
                     hash: generarHashTicket(ticket)
                 });
             });
 
-            // Si es la primera carga o hay cambios significativos, reconstruir toda la tabla
-            if (estadoAnterior.size === 0 ||
-                ticketsValidos.length !== estadoAnterior.size ||
-                Array.from(nuevoEstado.keys()).some(folio => !estadoAnterior.has(folio))) {
+            // Reconstruir tabla de visibles (max 7)
+            let htmlCompleto = '';
+            visibles.forEach((ticket, index) => {
+                const filaHTML = crearFilaHTML(ticket, index);
+                if (filaHTML) {
+                    htmlCompleto += filaHTML;
+                }
+            });
+            contenedor.innerHTML = htmlCompleto;
 
-                // Reconstruir tabla completa
-                let htmlCompleto = '';
-                ticketsValidos.forEach((ticket, index) => {
-                    const filaHTML = crearFilaHTML(ticket, index);
-                    if (filaHTML) {
-                        htmlCompleto += filaHTML;
-                    }
-                });
-                contenedor.innerHTML = htmlCompleto;
-
-            } else {
-                // Actualización incremental - solo modificar lo que cambió
-                nuevoEstado.forEach((nuevo, folio) => {
-                    const anterior = estadoAnterior.get(folio);
-
-                    if (!anterior || anterior.hash !== nuevo.hash) {
-                        const ticketActual = ticketsValidos.find(t => t.folio === folio);
-                        const estadoActual = ticketActual.estado_id || ticketActual.ID_Estados || ticketActual.estado;
-                        const estadoAnteriorTicket = anterior ? anterior.hash.split('-')[1] : null;
-
-                        const estadoNormalizado = String(estadoActual);
-                        const estadoAnteriorNormalizado = String(estadoAnteriorTicket);
-
-                        if ((estadoNormalizado === '3' || estadoNormalizado === 'Atendiendo') &&
-                            estadoAnteriorNormalizado !== estadoNormalizado) {
-                            const pantalla = true;
-                            if (pantalla) {
-                                llamarTicket(ticketActual.folio, ticketActual.ventanilla);
-                            }
-
-                        }
-
-                        const filaExistente = contenedor.querySelector(`[data-folio="${folio}"]`);
-                        if (filaExistente) {
-                            // Reemplazar solo si cambió
-                            filaExistente.outerHTML = nuevo.html;
-                        } else {
-                            // Agregar nueva fila
-                            contenedor.innerHTML += nuevo.html;
-                        }
-                    }
-                });
-
-                // Eliminar tickets que ya no existen
-                estadoAnterior.forEach((_, folio) => {
-                    if (!nuevoEstado.has(folio)) {
-                        const filaEliminar = contenedor.querySelector(`[data-folio="${folio}"]`);
-                        if (filaEliminar) {
-                            filaEliminar.remove();
-                        }
-                    }
-                });
+            // ── Ticker de overflow ──
+            const tickerContainer = document.getElementById('ticker-container');
+            const tickerTrack = document.getElementById('ticker-track');
+            if (tickerContainer && tickerTrack) {
+                if (overflow.length > 0) {
+                    tickerContainer.classList.remove('hidden');
+                    // Duplicar para loop continuo
+                    const items = overflow.map(t =>
+                        `<span class="inline-flex items-center gap-2 text-slate-300 font-bold text-lg">
+                            <span class="text-white font-black">${t.folio}</span>
+                            <span class="text-slate-400">${t.sector}</span>
+                        </span>`
+                    ).join('<span class="text-slate-600 mx-2">•</span>');
+                    tickerTrack.innerHTML = items + '<span class="text-slate-600 mx-4">|</span>' + items;
+                    // Ajustar velocidad según cantidad
+                    const duration = Math.max(10, overflow.length * 3);
+                    tickerTrack.style.animationDuration = `${duration}s`;
+                } else {
+                    tickerContainer.classList.add('hidden');
+                    tickerTrack.innerHTML = '';
+                }
             }
 
-            // Actualizar estado anterior
-            estadoAnterior = nuevoEstado;
+            // Detectar cambio a "Atendiendo" para audio
+            ticketsValidos.forEach(ticket => {
+                const estadoActual = ticket.estado_id || ticket.ID_Estados || ticket.estado;
+                const estadoNorm = String(estadoActual);
+                const anterior = estadoAnterior.get(ticket.folio);
+                const estadoAnteriorNorm = anterior ? anterior.hash.split('-')[1] : null;
+
+                if ((estadoNorm === '3' || estadoNorm === 'Atendiendo') &&
+                    estadoAnteriorNorm !== estadoNorm) {
+                    llamarTicket(ticket.folio, ticket.ventanilla);
+                }
+            });
+
+            // Actualizar estado anterior (incluir todos para tracking de audio)
+            estadoAnterior = new Map();
+            ticketsValidos.forEach((ticket, index) => {
+                estadoAnterior.set(ticket.folio, {
+                    html: crearFilaHTML(ticket, index),
+                    hash: generarHashTicket(ticket)
+                });
+            });
 
         } catch (error) {
             console.error("Error al cargar tickets:", error);

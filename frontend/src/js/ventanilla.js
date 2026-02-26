@@ -367,9 +367,6 @@ document.addEventListener("DOMContentLoaded", async () => {
                     <p class="font-semibold text-gray-800">
                       Ticket: <span class="text-blue-600">${ticketId}</span>
                     </p>
-                    <p class="text-sm ${esInvitado ? 'text-blue-600 font-semibold' : 'text-gray-600'} mt-1">
-                      ${esInvitado ? 'Turno Invitado' : `Matrícula: ${ticket.matricula}`}
-                    </p>
                     <p class="text-xs text-gray-500 mt-1">
                       Estado: <span class="text-orange-500">${ticket.estado || 'Pendiente'}</span>
                     </p>
