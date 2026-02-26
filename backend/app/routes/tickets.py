@@ -106,6 +106,34 @@ def request_ticket_print():
         return jsonify({"error": f"Error interno del servidor: {str(e)}"}), 500 
 
 
+@bp.route('/ticket/download', methods=['POST'])
+def download_ticket_pdf():
+    data = request.get_json()
+    
+    try:
+        required_fields = ['numero_ticket', 'sector', 'fecha']
+        for field in required_fields:
+            if not data or field not in data:
+                return jsonify({"error": f"Campo requerido faltante: {field}"}), 400
+        
+        pdf_bytes = generar_ticket_PDF(
+            data['numero_ticket'],
+            data['sector'],
+            data['fecha']
+        )
+        
+        pdf_base64 = base64.b64encode(pdf_bytes).decode('utf-8')
+        
+        return jsonify({
+            "pdf_base64": pdf_base64,
+            "filename": f"ticket_{data['numero_ticket']}.pdf"
+        }), 200
+        
+    except Exception as e:
+        print(f"❌ Error al generar PDF para descarga: {e}")
+        return jsonify({"error": f"Error al generar el PDF: {str(e)}"}), 500
+
+
 @bp.route('/ticket', methods=['POST'])
 def generar_ticket():
     data = request.get_json()
