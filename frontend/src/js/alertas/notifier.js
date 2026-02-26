@@ -13,6 +13,11 @@ export function lanzarAlerta(mensaje, tipo = "success") {
             fondo = "linear-gradient(to right, #2193b0, #6dd5ed)"; // Azul
             break;
         case "success":
+            fondo = "linear-gradient(to right, #00b09b, #96c93d)"; // Verde
+            break;
+        case "warning":
+            fondo = "linear-gradient(to right, #f7dc6f, #f1c40f)"; // Amarillo
+            break;
         default:
             fondo = "linear-gradient(to right, #00b09b, #96c93d)"; // Verde
             break;

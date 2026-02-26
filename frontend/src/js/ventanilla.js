@@ -1,4 +1,5 @@
 import Config from './config.js';
+import { lanzarAlerta } from './alertas/notifier.js';
 const API_BASE_URL = Config.API_BASE_URL;
 
 document.addEventListener("DOMContentLoaded", async () => {
@@ -124,6 +125,41 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (logoutBtn) logoutBtn.addEventListener("click", cerrarSesion);
     }
 
+    function mostrarConfirmacion(mensaje, titulo = "Confirmación") {
+        return new Promise((resolve) => {
+            const modal = document.getElementById("confirm-modal");
+            const messageEl = document.getElementById("confirm-message");
+            const titleEl = document.getElementById("confirm-title");
+            const btnAccept = document.getElementById("confirm-accept");
+            const btnCancel = document.getElementById("confirm-cancel");
+
+            titleEl.textContent = titulo;
+            messageEl.textContent = mensaje;
+
+            modal.classList.remove("hidden");
+            modal.classList.add("flex");
+
+            function limpiar(valor) {
+                modal.classList.add("hidden");
+                modal.classList.remove("flex");
+                btnAccept.removeEventListener("click", aceptar);
+                btnCancel.removeEventListener("click", cancelar);
+                resolve(valor);
+            }
+
+            function aceptar() {
+                limpiar(true);
+            }
+
+            function cancelar() {
+                limpiar(false);
+            }
+
+            btnAccept.addEventListener("click", aceptar);
+            btnCancel.addEventListener("click", cancelar);
+        });
+    }
+
     // -----------------------------
     // LLAMAR SIGUIENTE TICKET
     // -----------------------------
@@ -131,7 +167,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (!currentUser?.ventanilla) return;
 
         if (currentTicket) {
-            alert("Debes completar o cancelar el ticket actual antes de llamar al siguiente.");
+            lanzarAlerta("Debes completar o cancelar el ticket actual antes de llamar al siguiente.", 'warning');
             return;
         }
 
@@ -170,7 +206,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         } catch (err) {
             console.error("Error al llamar siguiente ticket:", err);
-            alert(err.message || "Error al llamar siguiente ticket");
+            lanzarAlerta(err.message || "Error al llamar siguiente ticket", 'error');
         }
     }
 
@@ -209,11 +245,11 @@ document.addEventListener("DOMContentLoaded", async () => {
 
             resetCurrentTicketUI();
             await fetchTickets();
-            alert(`Ticket ${completedFolio} completado exitosamente`);
+            lanzarAlerta(`Ticket ${completedFolio} completado exitosamente`, 'success');
 
         } catch (err) {
             console.error("Error al completar ticket:", err);
-            alert(err.message || "Error al completar el ticket");
+            lanzarAlerta(err.message || "Error al completar el ticket", 'error');
         }
     }
 
@@ -223,9 +259,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     async function cancelarTicketActual() {
         if (!currentTicket) return;
 
-        if (!confirm(`¿Estás seguro de que deseas cancelar el ticket ${currentTicket.folio}?`)) {
-            return;
-        }
+        const confirmado = await mostrarConfirmacion(
+            `¿Estás seguro de que deseas cancelar el ticket ${currentTicket.folio}?`,
+            "Cancelar Ticket"
+        );
+
+        if (!confirmado) return;
 
         try {
             const res = await fetch(`${API_BASE_URL}/api/tickets/${currentTicket.folio}/cancel`, {
@@ -243,11 +282,11 @@ document.addEventListener("DOMContentLoaded", async () => {
 
             resetCurrentTicketUI();
             await fetchTickets();
-            alert(`Ticket ${canceledFolio} cancelado exitosamente`);
+            lanzarAlerta(`Ticket ${canceledFolio} cancelado exitosamente`, 'success');
 
         } catch (err) {
             console.error("Error al cancelar ticket:", err);
-            alert(err.message || "Error al cancelar el ticket");
+            lanzarAlerta(err.message || "Error al cancelar el ticket", 'error');
         }
     }
 
@@ -362,7 +401,17 @@ document.addEventListener("DOMContentLoaded", async () => {
     // CERRAR SESIÓN
     // -----------------------------
     function cerrarSesion() {
-        localStorage.removeItem('currentUser');
-        window.location.href = "login.html";
+        try {
+            lanzarAlerta("Sesión cerrada correctamente", "success");
+
+            localStorage.removeItem('currentUser');
+
+            setTimeout(() => {
+                window.location.href = "login.html";
+            }, 1500);
+        } catch (error) {
+            console.error("Error al cerrar sesión:", error);
+            lanzarAlerta("Error al cerrar sesión", "error");
+        }
     }
 });

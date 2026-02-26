@@ -9,17 +9,66 @@ document.addEventListener("DOMContentLoaded", () => {
     const errorText = document.getElementById("error-text");
     const submitBtn = form.querySelector("button[type='submit']");
 
+    // Custom dropdown elements
+    const sectorInput = document.getElementById("sector");
+    const sectorToggle = document.getElementById("sector-toggle");
+    const sectorLabel = document.getElementById("sector-label");
+    const sectorOptions = document.getElementById("sector-options");
+    const sectorArrow = document.getElementById("sector-arrow");
+
+    // Toggle dropdown
+    sectorToggle.addEventListener("click", () => {
+        const isOpen = !sectorOptions.classList.contains("hidden");
+        sectorOptions.classList.toggle("hidden");
+        sectorArrow.classList.toggle("rotate-180");
+        if (!isOpen) {
+            sectorToggle.classList.add("border-slate-500", "ring-2", "ring-slate-500");
+        } else {
+            sectorToggle.classList.remove("border-slate-500", "ring-2", "ring-slate-500");
+        }
+    });
+
+    // Close dropdown on outside click
+    document.addEventListener("click", (e) => {
+        if (!e.target.closest("#custom-select")) {
+            sectorOptions.classList.add("hidden");
+            sectorArrow.classList.remove("rotate-180");
+            sectorToggle.classList.remove("border-slate-500", "ring-2", "ring-slate-500");
+        }
+    });
+
+    // Select option handler
+    function selectSector(value, text) {
+        sectorInput.value = value;
+        sectorLabel.textContent = text;
+        sectorLabel.classList.remove("text-slate-400");
+        sectorLabel.classList.add("text-slate-800");
+        sectorOptions.classList.add("hidden");
+        sectorArrow.classList.remove("rotate-180");
+        sectorToggle.classList.remove("border-slate-500", "ring-2", "ring-slate-500");
+        // Highlight selected
+        sectorOptions.querySelectorAll("button").forEach(btn => {
+            btn.classList.remove("bg-slate-100", "font-bold");
+            if (btn.dataset.value === value) {
+                btn.classList.add("bg-slate-100", "font-bold");
+            }
+        });
+    }
+
     // Cargar sectores dinámicamente desde la API
     async function cargarSectores() {
-        const sectorSelect = document.getElementById("sector");
         try {
             const response = await fetch(`${API_BASE_URL}/api/sectores`);
             const sectores = await response.json();
+            sectorOptions.innerHTML = "";
             sectores.forEach(s => {
-                const option = document.createElement("option");
-                option.value = s.Sector;
-                option.textContent = s.Sector;
-                sectorSelect.appendChild(option);
+                const btn = document.createElement("button");
+                btn.type = "button";
+                btn.dataset.value = s.Sector;
+                btn.textContent = s.Sector;
+                btn.className = "w-full text-left px-5 py-4 text-lg md:text-xl text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 active:bg-emerald-100 transition-colors border-b border-slate-100 last:border-b-0 cursor-pointer";
+                btn.addEventListener("click", () => selectSector(s.Sector, s.Sector));
+                sectorOptions.appendChild(btn);
             });
         } catch (error) {
             console.error("Error al cargar sectores:", error);
@@ -30,14 +79,15 @@ document.addEventListener("DOMContentLoaded", () => {
     form.addEventListener("submit", async (e) => {
         e.preventDefault();
 
-        submitBtn.disabled = true;
-        submitBtn.innerHTML = '<svg class="animate-spin h-5 w-5 mr-2 border-b-2 border-blue-600 rounded-full" viewBox="0 0 24 24"></svg> Generando ticket...';
         const sector = document.getElementById("sector").value;
 
         if (!sector) {
             showError("Por favor, selecciona un sector.");
             return;
         }
+
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<svg class="animate-spin h-5 w-5 mr-2 border-b-2 border-blue-600 rounded-full" viewBox="0 0 24 24"></svg> Generando ticket...';
         try {
             // 1. Generar el ticket
             let response, data;
@@ -81,6 +131,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
     window.resetForm = function () {
         form.reset();
+        sectorInput.value = "";
+        sectorLabel.textContent = "Selecciona un sector";
+        sectorLabel.classList.add("text-slate-400");
+        sectorLabel.classList.remove("text-slate-800");
+        sectorOptions.querySelectorAll("button").forEach(btn => btn.classList.remove("bg-slate-100", "font-bold"));
         formContainer.classList.remove("hidden");
         ticketResult.classList.add("hidden");
         errorMessage.classList.add("hidden");

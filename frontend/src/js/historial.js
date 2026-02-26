@@ -311,14 +311,131 @@ document.getElementById("btn-limpiar-fechas").addEventListener("click", () => {
 
 window.actualizarDatosCabecera = actualizarDatosCabecera;
 
-// --- Reporte PDF ---
+// ─── Reporte PDF con Modal ───
+
+const modalReporte = document.getElementById("modal-reporte");
+const modalBackdrop = document.getElementById("modal-reporte-backdrop");
+const modalClose = document.getElementById("modal-reporte-close");
+const btnCancelar = document.getElementById("btn-cancelar-reporte");
+const btnGenerar = document.getElementById("btn-generar-reporte");
+const inputDesde = document.getElementById("reporte-desde");
+const inputHasta = document.getElementById("reporte-hasta");
+const errorDiv = document.getElementById("modal-reporte-error");
+const semestreInfo = document.getElementById("modal-semestre-info");
+
+let semestreActual = null;
+
+function abrirModal() {
+    modalReporte.classList.remove("hidden");
+    modalReporte.classList.add("flex");
+    cargarInfoSemestre();
+}
+
+function cerrarModal() {
+    modalReporte.classList.add("hidden");
+    modalReporte.classList.remove("flex");
+    errorDiv.classList.add("hidden");
+    // Limpiar presets activos
+    document.querySelectorAll(".preset-btn").forEach(b => {
+        b.classList.remove("border-blue-500", "text-blue-600", "bg-blue-50");
+        b.classList.add("border-slate-200", "text-slate-600");
+    });
+}
+
+async function cargarInfoSemestre() {
+    try {
+        const res = await fetch(`${API_BASE_URL}/api/reporte/semestre-actual`);
+        if (res.ok) {
+            semestreActual = await res.json();
+            inputDesde.min = semestreActual.inicio;
+            inputDesde.max = semestreActual.fin;
+            inputHasta.min = semestreActual.inicio;
+            inputHasta.max = semestreActual.fin;
+            semestreInfo.textContent = `Semestre actual: ${semestreActual.label} (${formatDateLabel(semestreActual.inicio)} - ${formatDateLabel(semestreActual.fin)})`;
+        }
+    } catch (e) {
+        console.error("Error al cargar info del semestre:", e);
+    }
+}
+
+function formatDateLabel(dateStr) {
+    const [y, m, d] = dateStr.split('-');
+    return `${d}/${m}/${y}`;
+}
+
+function toYMD(date) {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+}
+
+function clampToSemestre(dateStr) {
+    if (!semestreActual) return dateStr;
+    if (dateStr < semestreActual.inicio) return semestreActual.inicio;
+    if (dateStr > semestreActual.fin) return semestreActual.fin;
+    return dateStr;
+}
+
+// Presets
+document.querySelectorAll(".preset-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+        const preset = btn.dataset.preset;
+        const hoy = new Date();
+        let desde, hasta;
+
+        if (preset === "hoy") {
+            desde = hasta = toYMD(hoy);
+        } else if (preset === "semanal") {
+            const hace7 = new Date(hoy);
+            hace7.setDate(hoy.getDate() - 7);
+            desde = toYMD(hace7);
+            hasta = toYMD(hoy);
+        } else if (preset === "mensual") {
+            const hace30 = new Date(hoy);
+            hace30.setDate(hoy.getDate() - 30);
+            desde = toYMD(hace30);
+            hasta = toYMD(hoy);
+        }
+
+        inputDesde.value = clampToSemestre(desde);
+        inputHasta.value = clampToSemestre(hasta);
+
+        // Estilo activo
+        document.querySelectorAll(".preset-btn").forEach(b => {
+            b.classList.remove("border-blue-500", "text-blue-600", "bg-blue-50");
+            b.classList.add("border-slate-200", "text-slate-600");
+        });
+        btn.classList.add("border-blue-500", "text-blue-600", "bg-blue-50");
+        btn.classList.remove("border-slate-200", "text-slate-600");
+
+        errorDiv.classList.add("hidden");
+    });
+});
+
+function mostrarError(msg) {
+    errorDiv.textContent = msg;
+    errorDiv.classList.remove("hidden");
+}
+
 async function generarReportePDF() {
-    const btn = document.getElementById("btn-reporte-pdf");
-    const textoOriginal = btn.innerHTML;
+    const desde = inputDesde.value;
+    const hasta = inputHasta.value;
+
+    if (!desde || !hasta) {
+        mostrarError("Selecciona ambas fechas para generar el reporte.");
+        return;
+    }
+    if (desde > hasta) {
+        mostrarError("La fecha 'Desde' no puede ser posterior a 'Hasta'.");
+        return;
+    }
+
+    const textoOriginal = btnGenerar.innerHTML;
 
     try {
-        btn.disabled = true;
-        btn.innerHTML = `
+        btnGenerar.disabled = true;
+        btnGenerar.innerHTML = `
             <svg class="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
@@ -326,7 +443,7 @@ async function generarReportePDF() {
             <span>Generando...</span>
         `;
 
-        const response = await fetch(`${API_BASE_URL}/api/reporte/semanal`);
+        const response = await fetch(`${API_BASE_URL}/api/reporte/generar?desde=${desde}&hasta=${hasta}`);
 
         if (!response.ok) {
             const err = await response.json();
@@ -337,19 +454,26 @@ async function generarReportePDF() {
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = `reporte_semanal.pdf`;
+        a.download = `reporte_${desde}_${hasta}.pdf`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
         window.URL.revokeObjectURL(url);
 
+        cerrarModal();
+
     } catch (error) {
         console.error("Error al generar reporte PDF:", error);
-        alert("Error al generar el reporte: " + error.message);
+        mostrarError(error.message);
     } finally {
-        btn.disabled = false;
-        btn.innerHTML = textoOriginal;
+        btnGenerar.disabled = false;
+        btnGenerar.innerHTML = textoOriginal;
     }
 }
 
-document.getElementById("btn-reporte-pdf").addEventListener("click", generarReportePDF);
+// Event listeners del modal
+document.getElementById("btn-reporte-pdf").addEventListener("click", abrirModal);
+modalBackdrop.addEventListener("click", cerrarModal);
+modalClose.addEventListener("click", cerrarModal);
+btnCancelar.addEventListener("click", cerrarModal);
+btnGenerar.addEventListener("click", generarReportePDF);
