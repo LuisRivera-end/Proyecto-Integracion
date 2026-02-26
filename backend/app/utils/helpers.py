@@ -9,14 +9,55 @@ import uuid
 import threading
 
 def get_sector_prefix(sector_nombre):
-    """Mapea el nombre del sector a su prefijo para el folio."""
-    prefijos = {
-        "Cajas": "C",
-        "Becas": "B",
-        "Servicios Escolares": "SE",
-        "Tesoreria": "T",
-    }
-    return prefijos.get(sector_nombre, "X")
+    """Genera un prefijo único para el sector basándose en su nombre.
+    Consulta todos los sectores en orden de creación (ID) y asigna
+    prefijos determinísticamente para evitar colisiones."""
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    try:
+        cursor.execute("SELECT Sector FROM Sectores ORDER BY ID_Sector")
+        sectores = [row["Sector"] for row in cursor.fetchall()]
+    finally:
+        cursor.close()
+        conn.close()
+
+    asignados = {}
+    for nombre in sectores:
+        asignados[nombre] = _gen_prefix(nombre, set(asignados.values()))
+
+    return asignados.get(sector_nombre, "X")
+
+
+def _gen_prefix(nombre, usados):
+    """Genera un prefijo único para un sector dado los ya usados."""
+    words = nombre.strip().split()
+    upper = nombre.upper().replace(" ", "")
+
+    # Multi-palabra: intentar iniciales (ej. "Servicios Escolares" → "SE")
+    if len(words) > 1:
+        initials = ''.join(w[0].upper() for w in words)
+        if initials not in usados:
+            return initials
+
+    # Intentar primera letra
+    if upper[0] not in usados:
+        return upper[0]
+
+    # Intentar primeras 2 letras
+    if len(upper) >= 2 and upper[:2] not in usados:
+        return upper[:2]
+
+    # Intentar primeras 3 letras
+    if len(upper) >= 3 and upper[:3] not in usados:
+        return upper[:3]
+
+    # Fallback: primera letra + número
+    for i in range(1, 100):
+        candidate = f"{upper[0]}{i}"
+        if candidate not in usados:
+            return candidate
+
+    return "X"
 
 def generar_folio_unico(sector_nombre):
     prefix = get_sector_prefix(sector_nombre)
