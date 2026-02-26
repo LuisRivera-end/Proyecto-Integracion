@@ -131,7 +131,7 @@ class ReportePDF(FPDF):
 
 # ─── Función compartida para generar PDF ───
 
-def _construir_reporte_pdf(fecha_inicio_str, fecha_fin_str, titulo="Reporte de Tickets"):
+def _construir_reporte_pdf(fecha_inicio_str, fecha_fin_str, titulo="Reporte de Tickets", sector=None):
     """Genera el PDF completo y retorna la ruta del archivo temporal."""
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
@@ -139,26 +139,40 @@ def _construir_reporte_pdf(fecha_inicio_str, fecha_fin_str, titulo="Reporte de T
     
     try:
         # 1. Resumen general
-        cursor.execute("""
+        query_resumen = """
             SELECT 
                 COUNT(*) as total,
-                SUM(CASE WHEN ID_Estados = 4 THEN 1 ELSE 0 END) as completados,
-                SUM(CASE WHEN ID_Estados = 2 THEN 1 ELSE 0 END) as cancelados,
-                SUM(CASE WHEN ID_Estados = 1 THEN 1 ELSE 0 END) as pendientes,
-                SUM(CASE WHEN ID_Estados = 3 THEN 1 ELSE 0 END) as atendiendo
-            FROM Turno
-            WHERE DATE(Fecha_Ticket) BETWEEN %s AND %s
-        """, (fecha_inicio_str, fecha_fin_str))
+                SUM(CASE WHEN t.ID_Estados = 4 THEN 1 ELSE 0 END) as completados,
+                SUM(CASE WHEN t.ID_Estados = 2 THEN 1 ELSE 0 END) as cancelados,
+                SUM(CASE WHEN t.ID_Estados = 1 THEN 1 ELSE 0 END) as pendientes,
+                SUM(CASE WHEN t.ID_Estados = 3 THEN 1 ELSE 0 END) as atendiendo
+            FROM Turno t
+            JOIN Sectores s ON t.ID_Sector = s.ID_Sector
+            WHERE DATE(t.Fecha_Ticket) BETWEEN %s AND %s
+        """
+        params_resumen = [fecha_inicio_str, fecha_fin_str]
+        if sector:
+            query_resumen += " AND s.Sector = %s "
+            params_resumen.append(sector)
+            
+        cursor.execute(query_resumen, tuple(params_resumen))
         resumen = cursor.fetchone()
         
         # 2. Tickets por fecha
-        cursor.execute("""
-            SELECT DATE(Fecha_Ticket) as fecha, COUNT(*) as cantidad
-            FROM Turno
-            WHERE DATE(Fecha_Ticket) BETWEEN %s AND %s
-            GROUP BY DATE(Fecha_Ticket)
-            ORDER BY fecha
-        """, (fecha_inicio_str, fecha_fin_str))
+        query_fecha = """
+            SELECT DATE(t.Fecha_Ticket) as fecha, COUNT(*) as cantidad
+            FROM Turno t
+            JOIN Sectores s ON t.ID_Sector = s.ID_Sector
+            WHERE DATE(t.Fecha_Ticket) BETWEEN %s AND %s
+        """
+        params_fecha = [fecha_inicio_str, fecha_fin_str]
+        if sector:
+            query_fecha += " AND s.Sector = %s "
+            params_fecha.append(sector)
+            
+        query_fecha += " GROUP BY DATE(t.Fecha_Ticket) ORDER BY fecha "
+        
+        cursor.execute(query_fecha, tuple(params_fecha))
         por_fecha_raw = cursor.fetchall()
         
         # Crear lookup de fecha → cantidad
@@ -220,37 +234,56 @@ def _construir_reporte_pdf(fecha_inicio_str, fecha_fin_str, titulo="Reporte de T
             chart_xlabel = 'Mes'
         
         # 3. Tickets por ventanilla (completados)
-        cursor.execute("""
+        query_ventanilla = """
             SELECT v.Ventanilla as nombre, COUNT(*) as cantidad
             FROM Turno t
             JOIN Ventanillas v ON t.ID_Ventanilla = v.ID_Ventanilla
+            JOIN Sectores s ON t.ID_Sector = s.ID_Sector
             WHERE DATE(t.Fecha_Ticket) BETWEEN %s AND %s
               AND t.ID_Estados = 4
-            GROUP BY v.Ventanilla
-            ORDER BY cantidad DESC
-        """, (fecha_inicio_str, fecha_fin_str))
+        """
+        params_ventanilla = [fecha_inicio_str, fecha_fin_str]
+        if sector:
+            query_ventanilla += " AND s.Sector = %s "
+            params_ventanilla.append(sector)
+            
+        query_ventanilla += " GROUP BY v.Ventanilla ORDER BY cantidad DESC "
+        
+        cursor.execute(query_ventanilla, tuple(params_ventanilla))
         por_ventanilla = {row['nombre']: row['cantidad'] for row in cursor.fetchall()}
         
         # 4. Tickets por sector
-        cursor.execute("""
+        query_sector = """
             SELECT s.Sector as nombre, COUNT(*) as cantidad
             FROM Turno t
             JOIN Sectores s ON t.ID_Sector = s.ID_Sector
             WHERE DATE(t.Fecha_Ticket) BETWEEN %s AND %s
-            GROUP BY s.Sector
-            ORDER BY cantidad DESC
-        """, (fecha_inicio_str, fecha_fin_str))
+        """
+        params_sector = [fecha_inicio_str, fecha_fin_str]
+        if sector:
+            query_sector += " AND s.Sector = %s "
+            params_sector.append(sector)
+            
+        query_sector += " GROUP BY s.Sector ORDER BY cantidad DESC "
+        
+        cursor.execute(query_sector, tuple(params_sector))
         por_sector = {row['nombre']: row['cantidad'] for row in cursor.fetchall()}
         
         # 5. Día con más tickets
-        cursor.execute("""
-            SELECT DATE(Fecha_Ticket) as fecha, COUNT(*) as cantidad
-            FROM Turno
-            WHERE DATE(Fecha_Ticket) BETWEEN %s AND %s
-            GROUP BY DATE(Fecha_Ticket)
-            ORDER BY cantidad DESC
-            LIMIT 1
-        """, (fecha_inicio_str, fecha_fin_str))
+        query_pico = """
+            SELECT DATE(t.Fecha_Ticket) as fecha, COUNT(*) as cantidad
+            FROM Turno t
+            JOIN Sectores s ON t.ID_Sector = s.ID_Sector
+            WHERE DATE(t.Fecha_Ticket) BETWEEN %s AND %s
+        """
+        params_pico = [fecha_inicio_str, fecha_fin_str]
+        if sector:
+            query_pico += " AND s.Sector = %s "
+            params_pico.append(sector)
+            
+        query_pico += " GROUP BY DATE(t.Fecha_Ticket) ORDER BY cantidad DESC LIMIT 1 "
+        
+        cursor.execute(query_pico, tuple(params_pico))
         dia_pico = cursor.fetchone()
         
         # --- Generar gráficos ---
@@ -378,6 +411,7 @@ def generar_reporte():
     """Genera un reporte PDF para un rango de fechas específico."""
     desde = request.args.get('desde')
     hasta = request.args.get('hasta')
+    sector = request.args.get('sector')
     
     if not desde or not hasta:
         return jsonify({"error": "Parámetros 'desde' y 'hasta' son requeridos"}), 400
@@ -394,7 +428,8 @@ def generar_reporte():
         return jsonify({"error": error}), 400
     
     try:
-        pdf_path = _construir_reporte_pdf(desde, hasta, "Reporte de Tickets")
+        titulo_reporte = f"Reporte de Tickets - {sector}" if sector else "Reporte de Tickets"
+        pdf_path = _construir_reporte_pdf(desde, hasta, titulo_reporte, sector=sector)
         
         return send_file(
             pdf_path,

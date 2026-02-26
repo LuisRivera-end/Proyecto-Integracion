@@ -1,6 +1,11 @@
 import Config from './config.js';
 const API_BASE_URL = Config.API_BASE_URL;
 
+// ── Detect if logged-in user is a Subjefe (Jefe de Departamento) ──
+const _currentUser = JSON.parse(localStorage.getItem('currentUser') || 'null');
+const _esSubjefe = _currentUser && _currentUser.rol === 6;
+const _sectorSubjefe = _esSubjefe ? _currentUser.sector : null;
+
 // Variables para controlar el estado
 let estadoAnteriorHistorial = new Map();
 let primeraCargaCompletada = false;
@@ -23,6 +28,10 @@ async function totalTickets() {
 
         const data = await response.json();
         console.log("Respuesta de total_tickets:", data);
+
+        // If subjefe, we can't rely on this endpoint (it counts all sectors).
+        // We'll calculate the count from the historial data instead.
+        if (_esSubjefe) return null; // Signal to use historial-based count
 
         let cantidad = 0;
 
@@ -65,7 +74,23 @@ async function actualizarDatosCabecera() {
         const datos = await totalTickets();
         const total = document.getElementById('total-tickets');
 
-        animarNumero(total, datos);
+        if (_esSubjefe) {
+            // For subjefe, count today's tickets from historial filtered by sector
+            const historial = await cargarHistorialReal();
+            const tz = 'America/Mexico_City';
+            const hoy = new Date().toLocaleDateString('en-CA', { timeZone: tz }); // YYYY-MM-DD
+            const ticketsHoy = historial.filter(t => {
+                const fecha = parseFechaLocal(t.creado);
+                if (!fecha) return false;
+                const y = fecha.getUTCFullYear();
+                const m = String(fecha.getUTCMonth() + 1).padStart(2, '0');
+                const d = String(fecha.getUTCDate()).padStart(2, '0');
+                return `${y}-${m}-${d}` === hoy;
+            });
+            animarNumero(total, ticketsHoy.length);
+        } else {
+            animarNumero(total, datos);
+        }
         console.log("Datos actualizados:", datos);
     } catch (error) {
         console.error("Error al actualizar datos:", error);
@@ -78,7 +103,12 @@ async function cargarHistorialReal() {
     try {
         const response = await fetch(`${API_BASE_URL}/api/tickets/historial`);
         if (!response.ok) throw new Error(`Error: ${response.status}`);
-        const historial = await response.json();
+        let historial = await response.json();
+
+        // ── Subjefe: filter to their sector only ──
+        if (_esSubjefe && _sectorSubjefe) {
+            historial = historial.filter(t => t.sector === _sectorSubjefe);
+        }
 
         return historial.map(ticket => ({
             ...ticket,
@@ -253,14 +283,23 @@ async function cargarSectoresFiltro() {
         const res = await fetch(`${API_BASE_URL}/api/sectores`);
         const sectores = await res.json();
         const sectorSelect = document.getElementById("filtro-sector");
-        sectorSelect.innerHTML = '<option value="todos">Todos</option>';
 
-        sectores.forEach(s => {
-            const opt = document.createElement("option");
-            opt.value = s.Sector;
-            opt.textContent = s.Sector;
-            sectorSelect.appendChild(opt);
-        });
+        if (_esSubjefe && _sectorSubjefe) {
+            // Subjefe: lock sector filter to their own sector
+            sectorSelect.innerHTML = `<option value="${_sectorSubjefe}" selected>${_sectorSubjefe}</option>`;
+            sectorSelect.disabled = true;
+            // Also hide the sector filter label/container since it's irrelevant
+            const sectorContainer = sectorSelect.closest('.flex.flex-col');
+            if (sectorContainer) sectorContainer.style.display = 'none';
+        } else {
+            sectorSelect.innerHTML = '<option value="todos">Todos</option>';
+            sectores.forEach(s => {
+                const opt = document.createElement("option");
+                opt.value = s.Sector;
+                opt.textContent = s.Sector;
+                sectorSelect.appendChild(opt);
+            });
+        }
     } catch (err) {
         console.error("Error al cargar sectores para filtro:", err);
     }
@@ -443,7 +482,12 @@ async function generarReportePDF() {
             <span>Generando...</span>
         `;
 
-        const response = await fetch(`${API_BASE_URL}/api/reporte/generar?desde=${desde}&hasta=${hasta}`);
+        let fetchUrl = `${API_BASE_URL}/api/reporte/generar?desde=${desde}&hasta=${hasta}`;
+        if (_esSubjefe && _sectorSubjefe) {
+            fetchUrl += `&sector=${encodeURIComponent(_sectorSubjefe)}`;
+        }
+
+        const response = await fetch(fetchUrl);
 
         if (!response.ok) {
             const err = await response.json();
