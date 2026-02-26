@@ -46,12 +46,13 @@
         <!-- Logo -->
         <div class="flex flex-col items-center gap-2 cursor-default hover:scale-105 transition-transform duration-300">
           <img src="./public/ual.png" alt="UAL" class="h-20 w-auto object-contain" />
-          <p class="text-xs text-emerald-600 font-bold tracking-[0.2em] uppercase">Admin Panel</p>
+          <p id="sidebar-panel-label" class="text-xs text-emerald-600 font-bold tracking-[0.2em] uppercase">Admin Panel
+          </p>
         </div>
       </div>
 
       <!-- Navigation -->
-      <nav class="flex-1 overflow-y-auto py-6 px-4 space-y-2 custom-scrollbar bg-white">
+      <nav id="sidebar-nav" class="flex-1 overflow-y-auto py-6 px-4 space-y-2 custom-scrollbar bg-white">
 
         <a href="pantalla.html"
           class="flex items-center gap-4 px-5 py-3.5 rounded-xl text-slate-600 hover:text-emerald-700 hover:bg-emerald-50/80 transition-all duration-200 group relative overflow-hidden">
@@ -63,7 +64,7 @@
           <span class="font-bold tracking-wide text-sm relative z-10">Ver Pantalla</span>
         </a>
 
-        <a href="empleados.html"
+        <a id="nav-empleados" href="empleados.html"
           class="flex items-center gap-4 px-5 py-3.5 rounded-xl text-slate-600 hover:text-emerald-700 hover:bg-emerald-50/80 transition-all duration-200 group relative overflow-hidden">
           <svg class="w-6 h-6 text-slate-400 group-hover:text-emerald-500 transition-colors duration-300" fill="none"
             stroke="currentColor" viewBox="0 0 24 24">
@@ -84,9 +85,9 @@
           </div>
         </a>
 
-        <div class="my-4 mx-5 border-t border-slate-100"></div>
+        <div id="nav-separator" class="my-4 mx-5 border-t border-slate-100"></div>
 
-        <a href="admin.html"
+        <a id="nav-sectores" href="admin.html"
           class="flex items-center gap-4 px-5 py-3.5 rounded-xl text-slate-600 hover:text-emerald-700 hover:bg-emerald-50/80 transition-all duration-200 group relative overflow-hidden">
           <svg class="w-6 h-6 text-slate-400 group-hover:text-emerald-500 transition-colors duration-300" fill="none"
             stroke="currentColor" viewBox="0 0 24 24">
@@ -100,25 +101,27 @@
       <!-- Footer: User Info + Cerrar Sesión -->
       <div class="border-t border-slate-200 bg-slate-50 flex-shrink-0 mt-auto">
         <div class="w-full px-8 py-4 flex items-center gap-4">
-          <div
+          <div id="sidebar-avatar"
             class="w-10 h-10 rounded-full bg-emerald-100 border border-emerald-200 flex items-center justify-center text-emerald-700 text-sm font-bold shadow-sm">
             A
           </div>
           <div class="flex-1 min-w-0">
-            <p class="text-sm font-bold text-slate-800 truncate">Admin User</p>
-            <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider truncate">Sistema</p>
+            <p id="sidebar-username" class="text-sm font-bold text-slate-800 truncate">Admin User</p>
+            <p id="sidebar-role" class="text-[11px] font-bold text-slate-400 uppercase tracking-wider truncate">Sistema
+            </p>
           </div>
         </div>
         <div class="px-4 pb-4">
-          <button onclick="fetch('/api/logout',{method:'POST',credentials:'include'}).finally(()=>{window.location.href='login.html'})"
-              class="w-full px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-red-50 text-slate-600 hover:text-red-600 font-bold text-xs uppercase tracking-wider transition-all hover:shadow-md flex items-center justify-center gap-2 group/btn">
-              <svg class="w-4 h-4 transition-transform group-hover/btn:-translate-x-1" fill="none"
-                  stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                      d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1">
-                  </path>
-              </svg>
-              Cerrar Sesión
+          <button
+            onclick="fetch('/api/logout',{method:'POST',credentials:'include'}).finally(()=>{localStorage.removeItem('currentUser');window.location.href='login.html'})"
+            class="w-full px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-red-50 text-slate-600 hover:text-red-600 font-bold text-xs uppercase tracking-wider transition-all hover:shadow-md flex items-center justify-center gap-2 group/btn">
+            <svg class="w-4 h-4 transition-transform group-hover/btn:-translate-x-1" fill="none" stroke="currentColor"
+              viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1">
+              </path>
+            </svg>
+            Cerrar Sesión
           </button>
         </div>
       </div>
@@ -449,6 +452,40 @@
   <script src="https://cdn.gtranslate.net/widgets/latest/float.js" defer></script>
   <script src="./js/idioma.js"></script>
   <script type="module" src="./js/historial.js"></script>
+
+  <!-- Dynamic sidebar adaptation based on user role -->
+  <script>
+    (function () {
+      try {
+        const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+        if (currentUser && currentUser.rol === 6) {
+          // Subjefe: update branding
+          const panelLabel = document.getElementById('sidebar-panel-label');
+          if (panelLabel) panelLabel.textContent = 'Panel Jefe';
+
+          // Update user info
+          const avatar = document.getElementById('sidebar-avatar');
+          const username = document.getElementById('sidebar-username');
+          const role = document.getElementById('sidebar-role');
+          const nombre = currentUser.username || 'Jefe';
+          if (avatar) avatar.textContent = nombre.charAt(0).toUpperCase();
+          if (username) username.textContent = nombre;
+          if (role) role.textContent = currentUser.sector || 'Sector';
+
+          // Change Empleados link to subjefes.html
+          const navEmpleados = document.getElementById('nav-empleados');
+          if (navEmpleados) navEmpleados.href = 'subjefes.html';
+
+          // Hide Sectores link (subjefe doesn't manage sectors)
+          const navSectores = document.getElementById('nav-sectores');
+          const navSeparator = document.getElementById('nav-separator');
+          if (navSectores) navSectores.style.display = 'none';
+          if (navSeparator) navSeparator.style.display = 'none';
+        }
+      } catch (e) { console.error('Error adapting sidebar:', e); }
+    })();
+  </script>
+
   <!-- Sidebar Toggle Script -->
   <script>
     const sidebar = document.getElementById('sidebar');
