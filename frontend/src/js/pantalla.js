@@ -206,7 +206,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
             if (!ticketsData || ticketsData.length === 0) {
                 sinTickets.style.display = 'flex';
-                contenedor.innerHTML = '';
+                contenedor.style.display = 'none';
                 if (atendiendoContainer) atendiendoContainer.classList.add('hidden');
                 estadoAnterior.clear();
                 return;
@@ -219,7 +219,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
             if (ticketsValidos.length === 0) {
                 sinTickets.style.display = 'flex';
-                contenedor.innerHTML = '';
+                contenedor.style.display = 'none';
                 if (atendiendoContainer) atendiendoContainer.classList.add('hidden');
                 const tc = document.getElementById('ticker-container');
                 if (tc) tc.classList.add('hidden');
@@ -264,7 +264,9 @@ document.addEventListener("DOMContentLoaded", function () {
             const visibles = pendientes.slice(0, MAX_VISIBLE);
             const overflow = pendientes.slice(MAX_VISIBLE);
 
-            sinTickets.style.display = visibles.length === 0 ? 'flex' : 'none';
+            const noHayTickets = visibles.length === 0;
+            sinTickets.style.display = noHayTickets ? 'flex' : 'none';
+            contenedor.style.display = noHayTickets ? 'none' : 'block';
 
             // Generar nuevo estado
             const nuevoEstado = new Map();
@@ -340,7 +342,7 @@ document.addEventListener("DOMContentLoaded", function () {
         } catch (error) {
             console.error("Error al cargar tickets:", error);
             sinTickets.style.display = 'flex';
-            contenedor.innerHTML = '';
+            contenedor.style.display = 'none';
         }
     }
 

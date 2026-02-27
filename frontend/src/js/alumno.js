@@ -147,14 +147,12 @@ async function imprimir() {
     const sector = document.getElementById("result-sector").textContent.trim();
     const numero_ticket = document.getElementById("result-ticket").textContent.trim();
     const fecha = document.getElementById("result-fecha").textContent.trim();
-    const tiempo_estimado = document.getElementById("tiempo-estimado-minutos").textContent.trim();
     console.log('🖨️ Enviando a impresión directa...');
 
     console.log('🖨️ Datos para impresión:', {
         numero_ticket,
         sector,
         fecha,
-        tiempo_estimado,
     });
 
     try {
@@ -165,7 +163,6 @@ async function imprimir() {
                 numero_ticket,
                 sector,
                 fecha,
-                tiempo_estimado
             })
         });
 
