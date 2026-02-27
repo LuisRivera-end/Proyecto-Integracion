@@ -253,6 +253,15 @@ def add_employee():
                 if jefe_row:
                     id_sector = jefe_row.get("ID_Sector") if isinstance(jefe_row, dict) else jefe_row[0]
 
+        # Validar: solo un Jefe de Departamento por sector
+        if int(data['id_rol']) == 6 and id_sector:
+            cursor.execute(
+                "SELECT 1 FROM Empleado WHERE ID_ROL = 6 AND ID_Sector = %s LIMIT 1",
+                (id_sector,)
+            )
+            if cursor.fetchone():
+                return jsonify({"error": "Ya existe un Jefe de Departamento en este sector"}), 409
+
         cursor.execute("""
             INSERT INTO Empleado
             (ID_ROL, nombre1, nombre2, Apellido1, Apellido2, Usuario, Passwd, ID_Estado, ID_Sector)
@@ -722,9 +731,24 @@ def update_employee_sector(id_empleado):
     id_sector = data.get("id_sector")
     
     conn = get_db_connection()
-    cursor = conn.cursor()
+    cursor = conn.cursor(dictionary=True)
     
     try:
+        # Verificar que el empleado sea Jefe de Departamento
+        cursor.execute("SELECT ID_ROL FROM Empleado WHERE ID_Empleado = %s", (id_empleado,))
+        emp = cursor.fetchone()
+        if not emp:
+            return jsonify({"error": "Empleado no encontrado"}), 404
+
+        # Validar: solo un Jefe de Departamento por sector
+        if emp["ID_ROL"] == 6 and id_sector:
+            cursor.execute(
+                "SELECT 1 FROM Empleado WHERE ID_ROL = 6 AND ID_Sector = %s AND ID_Empleado != %s LIMIT 1",
+                (id_sector, id_empleado)
+            )
+            if cursor.fetchone():
+                return jsonify({"error": "Ya existe un Jefe de Departamento en este sector"}), 409
+
         cursor.execute("""
             UPDATE Empleado
             SET ID_Sector = %s
@@ -734,6 +758,30 @@ def update_employee_sector(id_empleado):
         return jsonify({"message": "Sector actualizado correctamente"}), 200
     except Exception as e:
         print(f"Error en update_employee_sector: {e}")
+        return jsonify({"error": str(e)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+
+# --------------------------------------------------------
+# SECTORES OCUPADOS POR JEFES DE DEPARTAMENTO
+# --------------------------------------------------------
+@bp.route("/sectores/ocupados", methods=["GET"])
+def get_sectores_ocupados():
+    """Retorna la lista de ID_Sector que ya tienen un Jefe de Departamento asignado."""
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    try:
+        cursor.execute("""
+            SELECT ID_Sector FROM Empleado
+            WHERE ID_ROL = 6 AND ID_Sector IS NOT NULL AND ID_Estado != 3
+        """)
+        rows = cursor.fetchall()
+        ocupados = [r["ID_Sector"] for r in rows]
+        return jsonify(ocupados), 200
+    except Exception as e:
+        print(f"Error en get_sectores_ocupados: {e}")
         return jsonify({"error": str(e)}), 500
     finally:
         cursor.close()
