@@ -259,7 +259,8 @@ document.addEventListener("DOMContentLoaded", function () {
             }
 
             // ── Renderizar tickets pendientes ──
-            const MAX_VISIBLE = 10;
+            // Restar tickets en atención para que no se desborde la pantalla
+            const MAX_VISIBLE = Math.max(3, 9 - atendiendo.length);
             const visibles = pendientes.slice(0, MAX_VISIBLE);
             const overflow = pendientes.slice(MAX_VISIBLE);
 
