@@ -50,15 +50,20 @@ def login():
         
         if user["ID_ROL"] == 6:
             sector = user["Sector_Jefe"] or "Sin Sector"
+        elif user["ID_ROL"] == 1:
+            sector = "Admin"
         else:
-            rol_a_sector = {
-                1: "Admin",
-                2: "Cajas", 
-                3: "Becas",
-                4: "Servicios Escolares",
-                5: "Tesoreria"
-            }
-            sector = rol_a_sector.get(user["ID_ROL"], "Desconocido")
+            # Buscar sector dinámicamente desde Rol_Ventanilla → Ventanillas → Sectores
+            cursor.execute("""
+                SELECT DISTINCT s.Sector
+                FROM Rol_Ventanilla rv
+                JOIN Ventanillas v ON rv.ID_Ventanilla = v.ID_Ventanilla
+                JOIN Sectores s ON v.ID_Sector = s.ID_Sector
+                WHERE rv.ID_Rol = %s
+                LIMIT 1
+            """, (user["ID_ROL"],))
+            sector_row = cursor.fetchone()
+            sector = sector_row["Sector"] if sector_row else "Desconocido"
         
         session['user_id'] = user["ID_Empleado"]
         session['username'] = user["Usuario"]
