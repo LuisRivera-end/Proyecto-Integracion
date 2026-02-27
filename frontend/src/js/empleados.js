@@ -623,6 +623,22 @@ document.addEventListener("DOMContentLoaded", async () => {
     socket.on('ventanilla_status_changed', () => {
       console.log('Cambio de estado en ventanilla, refrescando lista...');
       loadEmployees();
+      // Si hay un panel de edición abierto, refrescar para actualizar ventanillas
+      const editContainer = document.getElementById('editEmpleadoContainer');
+      if (editContainer) {
+        const hiddenInput = editContainer.querySelector('#edit-rol-id');
+        if (hiddenInput) {
+          // Hay un formulario de edición abierto, buscar el ID del empleado
+          const saveBtn = editContainer.querySelector('[onclick^="guardarEdicion"]');
+          if (saveBtn) {
+            const match = saveBtn.getAttribute('onclick').match(/guardarEdicion\((\d+)\)/);
+            if (match) {
+              const idEmpleado = parseInt(match[1]);
+              abrirEdicion(idEmpleado);
+            }
+          }
+        }
+      }
     });
   }
 
