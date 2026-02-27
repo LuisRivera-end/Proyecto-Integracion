@@ -125,7 +125,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         </div>
         <div>
           <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Cantidad de ventanillas *</label>
-          <input id="editSectorVentanillas" type="number" required min="0" value="${ventanillas}"
+          <input id="editSectorVentanillas" type="number" required min="0" max="5" value="${ventanillas}"
             class="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-medium" />
         </div>
         <div class="flex gap-3">
