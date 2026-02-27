@@ -48,6 +48,20 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   // ──────────────────────────────────────────────
+  // Helper: obtener sectores ocupados por Jefes
+  // ──────────────────────────────────────────────
+  async function obtenerSectoresOcupados() {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/sectores/ocupados`);
+      if (!res.ok) return [];
+      return await res.json();
+    } catch (err) {
+      console.error("Error al cargar sectores ocupados:", err);
+      return [];
+    }
+  }
+
+  // ──────────────────────────────────────────────
   // Helper: load ventanillas available for a role
   // ──────────────────────────────────────────────
   async function cargarVentanillasParaRol(idRol) {
@@ -221,13 +235,16 @@ document.addEventListener("DOMContentLoaded", async () => {
       let locationFieldHtml = '';
 
       if (esJefe) {
-        // Fetch sectors
-        const sectores = await obtenerSectores();
+        // Fetch sectors and occupied sectors
+        const [sectores, ocupados] = await Promise.all([obtenerSectores(), obtenerSectoresOcupados()]);
+        const ocupadosSet = new Set(ocupados);
         const sectorOptions = [
           `<option value="0" ${emp.ID_Sector_Jefe === null ? 'selected' : ''}>Sin sector</option>`,
-          ...sectores.map(s =>
-            `<option value="${s.ID_Sector}" ${emp.ID_Sector_Jefe === s.ID_Sector ? 'selected' : ''}>${s.Sector}</option>`
-          )
+          ...sectores.map(s => {
+            const esSectorActual = emp.ID_Sector_Jefe === s.ID_Sector;
+            const estaOcupado = ocupadosSet.has(s.ID_Sector) && !esSectorActual;
+            return `<option value="${s.ID_Sector}" ${esSectorActual ? 'selected' : ''} ${estaOcupado ? 'disabled' : ''}>${s.Sector}${estaOcupado ? ' (Ocupado)' : ''}</option>`;
+          })
         ].join('');
 
         locationFieldHtml = `
@@ -416,11 +433,15 @@ document.addEventListener("DOMContentLoaded", async () => {
       // 2b) Update Sector IF exists
       if (elSector) {
         const idSecNum = parseInt(elSector.value);
-        await fetch(`${API_BASE_URL}/api/employees/${idEmpleado}/sector`, {
+        const sectorRes = await fetch(`${API_BASE_URL}/api/employees/${idEmpleado}/sector`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ id_sector: idSecNum === 0 ? null : idSecNum })
         });
+        if (!sectorRes.ok) {
+          const sectorErr = await sectorRes.json();
+          throw new Error(sectorErr.error || "Error al asignar sector");
+        }
       }
 
       // 3) Update estado
@@ -526,15 +547,18 @@ document.addEventListener("DOMContentLoaded", async () => {
   // ──────────────────────────────────────────────
   // Load sectors into add-employee form
   // ──────────────────────────────────────────────
-  async function cargarSectoresEnForm() {
+  async function cargarSectoresEnForm(ocupados = []) {
     const sectores = await obtenerSectores();
     const sectorSelect = document.getElementById("sector-form");
     if (!sectorSelect) return;
+    const ocupadosSet = new Set(ocupados);
     sectorSelect.innerHTML = '<option value="0">Sin sector</option>';
     sectores.forEach(s => {
       const opt = document.createElement("option");
       opt.value = s.ID_Sector;
-      opt.textContent = s.Sector;
+      const estaOcupado = ocupadosSet.has(s.ID_Sector);
+      opt.textContent = estaOcupado ? `${s.Sector} (Ocupado)` : s.Sector;
+      opt.disabled = estaOcupado;
       sectorSelect.appendChild(opt);
     });
   }
@@ -570,12 +594,15 @@ document.addEventListener("DOMContentLoaded", async () => {
   // ──────────────────────────────────────────────
   const rolSelect = document.getElementById("rol");
   if (rolSelect) {
-    rolSelect.addEventListener("change", function () {
+    rolSelect.addEventListener("change", async function () {
       const sectorContainer = document.getElementById("sector-container");
       const sectorForm = document.getElementById("sector-form");
       if (this.value === "6") {
         sectorContainer.classList.remove("hidden");
         if (sectorForm) sectorForm.required = true;
+        // Recargar sectores con estado de ocupación
+        const ocupados = await obtenerSectoresOcupados();
+        await cargarSectoresEnForm(ocupados);
       } else {
         sectorContainer.classList.add("hidden");
         if (sectorForm) sectorForm.required = false;
