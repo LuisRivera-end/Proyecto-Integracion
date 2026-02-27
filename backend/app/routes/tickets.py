@@ -15,7 +15,14 @@ def obtener_sectores():
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
     try:
-        cursor.execute("SELECT ID_Sector, Sector FROM Sectores")
+        cursor.execute("""
+            SELECT s.ID_Sector, s.Sector,
+                   COUNT(v.ID_Ventanilla) AS Ventanillas
+            FROM Sectores s
+            LEFT JOIN Ventanillas v ON s.ID_Sector = v.ID_Sector
+            GROUP BY s.ID_Sector, s.Sector
+            ORDER BY s.Sector
+        """)
         sectores = cursor.fetchall()
         return jsonify(sectores), 200
     except Exception as e:

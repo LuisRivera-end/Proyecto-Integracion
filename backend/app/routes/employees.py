@@ -425,7 +425,14 @@ def get_sectores():
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
     try:
-        cursor.execute("SELECT ID_Sector, Sector FROM Sectores ORDER BY Sector")
+        cursor.execute("""
+            SELECT s.ID_Sector, s.Sector,
+                   COUNT(v.ID_Ventanilla) AS Ventanillas
+            FROM Sectores s
+            LEFT JOIN Ventanillas v ON s.ID_Sector = v.ID_Sector
+            GROUP BY s.ID_Sector, s.Sector
+            ORDER BY s.Sector
+        """)
         sectores = cursor.fetchall()
         return jsonify(sectores), 200
     except Exception as e:
@@ -449,6 +456,12 @@ def add_sector():
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
 
+    num_ventanillas = data.get("ventanillas", 0)
+    try:
+        num_ventanillas = int(num_ventanillas)
+    except (TypeError, ValueError):
+        num_ventanillas = 0
+
     try:
         # Verificar duplicado
         cursor.execute("SELECT 1 FROM Sectores WHERE Sector = %s LIMIT 1", (sector_nombre,))
@@ -456,16 +469,25 @@ def add_sector():
             return jsonify({"error": "Ya existe un sector con ese nombre"}), 409
 
         cursor.execute("INSERT INTO Sectores (Sector) VALUES (%s)", (sector_nombre,))
+        sector_id = cursor.lastrowid
 
         # Crear también un rol con el mismo nombre del sector
         cursor.execute("INSERT INTO Rol (Rol) VALUES (%s)", (f"Operador {sector_nombre}",))
+        rol_id = cursor.lastrowid
+
+        # Crear ventanillas y asignarlas al rol
+        for i in range(1, num_ventanillas + 1):
+            nombre_v = f"{sector_nombre}{i}"
+            cursor.execute("INSERT INTO Ventanillas (Ventanilla, ID_Sector) VALUES (%s, %s)", (nombre_v, sector_id))
+            v_id = cursor.lastrowid
+            cursor.execute("INSERT INTO Rol_Ventanilla (ID_Rol, ID_Ventanilla) VALUES (%s, %s)", (rol_id, v_id))
 
         conn.commit()
 
         # Emitir evento para actualizar sectores en tiempo real
         socketio.emit('sectores_updated', namespace='/')
 
-        return jsonify({"message": "Sector agregado correctamente"}), 201
+        return jsonify({"message": "Sector agregado correctamente", "id": sector_id}), 201
     except Exception as e:
         conn.rollback()
         print(f"Error en add_sector: {e}")
@@ -473,6 +495,144 @@ def add_sector():
     finally:
         cursor.close()
         conn.close()
+
+# --------------------------------------------------------
+# EDITAR SECTOR (nombre + ventanillas)
+# --------------------------------------------------------
+@bp.route("/sectores/<int:id_sector>", methods=["PUT"])
+def update_sector(id_sector):
+    data = request.get_json()
+    nuevo_nombre = (data.get("sector") or "").strip()
+    nuevas_ventanillas = data.get("ventanillas", None)
+
+    if not nuevo_nombre:
+        return jsonify({"error": "El nombre del sector es obligatorio"}), 400
+
+    try:
+        nuevas_ventanillas = int(nuevas_ventanillas) if nuevas_ventanillas is not None else None
+    except (TypeError, ValueError):
+        nuevas_ventanillas = None
+
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    try:
+        # Verificar que el sector existe
+        cursor.execute("SELECT * FROM Sectores WHERE ID_Sector = %s", (id_sector,))
+        sector = cursor.fetchone()
+        if not sector:
+            return jsonify({"error": "Sector no encontrado"}), 404
+
+        nombre_anterior = sector["Sector"]
+
+        # Verificar nombre duplicado (excluyendo el actual)
+        cursor.execute(
+            "SELECT 1 FROM Sectores WHERE Sector = %s AND ID_Sector != %s LIMIT 1",
+            (nuevo_nombre, id_sector)
+        )
+        if cursor.fetchone():
+            return jsonify({"error": "Ya existe otro sector con ese nombre"}), 409
+
+        # Actualizar nombre del sector
+        cursor.execute("UPDATE Sectores SET Sector = %s WHERE ID_Sector = %s", (nuevo_nombre, id_sector))
+
+        # Actualizar nombre del rol asociado
+        cursor.execute(
+            "UPDATE Rol SET Rol = %s WHERE Rol = %s",
+            (f"Operador {nuevo_nombre}", f"Operador {nombre_anterior}")
+        )
+
+        # Obtener ventanillas actuales del sector
+        cursor.execute(
+            "SELECT ID_Ventanilla, Ventanilla FROM Ventanillas WHERE ID_Sector = %s ORDER BY ID_Ventanilla",
+            (id_sector,)
+        )
+        ventanillas_actuales = cursor.fetchall()
+        count_actual = len(ventanillas_actuales)
+
+        # Si se cambió el nombre, renombrar ventanillas existentes
+        if nuevo_nombre != nombre_anterior:
+            for idx, v in enumerate(ventanillas_actuales, 1):
+                nuevo_nombre_v = f"{nuevo_nombre}{idx}"
+                cursor.execute(
+                    "UPDATE Ventanillas SET Ventanilla = %s WHERE ID_Ventanilla = %s",
+                    (nuevo_nombre_v, v["ID_Ventanilla"])
+                )
+
+        # Ajustar cantidad de ventanillas si se especificó
+        if nuevas_ventanillas is not None and nuevas_ventanillas != count_actual:
+            # Obtener el rol para asignar ventanillas nuevas
+            cursor.execute(
+                "SELECT ID_Rol FROM Rol WHERE Rol = %s LIMIT 1",
+                (f"Operador {nuevo_nombre}",)
+            )
+            rol_row = cursor.fetchone()
+            rol_id = rol_row["ID_Rol"] if rol_row else None
+
+            if nuevas_ventanillas > count_actual:
+                # Agregar ventanillas
+                for i in range(count_actual + 1, nuevas_ventanillas + 1):
+                    nombre_v = f"{nuevo_nombre}{i}"
+                    cursor.execute(
+                        "INSERT INTO Ventanillas (Ventanilla, ID_Sector) VALUES (%s, %s)",
+                        (nombre_v, id_sector)
+                    )
+                    v_id = cursor.lastrowid
+                    if rol_id:
+                        cursor.execute(
+                            "INSERT INTO Rol_Ventanilla (ID_Rol, ID_Ventanilla) VALUES (%s, %s)",
+                            (rol_id, v_id)
+                        )
+
+            elif nuevas_ventanillas < count_actual:
+                # Eliminar ventanillas sobrantes (desde la última)
+                ventanillas_a_eliminar = ventanillas_actuales[nuevas_ventanillas:]
+                no_eliminadas = []
+
+                for v in reversed(ventanillas_a_eliminar):
+                    vid = v["ID_Ventanilla"]
+                    # Verificar si tiene asignaciones activas
+                    cursor.execute(
+                        "SELECT 1 FROM Empleado_Ventanilla WHERE ID_Ventanilla = %s AND Fecha_Termino IS NULL LIMIT 1",
+                        (vid,)
+                    )
+                    if cursor.fetchone():
+                        no_eliminadas.append(v["Ventanilla"])
+                        continue
+
+                    # Verificar si tiene turnos pendientes/atendiendo
+                    cursor.execute(
+                        "SELECT 1 FROM Turno WHERE ID_Ventanilla = %s AND ID_Estados IN (1, 3) LIMIT 1",
+                        (vid,)
+                    )
+                    if cursor.fetchone():
+                        no_eliminadas.append(v["Ventanilla"])
+                        continue
+
+                    # Eliminar de Rol_Ventanilla y luego de Ventanillas
+                    cursor.execute("DELETE FROM Rol_Ventanilla WHERE ID_Ventanilla = %s", (vid,))
+                    cursor.execute("DELETE FROM Ventanillas WHERE ID_Ventanilla = %s", (vid,))
+
+                if no_eliminadas:
+                    conn.commit()
+                    socketio.emit('sectores_updated', namespace='/')
+                    return jsonify({
+                        "message": "Sector actualizado, pero algunas ventanillas no se eliminaron porque están en uso",
+                        "ventanillas_en_uso": no_eliminadas
+                    }), 200
+
+        conn.commit()
+        socketio.emit('sectores_updated', namespace='/')
+        return jsonify({"message": "Sector actualizado correctamente"}), 200
+
+    except Exception as e:
+        conn.rollback()
+        print(f"Error en update_sector: {e}")
+        return jsonify({"error": "Error interno del servidor"}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
 
 # --------------------------------------------------------
 # ASIGNAR SECTOR A UN EMPLEADO (PARA JEFES)

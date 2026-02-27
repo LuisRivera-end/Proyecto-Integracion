@@ -47,6 +47,24 @@
         .accordion-header.open .accordion-arrow {
             transform: rotate(180deg);
         }
+
+        .edit-btn {
+            padding: 4px 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            border-radius: 8px;
+            background: #f1f5f9;
+            color: #475569;
+            border: 1px solid #e2e8f0;
+            cursor: pointer;
+            transition: background 0.15s, color 0.15s;
+        }
+
+        .edit-btn:hover {
+            background: #e0f2fe;
+            color: #0369a1;
+            border-color: #7dd3fc;
+        }
     </style>
 </head>
 
@@ -222,6 +240,14 @@
                                                 placeholder="Ej: Recursos Humanos"
                                                 class="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-medium" />
                                         </div>
+                                        <div>
+                                            <label
+                                                class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Cantidad
+                                                de ventanillas *</label>
+                                            <input id="sectorVentanillas" type="number" required min="1" value="1"
+                                                placeholder="Ej: 4"
+                                                class="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-medium" />
+                                        </div>
                                         <button type="submit"
                                             class="w-full bg-slate-800 hover:bg-slate-700 text-white font-bold py-3.5 rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl hover:-translate-y-0.5 mt-2 active:scale-95">
                                             Agregar sector
@@ -263,12 +289,60 @@
                                                 <th
                                                     class="px-6 py-4 font-bold text-slate-600 uppercase tracking-wider text-xs">
                                                     Nombre del Sector</th>
+                                                <th
+                                                    class="px-6 py-4 font-bold text-slate-600 uppercase tracking-wider text-xs text-center">
+                                                    Ventanillas</th>
+                                                <th
+                                                    class="px-6 py-4 font-bold text-slate-600 uppercase tracking-wider text-xs text-center">
+                                                    Acciones</th>
                                             </tr>
                                         </thead>
                                         <tbody id="tablaSectores" class="divide-y divide-slate-100">
                                             <!-- Se llenará dinámicamente -->
                                         </tbody>
                                     </table>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ===== PANEL 3: Editar Sector ===== -->
+                        <div class="rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+                            <button id="header-editar"
+                                class="accordion-header w-full flex items-center justify-between px-6 py-4 bg-slate-50 hover:bg-slate-100 transition-colors cursor-pointer text-left"
+                                onclick="toggleAccordion('editar')">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center">
+                                        <svg class="w-4 h-4 text-amber-600" fill="none" stroke="currentColor"
+                                            viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 012.828 2.828L11.828 15.828a4 4 0 01-1.414.943l-3 1 1-3a4 4 0 01.943-1.414z" />
+                                        </svg>
+                                    </div>
+                                    <span class="font-bold text-slate-800">Editar Sector</span>
+                                </div>
+                                <svg class="accordion-arrow w-5 h-5 text-slate-400" fill="none" stroke="currentColor"
+                                    viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </button>
+                            <div id="content-editar" class="accordion-content">
+                                <div class="p-6 sm:p-8 bg-white">
+                                    <div id="editSectorContainer">
+                                        <!-- Placeholder when no sector selected -->
+                                        <div id="editPlaceholder"
+                                            class="flex flex-col items-center justify-center py-10 text-slate-400">
+                                            <svg class="w-12 h-12 mb-3 text-slate-300" fill="none"
+                                                stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round"
+                                                    stroke-width="1.5"
+                                                    d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                                            </svg>
+                                            <p class="font-medium text-sm">Selecciona un sector en la lista para
+                                                editarlo</p>
+                                        </div>
+                                        <!-- Edit form will be injected here by JS -->
+                                    </div>
                                 </div>
                             </div>
                         </div>
