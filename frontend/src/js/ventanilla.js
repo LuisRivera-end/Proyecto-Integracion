@@ -384,6 +384,10 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         socket.on('connect', () => {
             console.log('Conectado al sistema de tiempo real (Ventanilla)');
+            // Registrar a este empleado como activo en ventanilla
+            if (currentUser && currentUser.id) {
+                socket.emit('ventanilla_register', { id_empleado: currentUser.id });
+            }
         });
 
         socket.on('tickets_updated', async () => {
@@ -402,6 +406,12 @@ document.addEventListener("DOMContentLoaded", async () => {
             lanzarAlerta("Sesión cerrada correctamente", "success");
 
             localStorage.removeItem('currentUser');
+
+            // Bloquear interacción durante la redirección
+            const overlay = document.createElement('div');
+            overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;cursor:not-allowed;';
+            overlay.innerHTML = '<p style="color:white;font-size:1.25rem;font-weight:bold;">Cerrando sesión...</p>';
+            document.body.appendChild(overlay);
 
             setTimeout(() => {
                 window.location.href = "login.html";

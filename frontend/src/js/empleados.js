@@ -66,17 +66,22 @@ document.addEventListener("DOMContentLoaded", async () => {
   // ──────────────────────────────────────────────
   async function loadEmployees() {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/employees/full`);
-      if (!res.ok) throw new Error("Error al cargar empleados");
-      const empleados = await res.json();
-      await renderEmployees(empleados);
+      const [empRes, activosRes] = await Promise.all([
+        fetch(`${API_BASE_URL}/api/employees/full`),
+        fetch(`${API_BASE_URL}/api/employees/activos`)
+      ]);
+      if (!empRes.ok) throw new Error("Error al cargar empleados");
+      const empleados = await empRes.json();
+      const activos = activosRes.ok ? await activosRes.json() : [];
+      const activosSet = new Set(activos);
+      await renderEmployees(empleados, activosSet);
     } catch (err) {
       console.error(err);
-      alert("Error al cargar empleados");
+      lanzarAlerta("Error al cargar empleados", "error");
     }
   }
 
-  async function renderEmployees(empleados) {
+  async function renderEmployees(empleados, activosSet = new Set()) {
     tablaEmpleados.innerHTML = "";
 
     for (const emp of empleados) {
@@ -88,11 +93,20 @@ document.addEventListener("DOMContentLoaded", async () => {
       ].filter(n => n.trim() !== '').join(' ');
 
       const esAdmin = emp.ID_ROL === 1;
+      const enVentanilla = activosSet.has(emp.ID_Empleado);
 
       // ── Acciones cell ──
-      const accionesCell = esAdmin
-        ? `<span class="text-slate-300 text-xs italic">Sin acciones</span>`
-        : `<button class="edit-btn" onclick="abrirEdicion(${emp.ID_Empleado})">Editar</button>`;
+      let accionesCell;
+      if (esAdmin) {
+        accionesCell = `<span class="text-slate-300 text-xs italic">Sin acciones</span>`;
+      } else if (enVentanilla) {
+        accionesCell = `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-green-100 text-green-700 border border-green-200">
+          <span class="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
+          En ventanilla
+        </span>`;
+      } else {
+        accionesCell = `<button class="edit-btn" onclick="abrirEdicion(${emp.ID_Empleado})">Editar</button>`;
+      }
 
       const tr = document.createElement("tr");
       tr.className = "hover:bg-slate-50 transition-colors";
@@ -121,7 +135,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       loadEmployees();
     } catch (err) {
       console.error(err);
-      alert(err.message);
+      lanzarAlerta(err.message, "error");
     }
   };
 
@@ -140,7 +154,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       loadEmployees();
     } catch (err) {
       console.error(err);
-      alert(err.message);
+      lanzarAlerta(err.message, "error");
     }
   };
 
@@ -160,7 +174,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       loadEmployees();
     } catch (err) {
       console.error(err);
-      alert(err.message);
+      lanzarAlerta(err.message, "error");
     }
   };
 
@@ -168,6 +182,18 @@ document.addEventListener("DOMContentLoaded", async () => {
   // OPEN EDIT panel for a specific employee
   // ──────────────────────────────────────────────
   window.abrirEdicion = async function (idEmpleado) {
+    // Verificar si el empleado está activo en ventanilla
+    try {
+      const activosRes = await fetch(`${API_BASE_URL}/api/employees/activos`);
+      if (activosRes.ok) {
+        const activos = await activosRes.json();
+        if (activos.includes(idEmpleado)) {
+          lanzarAlerta("No se puede editar, el empleado está activo en ventanilla", "warning");
+          return;
+        }
+      }
+    } catch (_) { }
+
     // Open the edit accordion panel
     const content = document.getElementById('content-editar');
     const header = document.getElementById('header-editar');
@@ -343,21 +369,21 @@ document.addEventListener("DOMContentLoaded", async () => {
     const elSector = document.getElementById('edit-sector');
 
     if (!nombre1 || !apellido1 || !usuario) {
-      alert("Primer nombre, primer apellido y usuario son obligatorios.");
+      lanzarAlerta("Primer nombre, primer apellido y usuario son obligatorios.", "error");
       return;
     }
 
     if (password) {
       if (password.length < 8) {
-        alert("La contraseña debe tener al menos 8 caracteres");
+        lanzarAlerta("La contraseña debe tener al menos 8 caracteres", "error");
         return;
       }
       if (!/[A-Z]/.test(password)) {
-        alert("La contraseña debe contener al menos una letra mayúscula");
+        lanzarAlerta("La contraseña debe contener al menos una letra mayúscula", "error");
         return;
       }
       if (!/[0-9]/.test(password)) {
-        alert("La contraseña debe contener al menos un número");
+        lanzarAlerta("La contraseña debe contener al menos un número", "error");
         return;
       }
     }
@@ -519,14 +545,21 @@ document.addEventListener("DOMContentLoaded", async () => {
   async function cargarRoles() {
     try {
       const res = await fetch(`${API_BASE_URL}/api/roles`);
+      if (!res.ok) throw new Error("Error al cargar roles");
       const roles = await res.json();
       const rolSelect = document.getElementById("rol");
-      roles.forEach(r => {
-        const opt = document.createElement("option");
-        opt.value = r.ID_Rol;
-        opt.textContent = r.Rol;
-        rolSelect.appendChild(opt);
-      });
+      // Limpiar opciones existentes excepto la primera (Seleccionar)
+      while (rolSelect.options.length > 1) {
+        rolSelect.remove(1);
+      }
+      roles
+        .filter(r => r.ID_Rol !== 1) // Excluir admin
+        .forEach(r => {
+          const opt = document.createElement("option");
+          opt.value = r.ID_Rol;
+          opt.textContent = r.Rol;
+          rolSelect.appendChild(opt);
+        });
     } catch (err) {
       console.error("Error al cargar roles:", err);
     }
@@ -547,6 +580,22 @@ document.addEventListener("DOMContentLoaded", async () => {
         sectorContainer.classList.add("hidden");
         if (sectorForm) sectorForm.required = false;
       }
+    });
+  }
+
+  // ──────────────────────────────────────────────
+  // WebSocket: actualizar estado de ventanilla en tiempo real
+  // ──────────────────────────────────────────────
+  if (typeof io !== 'undefined') {
+    const socket = io(API_BASE_URL);
+
+    socket.on('connect', () => {
+      console.log('Conectado al sistema de tiempo real (Empleados)');
+    });
+
+    socket.on('ventanilla_status_changed', () => {
+      console.log('Cambio de estado en ventanilla, refrescando lista...');
+      loadEmployees();
     });
   }
 
