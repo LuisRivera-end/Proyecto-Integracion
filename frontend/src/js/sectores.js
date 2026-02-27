@@ -9,6 +9,69 @@ document.addEventListener("DOMContentLoaded", async () => {
   const editPlaceholder = document.getElementById("editPlaceholder");
 
   // ──────────────────────────────────────────────
+  // WEBSOCKET
+  // ──────────────────────────────────────────────
+  const socket = io(API_BASE_URL);
+  let editingSectorId = null; // sector actualmente en edición
+
+  socket.on('connect', () => {
+    console.log('🟢 Sectores WebSocket conectado');
+  });
+
+  // Cuando cambia el status de alguna ventanilla, re-verificar
+  socket.on('ventanilla_status_changed', () => {
+    if (editingSectorId !== null) {
+      socket.emit('check_sector_ventanillas', { id_sector: editingSectorId });
+    }
+  });
+
+  // Cuando se actualizan sectores, recargar tabla
+  socket.on('sectores_updated', () => {
+    cargarSectores();
+    // Si estamos editando, re-verificar el status
+    if (editingSectorId !== null) {
+      socket.emit('check_sector_ventanillas', { id_sector: editingSectorId });
+    }
+  });
+
+  // Respuesta del check de ventanillas
+  socket.on('sector_ventanillas_status', (data) => {
+    if (data.id_sector !== editingSectorId) return;
+
+    const nombreInput = document.getElementById('editSectorNombre');
+    const ventanillasInput = document.getElementById('editSectorVentanillas');
+    const warningEl = document.getElementById('ventanillaWarning');
+
+    if (!ventanillasInput) return;
+
+    if (data.puede_modificar) {
+      // Habilitar nombre y cantidad de ventanillas
+      if (nombreInput) {
+        nombreInput.disabled = false;
+        nombreInput.classList.remove('opacity-50', 'cursor-not-allowed');
+      }
+      ventanillasInput.disabled = false;
+      ventanillasInput.classList.remove('opacity-50', 'cursor-not-allowed');
+      if (warningEl) warningEl.style.display = 'none';
+    } else {
+      // Deshabilitar solo nombre y cantidad de ventanillas
+      if (nombreInput) {
+        nombreInput.disabled = true;
+        nombreInput.classList.add('opacity-50', 'cursor-not-allowed');
+      }
+      ventanillasInput.disabled = true;
+      ventanillasInput.classList.add('opacity-50', 'cursor-not-allowed');
+      if (warningEl) {
+        const nombres = (data.empleados_con_ventanilla || [])
+          .map(e => `${e.nombre} (${e.Ventanilla})`)
+          .join(', ');
+        warningEl.innerHTML = `⚠️ No se puede modificar el nombre ni la cantidad de ventanillas. Empleados con ventanilla asignada: <strong>${nombres}</strong>`;
+        warningEl.style.display = 'block';
+      }
+    }
+  });
+
+  // ──────────────────────────────────────────────
   // LOAD & RENDER sectores
   // ──────────────────────────────────────────────
   async function cargarSectores() {
@@ -101,6 +164,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   // EDIT sector
   // ──────────────────────────────────────────────
   window.editarSector = function (id, nombre, ventanillas) {
+    editingSectorId = id;
+
     // Open the edit accordion
     const contentEditar = document.getElementById('content-editar');
     const headerEditar = document.getElementById('header-editar');
@@ -118,6 +183,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     const formHTML = `
       <form id="editSectorForm" class="space-y-5">
         <p class="text-sm text-slate-500 mb-2 font-medium">Editando: <strong>${nombre}</strong></p>
+
+        <div id="ventanillaWarning" style="display:none"
+          class="px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-700 text-sm font-medium">
+        </div>
+
         <div>
           <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Nombre del sector *</label>
           <input id="editSectorNombre" type="text" required value="${nombre}"
@@ -128,6 +198,23 @@ document.addEventListener("DOMContentLoaded", async () => {
           <input id="editSectorVentanillas" type="number" required min="0" max="5" value="${ventanillas}"
             class="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-medium" />
         </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Deshabilitar / Habilitar ventanilla por número</label>
+          <div class="flex gap-2">
+            <input id="toggleVentanillaNum" type="number" min="1" placeholder="Ej: 3"
+              class="flex-1 px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-500/20 focus:border-slate-500 transition-all font-medium" />
+            <button type="button" id="disableVentanillaBtn"
+              class="px-4 bg-red-600 hover:bg-red-500 text-white font-bold py-3 rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:scale-95 text-sm">
+              Deshabilitar
+            </button>
+            <button type="button" id="enableVentanillaBtn"
+              class="px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:scale-95 text-sm">
+              Habilitar
+            </button>
+          </div>
+        </div>
+
         <div class="flex gap-3">
           <button type="submit"
             class="flex-1 bg-slate-800 hover:bg-slate-700 text-white font-bold py-3.5 rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:scale-95">
@@ -142,6 +229,44 @@ document.addEventListener("DOMContentLoaded", async () => {
     `;
 
     editContainer.insertAdjacentHTML('beforeend', formHTML);
+
+    // Verificar status de ventanillas vía WebSocket
+    socket.emit('check_sector_ventanillas', { id_sector: id });
+
+    // Handle toggle ventanilla (disable/enable)
+    async function toggleVentanilla(accion) {
+      const numInput = document.getElementById('toggleVentanillaNum');
+      const numero = parseInt(numInput.value);
+
+      if (!numero || numero < 1) {
+        lanzarAlerta("Ingrese un número de ventanilla válido", "error");
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/sectores/${id}/ventanilla/toggle`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ numero, accion })
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          throw new Error(data.error || "No se pudo cambiar el estado de la ventanilla");
+        }
+
+        lanzarAlerta(data.message, "success");
+        numInput.value = '';
+        cargarSectores();
+      } catch (err) {
+        console.error(err);
+        lanzarAlerta(err.message || "Error al cambiar estado de ventanilla", "error");
+      }
+    }
+
+    document.getElementById('disableVentanillaBtn').addEventListener('click', () => toggleVentanilla('deshabilitar'));
+    document.getElementById('enableVentanillaBtn').addEventListener('click', () => toggleVentanilla('habilitar'));
 
     // Handle edit form submit
     document.getElementById('editSectorForm').addEventListener('submit', async (e) => {
@@ -188,6 +313,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   };
 
   window.cancelarEdicion = function () {
+    editingSectorId = null;
     const existingForm = editContainer.querySelector('#editSectorForm');
     if (existingForm) existingForm.remove();
     editPlaceholder.style.display = 'flex';
@@ -220,3 +346,4 @@ function toggleAccordion(id) {
   }
 }
 window.toggleAccordion = toggleAccordion;
+

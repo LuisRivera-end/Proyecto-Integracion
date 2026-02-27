@@ -635,6 +635,85 @@ def update_sector(id_sector):
 
 
 # --------------------------------------------------------
+# DESHABILITAR / HABILITAR VENTANILLA POR NÚMERO
+# --------------------------------------------------------
+@bp.route("/sectores/<int:id_sector>/ventanilla/toggle", methods=["PUT"])
+def toggle_ventanilla(id_sector):
+    data = request.get_json()
+    numero = data.get("numero") if data else None
+    accion = data.get("accion") if data else None  # "deshabilitar" o "habilitar"
+
+    if numero is None:
+        return jsonify({"error": "El número de ventanilla es requerido"}), 400
+
+    if accion not in ("deshabilitar", "habilitar"):
+        return jsonify({"error": "La acción debe ser 'deshabilitar' o 'habilitar'"}), 400
+
+    try:
+        numero = int(numero)
+    except (TypeError, ValueError):
+        return jsonify({"error": "El número de ventanilla debe ser un entero"}), 400
+
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    try:
+        # Obtener nombre del sector
+        cursor.execute("SELECT Sector FROM Sectores WHERE ID_Sector = %s", (id_sector,))
+        sector = cursor.fetchone()
+        if not sector:
+            return jsonify({"error": "Sector no encontrado"}), 404
+
+        nombre_ventanilla = f"{sector['Sector']}{numero}"
+
+        # Buscar la ventanilla
+        cursor.execute(
+            "SELECT ID_Ventanilla, Activa FROM Ventanillas WHERE Ventanilla = %s AND ID_Sector = %s",
+            (nombre_ventanilla, id_sector)
+        )
+        ventanilla = cursor.fetchone()
+        if not ventanilla:
+            return jsonify({"error": f"No existe la ventanilla '{nombre_ventanilla}'"}), 404
+
+        vid = ventanilla["ID_Ventanilla"]
+        nuevo_estado = 0 if accion == "deshabilitar" else 1
+
+        # Si ya está en el estado deseado
+        if ventanilla["Activa"] == nuevo_estado:
+            estado_texto = "deshabilitada" if nuevo_estado == 0 else "habilitada"
+            return jsonify({"error": f"La ventanilla '{nombre_ventanilla}' ya está {estado_texto}"}), 400
+
+        # Si se va a deshabilitar, verificar que no tenga empleado asignado
+        if accion == "deshabilitar":
+            cursor.execute(
+                "SELECT 1 FROM Empleado_Ventanilla WHERE ID_Ventanilla = %s AND Fecha_Termino IS NULL AND ID_Estado = 1 LIMIT 1",
+                (vid,)
+            )
+            if cursor.fetchone():
+                return jsonify({"error": f"La ventanilla '{nombre_ventanilla}' tiene un empleado asignado, no se puede deshabilitar"}), 409
+
+        # Actualizar estado
+        cursor.execute(
+            "UPDATE Ventanillas SET Activa = %s WHERE ID_Ventanilla = %s",
+            (nuevo_estado, vid)
+        )
+
+        conn.commit()
+        socketio.emit('sectores_updated', namespace='/')
+        socketio.emit('ventanilla_status_changed', namespace='/')
+
+        estado_texto = "deshabilitada" if nuevo_estado == 0 else "habilitada"
+        return jsonify({"message": f"Ventanilla '{nombre_ventanilla}' {estado_texto} correctamente"}), 200
+
+    except Exception as e:
+        conn.rollback()
+        print(f"Error en toggle_ventanilla: {e}")
+        return jsonify({"error": "Error interno del servidor"}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+# --------------------------------------------------------
 # ASIGNAR SECTOR A UN EMPLEADO (PARA JEFES)
 # --------------------------------------------------------
 @bp.route("/employees/<int:id_empleado>/sector", methods=["PUT"])
