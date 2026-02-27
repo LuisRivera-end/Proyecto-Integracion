@@ -141,6 +141,26 @@ document.addEventListener("DOMContentLoaded", () => {
         errorMessage.classList.add("hidden");
     };
 
+    // Configurar Socket.IO para escuchar actualizaciones en tiempo real
+    if (typeof io !== 'undefined') {
+        const socket = io(API_BASE_URL);
+
+        socket.on('connect', () => {
+            console.log('Conectado al servidor de WebSockets');
+        });
+
+        socket.on('sectores_updated', async () => {
+            console.log('Actualización de sectores por WebSocket');
+            await cargarSectores();
+        });
+
+        socket.on('disconnect', () => {
+            console.error('Desconectado del servidor de WebSockets');
+        });
+    } else {
+        console.error('No se pudo conectar al WebSocket');
+    }
+
 });
 
 async function imprimir() {

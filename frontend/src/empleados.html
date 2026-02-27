@@ -154,8 +154,7 @@
           </div>
         </div>
         <div class="px-4 pb-4">
-          <button
-            onclick="fetch('/api/logout',{method:'POST',credentials:'include'}).finally(()=>{localStorage.removeItem('currentUser');window.location.href='login.html'})"
+          <button onclick="logoutWithOverlay()"
             class="w-full px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-red-50 text-slate-600 hover:text-red-600 font-bold text-xs uppercase tracking-wider transition-all hover:shadow-md flex items-center justify-center gap-2 group/btn">
             <svg class="w-4 h-4 transition-transform group-hover/btn:-translate-x-1" fill="none" stroke="currentColor"
               viewBox="0 0 24 24">
@@ -194,6 +193,19 @@
         <h1 class="text-xl font-bold text-slate-800 tracking-tight">Empleados</h1>
         <div class="w-8"></div>
       </div>
+
+      <script>
+        function logoutWithOverlay() {
+          fetch('/api/logout', { method: 'POST', credentials: 'include' }).finally(function () {
+            localStorage.removeItem('currentUser');
+            var o = document.createElement('div');
+            o.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;cursor:not-allowed';
+            o.innerHTML = '<p style="color:white;font-size:1.25rem;font-weight:bold">Cerrando sesión...</p>';
+            document.body.appendChild(o);
+            setTimeout(function () { window.location.href = 'login.html'; }, 1500);
+          });
+        }
+      </script>
 
       <!-- Content Wrapper -->
       <div class="p-6 md:p-10 lg:p-14 max-w-7xl mx-auto w-full flex flex-col gap-4">
@@ -407,6 +419,7 @@
 
   <script src="https://cdn.gtranslate.net/widgets/latest/float.js" defer></script>
   <script src="./js/idioma.js"></script>
+  <script src="./js/lib/socket.io.min.js"></script>
   <script src="./static/js/toastify.js"></script>
   <script type="module" src="./js/empleados.js"></script>
 

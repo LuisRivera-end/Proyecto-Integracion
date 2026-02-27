@@ -1,6 +1,8 @@
 from flask import Blueprint, request, jsonify, session
 from hashlib import sha256
 from app.models.database import get_db_connection
+from app import socketio
+from app.websocket.ventanilla_handlers import active_ventanilla_employees
 
 bp = Blueprint('employees', __name__, url_prefix='/api')
 
@@ -144,10 +146,21 @@ def get_employees_full():
 
 
 # --------------------------------------------------------
+# EMPLEADOS ACTIVOS EN VENTANILLA
+# --------------------------------------------------------
+@bp.route("/employees/activos", methods=["GET"])
+def get_active_employees():
+    """Devuelve la lista de IDs de empleados activos en ventanilla."""
+    return jsonify(list(active_ventanilla_employees)), 200
+
+# --------------------------------------------------------
 # 4️⃣ CAMBIAR ESTADO MANUAL DE UN EMPLEADO
 # --------------------------------------------------------
 @bp.route("/employees/<int:id_empleado>/estado", methods=["PUT"])
 def update_employee_status(id_empleado):
+    if id_empleado in active_ventanilla_employees:
+        return jsonify({"error": "No se puede modificar, el empleado está activo en ventanilla"}), 409
+
     data = request.get_json()
     nuevo_estado = data.get("estado")
     
@@ -259,6 +272,9 @@ def add_employee():
 
 @bp.route("/employees/<int:id_empleado>/ventanilla", methods=["PUT"])
 def asignar_ventanilla(id_empleado):
+    if id_empleado in active_ventanilla_employees:
+        return jsonify({"error": "No se puede modificar, el empleado está activo en ventanilla"}), 409
+
     data = request.get_json()
     nueva_ventanilla = data.get("id_ventanilla")
 
@@ -318,6 +334,9 @@ def asignar_ventanilla(id_empleado):
 # --------------------------------------------------------
 @bp.route("/employees/<int:id_empleado>", methods=["PUT"])
 def update_employee(id_empleado):
+    if id_empleado in active_ventanilla_employees:
+        return jsonify({"error": "No se puede modificar, el empleado está activo en ventanilla"}), 409
+
     data = request.get_json()
 
     nombre1   = data.get("nombre1", "").strip()
@@ -437,7 +456,15 @@ def add_sector():
             return jsonify({"error": "Ya existe un sector con ese nombre"}), 409
 
         cursor.execute("INSERT INTO Sectores (Sector) VALUES (%s)", (sector_nombre,))
+
+        # Crear también un rol con el mismo nombre del sector
+        cursor.execute("INSERT INTO Rol (Rol) VALUES (%s)", (f"Operador {sector_nombre}",))
+
         conn.commit()
+
+        # Emitir evento para actualizar sectores en tiempo real
+        socketio.emit('sectores_updated', namespace='/')
+
         return jsonify({"message": "Sector agregado correctamente"}), 201
     except Exception as e:
         conn.rollback()

@@ -2,11 +2,18 @@
 from flask_socketio import emit
 from flask import request
 
-# Diccionario para trackear clientes conectados
+# Diccionario para trackear clientes conectados (impresoras)
 connected_clients = {}
 
+# Referencia a la función de limpieza de ventanilla (se asigna en __init__.py)
+_ventanilla_cleanup = None
+
+def set_ventanilla_cleanup(fn):
+    global _ventanilla_cleanup
+    _ventanilla_cleanup = fn
+
 def register_socket_handlers(socketio):
-    """Registrar todos los handlers de WebSocket"""
+    """Registrar handlers de WebSocket para impresión"""
     
     @socketio.on('connect')
     def handle_connect():
@@ -35,6 +42,11 @@ def register_socket_handlers(socketio):
     @socketio.on('disconnect')
     def handle_disconnect():
         client_id = request.sid
+
+        # Limpiar empleado de ventanilla si corresponde
+        if _ventanilla_cleanup:
+            _ventanilla_cleanup(client_id, socketio)
+
         if client_id in connected_clients:
             printer_name = connected_clients[client_id]['printer_name']
             del connected_clients[client_id]

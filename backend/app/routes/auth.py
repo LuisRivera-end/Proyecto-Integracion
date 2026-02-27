@@ -98,11 +98,16 @@ def check_session():
 def get_roles():
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
-    cursor.execute("SELECT ID_Rol, Rol FROM Rol WHERE ID_Rol != 1")
-    roles = cursor.fetchall()
-    cursor.close()
-    conn.close()
-    return jsonify(roles), 200
+    try:
+        cursor.execute("SELECT ID_Rol, Rol FROM Rol ORDER BY ID_Rol")
+        roles = cursor.fetchall()
+        return jsonify(roles), 200
+    except Exception as e:
+        print(f"Error en get_roles: {e}")
+        return jsonify({"error": "Error al obtener roles"}), 500
+    finally:
+        cursor.close()
+        conn.close()
 
 @bp.route('/estados_empleado', methods=['GET'])
 def get_estados_empleado():
