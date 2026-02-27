@@ -167,14 +167,12 @@ async function imprimir() {
     const sector = document.getElementById("result-sector").textContent.trim();
     const numero_ticket = document.getElementById("result-ticket").textContent.trim();
     const fecha = document.getElementById("result-fecha").textContent.trim();
-    const tiempo_estimado = document.getElementById("tiempo-estimado-minutos").textContent.trim();
     console.log('🖨️ Enviando a impresión directa...');
 
     console.log('🖨️ Datos para impresión:', {
         numero_ticket,
         sector,
         fecha,
-        tiempo_estimado,
     });
 
     try {
@@ -185,7 +183,6 @@ async function imprimir() {
                 numero_ticket,
                 sector,
                 fecha,
-                tiempo_estimado
             })
         });
 
@@ -205,3 +202,51 @@ async function imprimir() {
 }
 
 window.imprimir = imprimir;
+
+async function descargarPDF() {
+    const sector = document.getElementById("result-sector").textContent.trim();
+    const numero_ticket = document.getElementById("result-ticket").textContent.trim();
+    const fecha = document.getElementById("result-fecha").textContent.trim();
+
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/ticket/download`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                numero_ticket,
+                sector,
+                fecha
+            })
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+            throw new Error(result.error || "Error al generar el PDF");
+        }
+
+        // Convertir base64 a Blob y descargar
+        const byteCharacters = atob(result.pdf_base64);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+            byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        const blob = new Blob([byteArray], { type: 'application/pdf' });
+
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = result.filename || `ticket_${numero_ticket}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+    } catch (error) {
+        console.error('❌ Error al descargar PDF:', error);
+        alert('Error al descargar el PDF: ' + error.message);
+    }
+}
+
+window.descargarPDF = descargarPDF;

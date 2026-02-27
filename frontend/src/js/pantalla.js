@@ -206,7 +206,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
             if (!ticketsData || ticketsData.length === 0) {
                 sinTickets.style.display = 'flex';
-                contenedor.innerHTML = '';
+                contenedor.style.display = 'none';
                 if (atendiendoContainer) atendiendoContainer.classList.add('hidden');
                 estadoAnterior.clear();
                 return;
@@ -219,7 +219,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
             if (ticketsValidos.length === 0) {
                 sinTickets.style.display = 'flex';
-                contenedor.innerHTML = '';
+                contenedor.style.display = 'none';
                 if (atendiendoContainer) atendiendoContainer.classList.add('hidden');
                 const tc = document.getElementById('ticker-container');
                 if (tc) tc.classList.add('hidden');
@@ -259,11 +259,14 @@ document.addEventListener("DOMContentLoaded", function () {
             }
 
             // ── Renderizar tickets pendientes ──
-            const MAX_VISIBLE = 7;
+            // Restar tickets en atención para que no se desborde la pantalla
+            const MAX_VISIBLE = Math.max(3, 9 - atendiendo.length);
             const visibles = pendientes.slice(0, MAX_VISIBLE);
             const overflow = pendientes.slice(MAX_VISIBLE);
 
-            sinTickets.style.display = visibles.length === 0 ? 'flex' : 'none';
+            const noHayTickets = visibles.length === 0;
+            sinTickets.style.display = noHayTickets ? 'flex' : 'none';
+            contenedor.style.display = noHayTickets ? 'none' : 'block';
 
             // Generar nuevo estado
             const nuevoEstado = new Map();
@@ -290,17 +293,24 @@ document.addEventListener("DOMContentLoaded", function () {
             if (tickerContainer && tickerTrack) {
                 if (overflow.length > 0) {
                     tickerContainer.classList.remove('hidden');
-                    // Duplicar para loop continuo
                     const items = overflow.map(t =>
                         `<span class="inline-flex items-center gap-2 text-slate-300 font-bold text-lg">
                             <span class="text-white font-black">${t.folio}</span>
                             <span class="text-slate-400">${t.sector}</span>
                         </span>`
                     ).join('<span class="text-slate-600 mx-2">•</span>');
-                    tickerTrack.innerHTML = items + '<span class="text-slate-600 mx-4">|</span>' + items;
-                    // Ajustar velocidad según cantidad
-                    const duration = Math.max(10, overflow.length * 3);
-                    tickerTrack.style.animationDuration = `${duration}s`;
+
+                    if (overflow.length >= 5) {
+                        // Loop infinito: duplicar contenido + animar de 0 a -50%
+                        tickerTrack.innerHTML = '<span class="px-4"></span>' + items + '<span class="text-slate-600 mx-4">|</span>' + items + '<span class="px-4"></span>';
+                        tickerTrack.classList.add('animado');
+                        tickerTrack.style.animationDuration = `${Math.max(10, overflow.length * 3)}s`;
+                    } else {
+                        // Pocos tickets: estáticos centrados
+                        tickerTrack.innerHTML = items;
+                        tickerTrack.classList.remove('animado');
+                        tickerTrack.style.justifyContent = 'center';
+                    }
                 } else {
                     tickerContainer.classList.add('hidden');
                     tickerTrack.innerHTML = '';
@@ -332,7 +342,7 @@ document.addEventListener("DOMContentLoaded", function () {
         } catch (error) {
             console.error("Error al cargar tickets:", error);
             sinTickets.style.display = 'flex';
-            contenedor.innerHTML = '';
+            contenedor.style.display = 'none';
         }
     }
 
