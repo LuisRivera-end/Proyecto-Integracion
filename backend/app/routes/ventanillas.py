@@ -33,6 +33,7 @@ def ventanillas_libres(id_empleado):
                 AND EV.ID_Estado = 1
             WHERE EV.ID_Ventanilla IS NULL
                 AND RV.ID_Rol = %s
+                AND V.Activa = 1
         """, (id_rol,))
 
         ventanillas = cursor.fetchall()
@@ -141,6 +142,7 @@ def get_ventanillas_disponibles(id_rol):
                 FROM Ventanillas v
                 JOIN Rol_Ventanilla rv ON v.ID_Ventanilla = rv.ID_Ventanilla
                 WHERE rv.ID_Rol = %s
+                  AND v.Activa = 1
                   AND (
                     -- not occupied at all
                     v.ID_Ventanilla NOT IN (
@@ -161,6 +163,7 @@ def get_ventanillas_disponibles(id_rol):
                 FROM Ventanillas v
                 JOIN Rol_Ventanilla rv ON v.ID_Ventanilla = rv.ID_Ventanilla
                 WHERE rv.ID_Rol = %s
+                  AND v.Activa = 1
                   AND v.ID_Ventanilla NOT IN (
                       SELECT ev.ID_Ventanilla
                       FROM Empleado_Ventanilla ev

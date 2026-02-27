@@ -17,6 +17,7 @@ from app.routes.reporte import bp as reporte_bp
 
 from app.websocket.print_handlers import register_socket_handlers, set_ventanilla_cleanup
 from app.websocket.ventanilla_handlers import register_ventanilla_handlers
+from app.websocket.sector_handlers import register_sector_handlers
 
 # ELIMINA LA LÍNEA: socketio = SocketIO(...) 
 # No la necesitas aquí porque ya la importaste arriba desde .extensions
@@ -48,6 +49,9 @@ def create_app():
     # Registrar handlers de ventanilla y conectar limpieza al disconnect
     ventanilla_cleanup = register_ventanilla_handlers(socketio)
     set_ventanilla_cleanup(ventanilla_cleanup)
+    
+    # Registrar handlers de sector
+    register_sector_handlers(socketio)
     
     # Hacer disponible la función para otros módulos
     app.config['SEND_PRINT_JOB'] = send_print_job

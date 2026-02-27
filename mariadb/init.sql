@@ -53,6 +53,7 @@ CREATE TABLE Ventanillas (
     ID_Ventanilla INT(1) AUTO_INCREMENT PRIMARY KEY,
     Ventanilla VARCHAR(30) NOT NULL,
     ID_Sector INT(1) NOT NULL,
+    Activa TINYINT(1) NOT NULL DEFAULT 1,
     FOREIGN KEY (ID_Sector) REFERENCES Sectores (ID_Sector)
 );
 
