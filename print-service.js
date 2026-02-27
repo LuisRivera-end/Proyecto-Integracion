@@ -6,14 +6,20 @@ const path = require('path');
 
 // Detectar si corre como .exe (pkg) o como script normal
 const appDir = process.pkg ? path.dirname(process.execPath) : __dirname;
-require('dotenv').config({ path: path.join(appDir, '.env') });
+
+// Buscar el archivo .env en la carpeta actual, o en un nivel superior (útil si el .exe está en /dist)
+const envPath = fs.existsSync(path.join(appDir, '.env')) 
+    ? path.join(appDir, '.env') 
+    : path.join(appDir, '..', '.env');
+
+require('dotenv').config({ path: envPath });
 
 const app = express();
-const PORT = process.env.PRINT_SERVICE_PORT || 3001;
+const PORT = process.env.PRINT_SERVICE_PORT;
 
-const SERVER_URL = process.env.PRINT_SERVER_URL || 'https://host.docker.internal:4443';
-const SUMATRA_PATH = `"${process.env.SUMATRA_PATH || 'C:\\Users\\lelie\\AppData\\Local\\SumatraPDF\\SumatraPDF.exe'}"`;
-const PRINTER_NAME = process.env.PRINTER_NAME || 'POS-58';
+const SERVER_URL = process.env.PRINT_SERVER_URL;
+const SUMATRA_PATH = `"${process.env.SUMATRA_PATH}"`;
+const PRINTER_NAME = process.env.PRINTER_NAME;
 
 console.log('🚀 Iniciando cliente de impresión...');
 console.log(`📂 Directorio: ${appDir}`);
