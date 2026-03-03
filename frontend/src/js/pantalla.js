@@ -355,6 +355,17 @@ document.addEventListener("DOMContentLoaded", function () {
 
         socket.on('connect', () => {
             console.log('Conectado al servidor de WebSockets');
+
+            // Registrar usuario activo para mantener su sesion viva
+            const storedUser = localStorage.getItem('currentUser');
+            if (storedUser) {
+                try {
+                    const currentUser = JSON.parse(storedUser);
+                    if (currentUser.id) {
+                        socket.emit('ventanilla_register', { id_empleado: currentUser.id });
+                    }
+                } catch (e) { }
+            }
         });
 
         socket.on('tickets_updated', () => {

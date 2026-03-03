@@ -45,12 +45,10 @@ def login():
             estado_empleado = user["Estado_Empleado"] or "Inactivo"
             return jsonify({"error": f"Usuario no activo. Estado actual: {estado_empleado}"}), 403
 
-        # ----- CHECK VENTANILLA SESSION LOCK -----
-        # Solamente prevenir para usuarios que no sean admin(1) o jefe(6)
-        if user["ID_ROL"] not in (1, 6):
-            from app.websocket.ventanilla_handlers import active_ventanilla_employees
-            if user["ID_Empleado"] in active_ventanilla_employees:
-                return jsonify({"error": "El usuario ya tiene una sesión iniciada en otro dispositivo o pestaña"}), 403
+        # ----- CHECK SESSION LOCK -----
+        from app.websocket.ventanilla_handlers import active_ventanilla_employees
+        if user["ID_Empleado"] in active_ventanilla_employees:
+            return jsonify({"error": "El usuario ya tiene una sesión iniciada en otro dispositivo o pestaña"}), 403
 
 
         hashed_pw = sha256(password.encode()).hexdigest()

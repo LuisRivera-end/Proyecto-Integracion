@@ -624,7 +624,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (storedUser) {
         try {
           const currentUser = JSON.parse(storedUser);
-          if (currentUser.id && currentUser.rol !== 1 && currentUser.rol !== 6) {
+          if (currentUser.id) {
             socket.emit('ventanilla_register', { id_empleado: currentUser.id });
           }
         } catch (e) { }
