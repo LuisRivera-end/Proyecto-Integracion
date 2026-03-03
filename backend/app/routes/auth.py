@@ -5,6 +5,10 @@ from flask import session
 
 bp = Blueprint('auth', __name__, url_prefix='/api')
 
+# Server-side session tracking (independent of WebSocket)
+# {id_empleado: True} — only cleared on explicit logout
+active_sessions = {}
+
 @bp.route("/login", methods=["POST"])
 def login():
     data = request.get_json()
@@ -46,9 +50,14 @@ def login():
             return jsonify({"error": f"Usuario no activo. Estado actual: {estado_empleado}"}), 403
 
         # ----- CHECK SESSION LOCK -----
-        from app.websocket.ventanilla_handlers import active_ventanilla_employees
-        if user["ID_Empleado"] in active_ventanilla_employees:
-            return jsonify({"error": "El usuario ya tiene una sesión iniciada en otro dispositivo o pestaña"}), 403
+        if user["ID_Empleado"] in active_sessions:
+            # User has a recorded session. Check if they still have
+            # an active WebSocket connection (confirms they're truly online).
+            from app.websocket.ventanilla_handlers import active_ventanilla_employees
+            if user["ID_Empleado"] in active_ventanilla_employees:
+                # Truly active — block duplicate login
+                return jsonify({"error": "El usuario ya tiene una sesión iniciada en otro dispositivo o pestaña"}), 403
+            # else: orphaned session (user closed browser without logout) — allow re-login
 
 
         hashed_pw = sha256(password.encode()).hexdigest()
@@ -77,6 +86,9 @@ def login():
         session['rol'] = user["ID_ROL"]
         session['sector'] = sector
 
+        # Register in server-side session tracking
+        active_sessions[user["ID_Empleado"]] = True
+
         return jsonify({
             "id": user["ID_Empleado"],
             "nombre": f"{user['nombre1']} {user['Apellido1']}",
@@ -97,6 +109,10 @@ def login():
         
 @bp.route('/logout', methods=['POST'])
 def logout():
+    # Remove from server-side session tracking
+    user_id = session.get('user_id')
+    if user_id is not None:
+        active_sessions.pop(user_id, None)
     session.clear()  # borra toda la sesión
     return jsonify({"message": "Sesión cerrada"}), 200
 
