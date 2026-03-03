@@ -311,6 +311,11 @@ if (typeof io !== 'undefined') {
     const socket = io(API_BASE_URL);
     socket.on('connect', () => {
         console.log('Historial conectado al WebSocket');
+
+        // Registrar al empleado para mantener viva la sesion
+        if (_currentUser && _currentUser.id && !_esSubjefe && _currentUser.rol !== 1) {
+            socket.emit('ventanilla_register', { id_empleado: _currentUser.id });
+        }
     });
 
     socket.on('tickets_updated', () => {
