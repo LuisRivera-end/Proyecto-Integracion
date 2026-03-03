@@ -618,6 +618,17 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     socket.on('connect', () => {
       console.log('Conectado al sistema de tiempo real (Empleados)');
+
+      // Registrar al empleado para mantener viva la sesion
+      const storedUser = localStorage.getItem('currentUser');
+      if (storedUser) {
+        try {
+          const currentUser = JSON.parse(storedUser);
+          if (currentUser.id && currentUser.rol !== 1 && currentUser.rol !== 6) {
+            socket.emit('ventanilla_register', { id_empleado: currentUser.id });
+          }
+        } catch (e) { }
+      }
     });
 
     socket.on('ventanilla_status_changed', () => {
