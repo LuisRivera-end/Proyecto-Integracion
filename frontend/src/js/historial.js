@@ -313,7 +313,7 @@ if (typeof io !== 'undefined') {
         console.log('Historial conectado al WebSocket');
 
         // Registrar al empleado para mantener viva la sesion
-        if (_currentUser && _currentUser.id && !_esSubjefe && _currentUser.rol !== 1) {
+        if (_currentUser && _currentUser.id) {
             socket.emit('ventanilla_register', { id_empleado: _currentUser.id });
         }
     });
