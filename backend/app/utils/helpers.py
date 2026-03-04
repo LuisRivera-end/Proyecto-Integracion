@@ -79,7 +79,7 @@ def generar_folio_unico(sector_nombre):
         """, (prefix_len, prefix, hoy))
         
         result = cursor.fetchone()
-        max_num = result[0] if result and result[0] is not None else 0
+        max_num = max(result[0], 9) if result and result[0] is not None else 9
         
         folio = prefix + str(max_num + 1)
         return folio

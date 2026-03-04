@@ -1,109 +1,64 @@
 import Config from './config.js';
+import { lanzarAlerta } from './alertas/notifier.js';
+import { waitForBackend } from './healthcheck.js';
 const API_BASE_URL = Config.API_BASE_URL;
 
-document.addEventListener("DOMContentLoaded", () => {
-    const form = document.getElementById("ticket-form");
+document.addEventListener("DOMContentLoaded", async () => {
     const formContainer = document.getElementById("form-container");
     const ticketResult = document.getElementById("ticket-result");
     const errorMessage = document.getElementById("error-message");
     const errorText = document.getElementById("error-text");
-    const submitBtn = form.querySelector("button[type='submit']");
+    const sectorButtonsContainer = document.getElementById("sector-buttons");
 
-    // Custom dropdown elements
-    const sectorInput = document.getElementById("sector");
-    const sectorToggle = document.getElementById("sector-toggle");
-    const sectorLabel = document.getElementById("sector-label");
-    const sectorOptions = document.getElementById("sector-options");
-    const sectorArrow = document.getElementById("sector-arrow");
-
-    // Toggle dropdown
-    sectorToggle.addEventListener("click", () => {
-        const isOpen = !sectorOptions.classList.contains("hidden");
-        sectorOptions.classList.toggle("hidden");
-        sectorArrow.classList.toggle("rotate-180");
-        if (!isOpen) {
-            sectorToggle.classList.add("border-slate-500", "ring-2", "ring-slate-500");
-        } else {
-            sectorToggle.classList.remove("border-slate-500", "ring-2", "ring-slate-500");
-        }
-    });
-
-    // Close dropdown on outside click
-    document.addEventListener("click", (e) => {
-        if (!e.target.closest("#custom-select")) {
-            sectorOptions.classList.add("hidden");
-            sectorArrow.classList.remove("rotate-180");
-            sectorToggle.classList.remove("border-slate-500", "ring-2", "ring-slate-500");
-        }
-    });
-
-    // Select option handler
-    function selectSector(value, text) {
-        sectorInput.value = value;
-        sectorLabel.textContent = text;
-        sectorLabel.classList.remove("text-slate-400");
-        sectorLabel.classList.add("text-slate-800");
-        sectorOptions.classList.add("hidden");
-        sectorArrow.classList.remove("rotate-180");
-        sectorToggle.classList.remove("border-slate-500", "ring-2", "ring-slate-500");
-        // Highlight selected
-        sectorOptions.querySelectorAll("button").forEach(btn => {
-            btn.classList.remove("bg-slate-100", "font-bold");
-            if (btn.dataset.value === value) {
-                btn.classList.add("bg-slate-100", "font-bold");
-            }
-        });
-    }
-
-    // Cargar sectores dinámicamente desde la API
+    // Cargar sectores dinámicamente desde la API y renderizar como botones
     async function cargarSectores() {
         try {
             const response = await fetch(`${API_BASE_URL}/api/sectores`);
             const sectores = await response.json();
-            sectorOptions.innerHTML = "";
-            sectores.forEach(s => {
+            sectorButtonsContainer.innerHTML = "";
+            sectores.forEach((s, i) => {
                 const btn = document.createElement("button");
                 btn.type = "button";
-                btn.dataset.value = s.Sector;
                 btn.textContent = s.Sector;
-                btn.className = "w-full text-left px-5 py-4 text-lg md:text-xl text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 active:bg-emerald-100 transition-colors border-b border-slate-100 last:border-b-0 cursor-pointer";
-                btn.addEventListener("click", () => selectSector(s.Sector, s.Sector));
-                sectorOptions.appendChild(btn);
+                btn.className = "w-full bg-gradient-to-r from-slate-600 to-emerald-600 hover:from-slate-700 hover:to-emerald-700 text-white font-semibold px-5 py-5 rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 min-h-[64px] text-lg cursor-pointer";
+                // Si es el último y el total es impar, centrar el botón
+                if (sectores.length % 2 !== 0 && i === sectores.length - 1) {
+                    btn.classList.add("col-span-2", "justify-self-center", "max-w-[calc(50%-0.5rem)]");
+                }
+                btn.addEventListener("click", () => generarTicket(s.Sector, btn));
+                sectorButtonsContainer.appendChild(btn);
             });
         } catch (error) {
             console.error("Error al cargar sectores:", error);
         }
     }
+
+    // Esperar al backend antes de cargar datos
+    await waitForBackend();
     cargarSectores();
 
-    form.addEventListener("submit", async (e) => {
-        e.preventDefault();
+    // Generar ticket directamente al hacer clic en un botón de sector
+    async function generarTicket(sector, btn) {
+        // Deshabilitar todos los botones mientras se genera el ticket
+        const allButtons = sectorButtonsContainer.querySelectorAll("button");
+        allButtons.forEach(b => b.disabled = true);
 
-        const sector = document.getElementById("sector").value;
+        const originalText = btn.textContent;
+        btn.innerHTML = '<span class="flex items-center justify-center gap-2"><svg class="animate-spin h-5 w-5 border-b-2 border-white rounded-full" viewBox="0 0 24 24"></svg> Generando...</span>';
 
-        if (!sector) {
-            showError("Por favor, selecciona un sector.");
-            return;
-        }
-
-        submitBtn.disabled = true;
-        submitBtn.innerHTML = '<svg class="animate-spin h-5 w-5 mr-2 border-b-2 border-blue-600 rounded-full" viewBox="0 0 24 24"></svg> Generando ticket...';
         try {
-            // 1. Generar el ticket
-            let response, data;
-            response = await fetch(`${API_BASE_URL}/api/ticket`, {
+            const response = await fetch(`${API_BASE_URL}/api/ticket`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    sector
-                })
+                body: JSON.stringify({ sector })
             });
 
-            data = await response.json();
+            const data = await response.json();
 
             if (!response.ok) {
                 throw new Error(data.error || "Error al generar el ticket");
             }
+
             document.getElementById("result-sector").textContent = data.sector || sector;
             document.getElementById("result-ticket").textContent = data.folio;
             if (data.fecha) document.getElementById("result-fecha").textContent = data.fecha;
@@ -119,10 +74,10 @@ document.addEventListener("DOMContentLoaded", () => {
         } catch (err) {
             showError(err.message);
         } finally {
-            submitBtn.disabled = false;
-            submitBtn.innerHTML = 'Generar Ticket';
+            allButtons.forEach(b => b.disabled = false);
+            btn.textContent = originalText;
         }
-    });
+    }
 
     function showError(message) {
         errorText.textContent = message;
@@ -130,12 +85,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     window.resetForm = function () {
-        form.reset();
-        sectorInput.value = "";
-        sectorLabel.textContent = "Selecciona un sector";
-        sectorLabel.classList.add("text-slate-400");
-        sectorLabel.classList.remove("text-slate-800");
-        sectorOptions.querySelectorAll("button").forEach(btn => btn.classList.remove("bg-slate-100", "font-bold"));
         formContainer.classList.remove("hidden");
         ticketResult.classList.add("hidden");
         errorMessage.classList.add("hidden");
@@ -191,13 +140,14 @@ async function imprimir() {
 
         if (response.ok) {
             console.log('✅ Ticket enviado a impresora:', result.message);
-            alert('Ticket enviado a impresora POS-58');
+            lanzarAlerta('Ticket enviado a impresora POS-58', 'success');
         } else {
             throw new Error(result.error || "Error al imprimir");
         }
 
     } catch (error) {
         console.error('❌ Error impresión directa:', error);
+        lanzarAlerta(error.message || 'Error al enviar a impresora', 'error');
     }
 }
 

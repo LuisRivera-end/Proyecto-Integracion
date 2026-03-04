@@ -1,6 +1,7 @@
 import Config from './config.js';
+import { waitForBackend } from './healthcheck.js';
 
-document.addEventListener("DOMContentLoaded", function () {
+document.addEventListener("DOMContentLoaded", async function () {
     const API_BASE_URL = Config.API_BASE_URL;
 
     // Referencias a elementos del DOM
@@ -346,7 +347,8 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     }
 
-    // Cargar los tickets al iniciar la página
+    // Esperar al backend antes de cargar tickets
+    await waitForBackend();
     cargarTicketsInteligente();
 
     // Configurar Socket.IO para escuchar actualizaciones en tiempo real
