@@ -5,7 +5,7 @@ from datetime import datetime
 class TicketPDF(FPDF):
     def header(self):
         script_dir = os.path.dirname(os.path.abspath(__file__))
-        image_path = os.path.join(script_dir, "..", "..", "ual.png")
+        image_path = os.path.join(script_dir, "..", "..", "ual_no_fondo.png")
         try:
             self.image(image_path, x=14, y=5, w=30)
         except Exception as e:

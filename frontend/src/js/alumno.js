@@ -20,7 +20,8 @@ document.addEventListener("DOMContentLoaded", async () => {
                 const btn = document.createElement("button");
                 btn.type = "button";
                 btn.textContent = s.Sector;
-                btn.className = "w-full bg-gradient-to-r from-slate-600 to-emerald-600 hover:from-slate-700 hover:to-emerald-700 text-white font-semibold px-5 py-5 rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 min-h-[64px] text-lg cursor-pointer";
+                // #b2d4b3 otra opcion del color
+                btn.className = "w-full bg-[#a1d99b] border border-slate-200 text-slate-700 font-semibold px-5 py-5 rounded-xl transition-all duration-200 shadow-sm hover:bg-emerald-600 hover:text-white hover:border-emerald-600 hover:shadow-md transform hover:-translate-y-0.5 min-h-[64px] text-lg cursor-pointer flex items-center justify-center";
                 // Si es el último y el total es impar, centrar el botón
                 if (sectores.length % 2 !== 0 && i === sectores.length - 1) {
                     btn.classList.add("col-span-2", "justify-self-center", "max-w-[calc(50%-0.5rem)]");
