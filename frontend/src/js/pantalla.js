@@ -88,12 +88,12 @@ document.addEventListener("DOMContentLoaded", async function () {
         }
     }
 
-    async function llamarTicket(folio, ventanilla) {
+    async function llamarTicket(folio, ventanilla, id_ventanilla) {
         try {
             const res = await fetch(`${API_BASE_URL}/api/turno/llamar`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ folio, ventanilla })
+                body: JSON.stringify({ folio, ventanilla, id_ventanilla })
             });
 
             if (!res.ok) {
@@ -327,7 +327,7 @@ document.addEventListener("DOMContentLoaded", async function () {
 
                 if ((estadoNorm === '3' || estadoNorm === 'Atendiendo') &&
                     estadoAnteriorNorm !== estadoNorm) {
-                    llamarTicket(ticket.folio, ticket.ventanilla);
+                    llamarTicket(ticket.folio, ticket.ventanilla, ticket.id_ventanilla);
                 }
             });
 

@@ -228,9 +228,25 @@ def update_employee_ventanilla(id_empleado):
 def llamar_turno():
     data = request.json
     folio = data["folio"]
-    ventanilla = data["ventanilla"]
+    ventanilla_nombre = data.get("ventanilla", "")
+    id_ventanilla = data.get("id_ventanilla")
 
-    texto = f"Turno {folio}, pasar a la ventanilla {ventanilla}"
+    # Si se envía id_ventanilla, buscar el nombre actual en la BD
+    if id_ventanilla:
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
+        try:
+            cursor.execute("SELECT Ventanilla FROM Ventanillas WHERE ID_Ventanilla = %s", (id_ventanilla,))
+            row = cursor.fetchone()
+            if row:
+                ventanilla_nombre = row["Ventanilla"]
+        except Exception as e:
+            print(f"Error buscando nombre de ventanilla: {e}")
+        finally:
+            cursor.close()
+            conn.close()
+
+    texto = f"Turno {folio}, pasar a la ventanilla {ventanilla_nombre}"
     audio_file = speak_to_file(texto)
 
     return jsonify({
