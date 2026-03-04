@@ -12,11 +12,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   // WEBSOCKET
   // ──────────────────────────────────────────────
   const socket = io(API_BASE_URL);
-  let editingSectorId = null; // sector actualmente en edición
+  let editingSectorId = null;
 
   socket.on('connect', () => {
-    console.log('🟢 Sectores WebSocket conectado');
-    // Registrar usuario activo para mantener su sesion viva
+    console.log('🟢 Departamentos WebSocket conectado');
     const storedUser = localStorage.getItem('currentUser');
     if (storedUser) {
       try {
@@ -28,71 +27,31 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
-  // Cuando cambia el status de alguna ventanilla, re-verificar
   socket.on('ventanilla_status_changed', () => {
     if (editingSectorId !== null) {
-      socket.emit('check_sector_ventanillas', { id_sector: editingSectorId });
+      refreshVentanillasTable(editingSectorId);
     }
   });
 
-  // Cuando se actualizan sectores, recargar tabla
   socket.on('sectores_updated', () => {
     cargarSectores();
-    // Si estamos editando, re-verificar el status
     if (editingSectorId !== null) {
-      socket.emit('check_sector_ventanillas', { id_sector: editingSectorId });
-    }
-  });
-
-  // Respuesta del check de ventanillas
-  socket.on('sector_ventanillas_status', (data) => {
-    if (data.id_sector !== editingSectorId) return;
-
-    const nombreInput = document.getElementById('editSectorNombre');
-    const ventanillasInput = document.getElementById('editSectorVentanillas');
-    const warningEl = document.getElementById('ventanillaWarning');
-
-    if (!ventanillasInput) return;
-
-    if (data.puede_modificar) {
-      // Habilitar nombre y cantidad de ventanillas
-      if (nombreInput) {
-        nombreInput.disabled = false;
-        nombreInput.classList.remove('opacity-50', 'cursor-not-allowed');
-      }
-      ventanillasInput.disabled = false;
-      ventanillasInput.classList.remove('opacity-50', 'cursor-not-allowed');
-      if (warningEl) warningEl.style.display = 'none';
-    } else {
-      // Deshabilitar solo nombre y cantidad de ventanillas
-      if (nombreInput) {
-        nombreInput.disabled = true;
-        nombreInput.classList.add('opacity-50', 'cursor-not-allowed');
-      }
-      ventanillasInput.disabled = true;
-      ventanillasInput.classList.add('opacity-50', 'cursor-not-allowed');
-      if (warningEl) {
-        const nombres = (data.empleados_con_ventanilla || [])
-          .map(e => `${e.nombre} (${e.Ventanilla})`)
-          .join(', ');
-        warningEl.innerHTML = `⚠️ No se puede modificar el nombre ni la cantidad de ventanillas. Empleados con ventanilla asignada: <strong>${nombres}</strong>`;
-        warningEl.style.display = 'block';
-      }
+      refreshVentanillasTable(editingSectorId);
     }
   });
 
   // ──────────────────────────────────────────────
-  // LOAD & RENDER sectores
+  // LOAD & RENDER departamentos
   // ──────────────────────────────────────────────
   async function cargarSectores() {
     try {
       const res = await fetch(`${API_BASE_URL}/api/sectores`);
-      if (!res.ok) throw new Error("Error al cargar sectores");
+      if (!res.ok) throw new Error("Error al cargar departamentos");
       const sectores = await res.json();
       renderSectores(sectores);
     } catch (err) {
       console.error(err);
-      lanzarAlerta("Error al cargar sectores", "error");
+      lanzarAlerta("Error al cargar departamentos", "error");
     }
   }
 
@@ -103,7 +62,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       tablaSectores.innerHTML = `
         <tr>
           <td colspan="4" class="px-6 py-8 text-center text-slate-400 text-sm font-medium">
-            No hay sectores registrados
+            No hay departamentos registrados
           </td>
         </tr>`;
       return;
@@ -127,7 +86,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   // ──────────────────────────────────────────────
-  // ADD sector form submit
+  // ADD departamento form submit
   // ──────────────────────────────────────────────
   sectorForm.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -138,7 +97,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const ventanillas = parseInt(ventanillasInput.value) || 1;
 
     if (!nombre) {
-      lanzarAlerta("El nombre del sector es obligatorio", "error");
+      lanzarAlerta("El nombre del departamento es obligatorio", "error");
       return;
     }
 
@@ -157,28 +116,140 @@ document.addEventListener("DOMContentLoaded", async () => {
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.error || "No se pudo agregar el sector");
+        throw new Error(data.error || "No se pudo agregar el departamento");
       }
 
-      lanzarAlerta("Sector agregado exitosamente", "success");
+      lanzarAlerta("Departamento agregado exitosamente", "success");
       sectorForm.reset();
       document.getElementById("sectorVentanillas").value = "1";
       cargarSectores();
     } catch (err) {
       console.error(err);
-      lanzarAlerta(err.message || "Error al agregar sector", "error");
+      lanzarAlerta(err.message || "Error al agregar departamento", "error");
     }
   });
 
   // ──────────────────────────────────────────────
-  // EDIT sector
+  // Fetch ventanillas for a sector
   // ──────────────────────────────────────────────
-  window.editarSector = function (id, nombre, ventanillas) {
+  async function fetchVentanillas(idSector) {
+    const res = await fetch(`${API_BASE_URL}/api/sectores/${idSector}/ventanillas`);
+    if (!res.ok) throw new Error("Error al cargar ventanillas");
+    return await res.json();
+  }
+
+  // ──────────────────────────────────────────────
+  // Refresh ventanillas table (live update)
+  // ──────────────────────────────────────────────
+  async function refreshVentanillasTable(idSector) {
+    try {
+      const ventanillas = await fetchVentanillas(idSector);
+      const tbody = document.getElementById('ventanillasTableBody');
+      if (!tbody) return;
+      renderVentanillasRows(tbody, ventanillas);
+    } catch (err) {
+      console.error('Error refreshing ventanillas:', err);
+    }
+  }
+
+  // ──────────────────────────────────────────────
+  // Render ventanilla rows inside tbody
+  // ──────────────────────────────────────────────
+  function renderVentanillasRows(tbody, ventanillas) {
+    tbody.innerHTML = '';
+
+    if (ventanillas.length === 0) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="4" class="px-4 py-6 text-center text-slate-400 text-sm">
+            No hay ventanillas en este departamento
+          </td>
+        </tr>`;
+      return;
+    }
+
+    ventanillas.forEach(v => {
+      const isActive = v.Activa === 1;
+      const hasEmployee = !!v.empleado_asignado;
+      const tr = document.createElement('tr');
+      tr.className = `transition-colors ${isActive ? 'hover:bg-slate-50' : 'bg-slate-100/60'}`;
+      tr.dataset.vid = v.ID_Ventanilla;
+
+      tr.innerHTML = `
+        <td class="px-4 py-3">
+          <input type="text" value="${v.Ventanilla}" 
+            data-original="${v.Ventanilla}"
+            data-vid="${v.ID_Ventanilla}"
+            ${hasEmployee ? 'disabled title="En uso por un empleado"' : ''}
+            class="ventanilla-name-input w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-800 text-sm font-medium
+              focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all
+              ${!isActive ? 'opacity-50' : ''} ${hasEmployee ? 'opacity-50 cursor-not-allowed bg-slate-50' : ''}" />
+        </td>
+        <td class="px-4 py-3 text-center">
+          <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold
+            ${isActive 
+              ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' 
+              : 'bg-red-100 text-red-700 border border-red-200'}">
+            <span class="w-1.5 h-1.5 rounded-full ${isActive ? 'bg-emerald-500' : 'bg-red-500'}"></span>
+            ${isActive ? 'Activa' : 'Inactiva'}
+          </span>
+          ${hasEmployee ? `<p class="text-[11px] text-slate-400 mt-1 font-medium">${v.empleado_asignado}</p>` : ''}
+        </td>
+        <td class="px-4 py-3 text-center">
+          <button type="button" 
+            data-vid="${v.ID_Ventanilla}" 
+            data-action="${isActive ? 'disable' : 'enable'}"
+            ${hasEmployee && isActive ? 'disabled title="Empleado asignado"' : ''}
+            class="toggle-ventanilla-btn px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 
+              ${isActive
+                ? (hasEmployee 
+                    ? 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200'
+                    : 'bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 hover:border-red-300 active:scale-95')
+                : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border border-emerald-200 hover:border-emerald-300 active:scale-95'
+              }">
+            ${isActive ? 'Deshabilitar' : 'Habilitar'}
+          </button>
+        </td>
+      `;
+
+      tbody.appendChild(tr);
+    });
+
+    // Attach event listeners for toggle buttons
+    tbody.querySelectorAll('.toggle-ventanilla-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        if (btn.disabled) return;
+        const vid = parseInt(btn.dataset.vid);
+        const action = btn.dataset.action;
+        const nuevaActiva = action === 'enable' ? 1 : 0;
+
+        try {
+          const res = await fetch(`${API_BASE_URL}/api/ventanillas/${vid}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ activa: nuevaActiva })
+          });
+
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || 'Error al cambiar estado');
+
+          lanzarAlerta(data.message, 'success');
+        } catch (err) {
+          console.error(err);
+          lanzarAlerta(err.message || 'Error al cambiar estado de ventanilla', 'error');
+        }
+      });
+    });
+  }
+
+  // ──────────────────────────────────────────────
+  // EDIT departamento
+  // ──────────────────────────────────────────────
+  window.editarSector = async function (id, nombre, ventanillas) {
     editingSectorId = id;
 
     // Open the edit accordion
     const contentEditar = document.getElementById('content-editar');
-    const headerEditar = document.getElementById('header-editar');
     if (!contentEditar.classList.contains('open')) {
       toggleAccordion('editar');
     }
@@ -190,38 +261,41 @@ document.addEventListener("DOMContentLoaded", async () => {
     const existingForm = editContainer.querySelector('#editSectorForm');
     if (existingForm) existingForm.remove();
 
+    // Fetch ventanillas for this sector
+    let ventanillasList = [];
+    try {
+      ventanillasList = await fetchVentanillas(id);
+    } catch (err) {
+      console.error(err);
+      lanzarAlerta('Error al cargar ventanillas', 'error');
+    }
+
     const formHTML = `
       <form id="editSectorForm" class="space-y-5">
         <p class="text-sm text-slate-500 mb-2 font-medium">Editando: <strong>${nombre}</strong></p>
 
-        <div id="ventanillaWarning" style="display:none"
-          class="px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-700 text-sm font-medium">
-        </div>
-
         <div>
-          <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Nombre del sector *</label>
+          <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Nombre del departamento *</label>
           <input id="editSectorNombre" type="text" required value="${nombre}"
             class="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-medium" />
         </div>
-        <div>
-          <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Cantidad de ventanillas *</label>
-          <input id="editSectorVentanillas" type="number" required min="0" max="5" value="${ventanillas}"
-            class="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-medium" />
-        </div>
 
+        <!-- Ventanillas Table -->
         <div>
-          <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Deshabilitar / Habilitar ventanilla por número</label>
-          <div class="flex gap-2">
-            <input id="toggleVentanillaNum" type="number" min="1" placeholder="Ej: 3"
-              class="flex-1 px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-500/20 focus:border-slate-500 transition-all font-medium" />
-            <button type="button" id="disableVentanillaBtn"
-              class="px-4 bg-red-600 hover:bg-red-500 text-white font-bold py-3 rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:scale-95 text-sm">
-              Deshabilitar
-            </button>
-            <button type="button" id="enableVentanillaBtn"
-              class="px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:scale-95 text-sm">
-              Habilitar
-            </button>
+          <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Ventanillas del departamento</label>
+          <div class="rounded-xl border border-slate-200 overflow-hidden">
+            <table class="w-full text-sm">
+              <thead class="bg-slate-50 border-b border-slate-200">
+                <tr>
+                  <th class="px-4 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Nombre</th>
+                  <th class="px-4 py-3 text-center text-xs font-bold text-slate-500 uppercase tracking-wider">Estado</th>
+                  <th class="px-4 py-3 text-center text-xs font-bold text-slate-500 uppercase tracking-wider">Acción</th>
+                </tr>
+              </thead>
+              <tbody id="ventanillasTableBody" class="divide-y divide-slate-100">
+                <!-- rows rendered by JS -->
+              </tbody>
+            </table>
           </div>
         </div>
 
@@ -240,81 +314,79 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     editContainer.insertAdjacentHTML('beforeend', formHTML);
 
-    // Verificar status de ventanillas vía WebSocket
-    socket.emit('check_sector_ventanillas', { id_sector: id });
+    // Render ventanillas rows
+    const tbody = document.getElementById('ventanillasTableBody');
+    renderVentanillasRows(tbody, ventanillasList);
 
-    // Handle toggle ventanilla (disable/enable)
-    async function toggleVentanilla(accion) {
-      const numInput = document.getElementById('toggleVentanillaNum');
-      const numero = parseInt(numInput.value);
-
-      if (!numero || numero < 1) {
-        lanzarAlerta("Ingrese un número de ventanilla válido", "error");
-        return;
-      }
-
-      try {
-        const res = await fetch(`${API_BASE_URL}/api/sectores/${id}/ventanilla/toggle`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ numero, accion })
-        });
-
-        const data = await res.json();
-
-        if (!res.ok) {
-          throw new Error(data.error || "No se pudo cambiar el estado de la ventanilla");
-        }
-
-        lanzarAlerta(data.message, "success");
-        numInput.value = '';
-        cargarSectores();
-      } catch (err) {
-        console.error(err);
-        lanzarAlerta(err.message || "Error al cambiar estado de ventanilla", "error");
-      }
-    }
-
-    document.getElementById('disableVentanillaBtn').addEventListener('click', () => toggleVentanilla('deshabilitar'));
-    document.getElementById('enableVentanillaBtn').addEventListener('click', () => toggleVentanilla('habilitar'));
-
-    // Handle edit form submit
+    // Handle edit form submit (save department name + ventanilla renames)
     document.getElementById('editSectorForm').addEventListener('submit', async (e) => {
       e.preventDefault();
 
       const nuevoNombre = document.getElementById('editSectorNombre').value.trim();
-      const nuevasVentanillas = parseInt(document.getElementById('editSectorVentanillas').value) ?? 0;
 
       if (!nuevoNombre) {
-        lanzarAlerta("El nombre del sector es obligatorio", "error");
+        lanzarAlerta("El nombre del departamento es obligatorio", "error");
         return;
       }
 
+      const submitBtn = e.target.querySelector('button[type="submit"]');
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Guardando...';
+
       try {
-        const res = await fetch(`${API_BASE_URL}/api/sectores/${id}`, {
+        // 1. Save department name
+        const resSector = await fetch(`${API_BASE_URL}/api/sectores/${id}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ sector: nuevoNombre, ventanillas: nuevasVentanillas })
+          body: JSON.stringify({ sector: nuevoNombre })
         });
 
-        const data = await res.json();
-
-        if (!res.ok) {
-          throw new Error(data.error || "No se pudo actualizar el sector");
+        const dataSector = await resSector.json();
+        if (!resSector.ok) {
+          throw new Error(dataSector.error || "No se pudo actualizar el departamento");
         }
 
-        // Check if there were ventanillas that couldn't be deleted
-        if (data.ventanillas_en_uso) {
-          lanzarAlerta(`Sector actualizado. No se eliminaron: ${data.ventanillas_en_uso.join(', ')} (en uso)`, "warning");
+        // 2. Save individual ventanilla name changes
+        const nameInputs = document.querySelectorAll('.ventanilla-name-input');
+        let renameErrors = [];
+
+        for (const input of nameInputs) {
+          const vid = input.dataset.vid;
+          const originalName = input.dataset.original;
+          const newName = input.value.trim();
+
+          if (newName && newName !== originalName) {
+            try {
+              const resV = await fetch(`${API_BASE_URL}/api/ventanillas/${vid}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ nombre: newName })
+              });
+
+              const dataV = await resV.json();
+              if (!resV.ok) {
+                renameErrors.push(`${originalName}: ${dataV.error}`);
+              }
+            } catch (err) {
+              renameErrors.push(`${originalName}: ${err.message}`);
+            }
+          }
+        }
+
+        if (renameErrors.length > 0) {
+          lanzarAlerta(`Departamento actualizado. Errores al renombrar: ${renameErrors.join(', ')}`, 'warning');
         } else {
-          lanzarAlerta("Sector actualizado correctamente", "success");
+          lanzarAlerta("Departamento actualizado correctamente", "success");
         }
 
         cancelarEdicion();
         cargarSectores();
       } catch (err) {
         console.error(err);
-        lanzarAlerta(err.message || "Error al actualizar sector", "error");
+        lanzarAlerta(err.message || "Error al actualizar departamento", "error");
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Guardar cambios';
       }
     });
 
@@ -356,4 +428,3 @@ function toggleAccordion(id) {
   }
 }
 window.toggleAccordion = toggleAccordion;
-
