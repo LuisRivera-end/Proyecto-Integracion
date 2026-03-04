@@ -62,4 +62,20 @@ async function verificarLimpiezaSemestral() {
 // Ejecutar al cargar la página admin
 document.addEventListener("DOMContentLoaded", () => {
     verificarLimpiezaSemestral();
+
+    // Register admin session via WebSocket for real-time tracking
+    if (typeof io !== 'undefined') {
+        const socket = io(API_BASE_URL);
+        socket.on('connect', () => {
+            const storedUser = localStorage.getItem('currentUser');
+            if (storedUser) {
+                try {
+                    const currentUser = JSON.parse(storedUser);
+                    if (currentUser.id) {
+                        socket.emit('ventanilla_register', { id_empleado: currentUser.id });
+                    }
+                } catch (e) { }
+            }
+        });
+    }
 });
