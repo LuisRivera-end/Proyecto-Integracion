@@ -179,7 +179,8 @@ document.addEventListener("DOMContentLoaded", async function () {
 
         const estado = ticket.estado_id || ticket.ID_Estados || ticket.estado;
         const esAtendiendo = (estado === 3 || estado === 'Atendiendo');
-        const ventanillaDisplay = textoVentanilla.replace(/ventanilla\s*/i, '') || textoVentanilla;
+        let ventanillaDisplay = textoVentanilla.replace(/ventanilla\s*/i, '') || textoVentanilla;
+        ventanillaDisplay = ventanillaDisplay.replace(/beca1/i, 'Becas');
 
         return `
             <div class="grid grid-cols-3 items-center px-8 py-5 border-b border-slate-200 hover:bg-slate-50 transition-colors" data-folio="${ticket.folio}">
@@ -243,7 +244,8 @@ document.addEventListener("DOMContentLoaded", async function () {
                 if (atendiendo.length > 0) {
                     atendiendoContainer.classList.remove('hidden');
                     atendiendoFilas.innerHTML = atendiendo.map(ticket => {
-                        const ventanillaDisplay = (obtenerTextoVentanilla(ticket) || '').replace(/ventanilla\s*/i, '');
+                        let ventanillaDisplay = (obtenerTextoVentanilla(ticket) || '').replace(/ventanilla\s*/i, '');
+                        ventanillaDisplay = ventanillaDisplay.replace(/beca1/i, 'Becas');
 
                         return `
                             <div class="grid grid-cols-3 items-center px-8 py-3 border-b border-amber-200" data-folio="${ticket.folio}">

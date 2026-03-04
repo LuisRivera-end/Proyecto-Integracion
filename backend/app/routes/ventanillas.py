@@ -229,8 +229,14 @@ def llamar_turno():
     data = request.json
     folio = data["folio"]
     ventanilla = data["ventanilla"]
+    
+    # Manejar el caso especial de "Beca1" para que el audio diga "Becas"
+    if ventanilla and ventanilla.lower() == "beca1":
+        ventanilla_audio = "Becas"
+    else:
+        ventanilla_audio = ventanilla
 
-    texto = f"Turno {folio}, pasar a la ventanilla {ventanilla}"
+    texto = f"Turno {folio}, pasar a la ventanilla {ventanilla_audio}"
     audio_file = speak_to_file(texto)
 
     return jsonify({
