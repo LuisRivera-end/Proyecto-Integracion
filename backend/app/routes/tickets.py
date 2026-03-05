@@ -119,9 +119,13 @@ def request_ticket_print():
 def generar_ticket():
     data = request.get_json()
     sector_nombre = data.get('sector')
+    tipo_caja = data.get('tipo_caja', 'normal')  # 'normal' o 'rapida'
 
     if not sector_nombre:
         return jsonify({"error": "sector es requerido"}), 400
+
+    if tipo_caja not in ('normal', 'rapida'):
+        tipo_caja = 'normal'
 
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
@@ -138,9 +142,9 @@ def generar_ticket():
         Fecha_Ticket_publico = obtener_fecha_publico()
 
         cursor.execute("""
-            INSERT INTO Turno (ID_Sector, ID_Ventanilla, Fecha_Ticket, Folio, ID_Estados, Fecha_Ultimo_Estado)
-            VALUES (%s, NULL, %s, %s, 1, %s)
-        """, (ID_Sector, Fecha_Ticket, Folio, Fecha_Ticket))
+            INSERT INTO Turno (ID_Sector, ID_Ventanilla, Fecha_Ticket, Folio, ID_Estados, Fecha_Ultimo_Estado, Tipo_Caja)
+            VALUES (%s, NULL, %s, %s, 1, %s, %s)
+        """, (ID_Sector, Fecha_Ticket, Folio, Fecha_Ticket, tipo_caja))
 
         conn.commit()
 
@@ -151,7 +155,8 @@ def generar_ticket():
             "mensaje": "Ticket generado exitosamente",
             "folio": Folio,
             "fecha": Fecha_Ticket_publico,
-            "sector": sector_nombre
+            "sector": sector_nombre,
+            "tipo_caja": tipo_caja
         }), 201
 
     except Exception as e:
@@ -165,6 +170,7 @@ def generar_ticket():
 def get_tickets():
     sector = request.args.get("sector")
     id_empleado = request.args.get("id_empleado")
+    tipo_caja = request.args.get("tipo_caja")  # opcional: 'normal' o 'rapida'
     
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
@@ -184,41 +190,35 @@ def get_tickets():
             sector_empleado = cursor.fetchone()
             if sector_empleado:
                 sector = sector_empleado["Sector"]
-        if not sector:
-            # Turnos normales
-            cursor.execute("""
-                SELECT 
-                    t.Folio AS folio,
-                    t.ID_Turno AS id_turno,
-                    s.Sector AS sector,
-                    et.Nombre AS estado,
-                    t.Fecha_Ticket AS fecha_ticket,
-                    'normal' AS tipo
-                FROM Turno t
-                JOIN Sectores s ON t.ID_Sector = s.ID_Sector
-                JOIN Estados_Turno et ON t.ID_Estados = et.ID_Estado
-                WHERE t.ID_Estados = 1
-            """)
-            tickets_normales = cursor.fetchall()
-        else:
-            # Turnos normales filtrados por sector
-            cursor.execute("""
-                SELECT 
-                    t.Folio AS folio,
-                    t.ID_Turno AS id_turno,
-                    s.Sector AS sector,
-                    et.Nombre AS estado,
-                    t.Fecha_Ticket AS fecha_ticket,
-                    'normal' AS tipo
-                FROM Turno t
-                JOIN Sectores s ON t.ID_Sector = s.ID_Sector
-                JOIN Estados_Turno et ON t.ID_Estados = et.ID_Estado
-                WHERE t.ID_Estados = 1 AND s.Sector = %s
-            """, (sector,))
-            tickets_normales = cursor.fetchall()
+
+        # Construir query base
+        base_query = """
+            SELECT 
+                t.Folio AS folio,
+                t.ID_Turno AS id_turno,
+                s.Sector AS sector,
+                et.Nombre AS estado,
+                t.Fecha_Ticket AS fecha_ticket,
+                t.Tipo_Caja AS tipo_caja,
+                'normal' AS tipo
+            FROM Turno t
+            JOIN Sectores s ON t.ID_Sector = s.ID_Sector
+            JOIN Estados_Turno et ON t.ID_Estados = et.ID_Estado
+            WHERE t.ID_Estados = 1
+        """
+        params = []
+
+        if sector:
+            base_query += " AND s.Sector = %s"
+            params.append(sector)
+
+        if tipo_caja and tipo_caja in ('normal', 'rapida'):
+            base_query += " AND t.Tipo_Caja = %s"
+            params.append(tipo_caja)
+
+        cursor.execute(base_query, params)
+        todos_tickets = cursor.fetchall()
             
-        #Combinar todos los tickets
-        todos_tickets = tickets_normales
         todos_tickets.sort(key=lambda x: x['fecha_ticket'])
         return jsonify(todos_tickets), 200
     
@@ -419,6 +419,7 @@ def llamar_siguiente_ticket():
         data = request.get_json()
         id_ventanilla = data.get("id_ventanilla")
         id_empleado = data.get("id_empleado")
+        tipo_caja = data.get("tipo_caja")  # opcional: 'normal' o 'rapida'
         
         if not id_ventanilla or not id_empleado:
             return jsonify({"error": "Ventanilla y empleado requeridos"}), 400
@@ -445,20 +446,26 @@ def llamar_siguiente_ticket():
         
         print(f"🔍 Empleado {id_empleado} puede atender sector: {nombre_sector} (ID: {id_sector})")
         
-        # Buscar el siguiente ticket PENDIENTE del MISMO SECTOR
-        cursor.execute("""
-            (
-                SELECT 
-                    t.Folio, 
-                    t.ID_Turno as id,
-                    t.Fecha_Ticket
-                FROM Turno t
-                WHERE t.ID_Estados = 1  -- Pendiente
-                AND t.ID_Sector = %s    -- Mismo sector que el empleado
-            )
-            ORDER BY Fecha_Ticket ASC 
-            LIMIT 1
-        """, (id_sector,))
+        # Construir query para buscar el siguiente ticket PENDIENTE
+        query = """
+            SELECT 
+                t.Folio, 
+                t.ID_Turno as id,
+                t.Fecha_Ticket
+            FROM Turno t
+            WHERE t.ID_Estados = 1
+            AND t.ID_Sector = %s
+        """
+        params = [id_sector]
+
+        # Si se especifica tipo_caja, filtrar por ese tipo
+        if tipo_caja and tipo_caja in ('normal', 'rapida'):
+            query += " AND t.Tipo_Caja = %s"
+            params.append(tipo_caja)
+
+        query += " ORDER BY t.Fecha_Ticket ASC LIMIT 1"
+
+        cursor.execute(query, params)
         
         siguiente_ticket = cursor.fetchone()
         
@@ -472,7 +479,6 @@ def llamar_siguiente_ticket():
         # Actualizar el ticket a "Atendiendo"
         nueva_fecha = obtener_fecha_actual()
         
-        # Actualizar turno normal
         cursor.execute("""
             UPDATE Turno
             SET ID_Estados = 3, 

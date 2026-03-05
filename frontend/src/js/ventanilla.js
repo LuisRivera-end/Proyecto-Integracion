@@ -31,6 +31,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     let normalTicketLayout, invitadoTicketLayout, currentTicketFolioInvitado, currentTicketInvitado;
 
     let currentTicket = null;
+    let isCajaRapidaActiva = false;
+    let cajaRapidaHoraFin = null;
+    let tipoCajaFiltro = null; // null = sin filtro, 'rapida' = solo rápida, 'normal' = solo normal
 
     // Inicializar UI
     if (managementScreen) {
@@ -81,8 +84,80 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
 
         setupEventListeners();
+        await checkCajaRapida();
         await recuperarTicketActivo();
         await fetchTickets();
+    }
+
+    // -----------------------------
+    // CAJA RÁPIDA — Estado
+    // -----------------------------
+    async function checkCajaRapida() {
+        try {
+            const res = await fetch(`${API_BASE_URL}/api/caja-rapida/estado`);
+            const estado = await res.json();
+            const banner = document.getElementById('caja-rapida-banner');
+            const bannerHora = document.getElementById('caja-rapida-banner-hora');
+
+            const miVentanillaId = currentUser.ventanilla ? currentUser.ventanilla.id : null;
+
+            // Mi ventanilla está en modo rápida (activo O drenando)
+            const esMiVentanillaActiva = (estado.activo || estado.expirado) && miVentanillaId &&
+                Array.isArray(estado.ventanillas) && estado.ventanillas.includes(miVentanillaId);
+
+            // Caja rápida activa en mi sector pero NO en mi ventanilla
+            const cajaRapidaActivaEnMiSector = (estado.activo || estado.expirado) && currentUser.sector &&
+                currentUser.sector.toLowerCase() === 'cajas';
+
+            if (esMiVentanillaActiva) {
+                isCajaRapidaActiva = true;
+                tipoCajaFiltro = 'rapida';
+                cajaRapidaHoraFin = estado.hora_fin;
+                if (banner) {
+                    banner.classList.remove('hidden');
+                    banner.classList.add('flex');
+                    if (bannerHora) {
+                        if (estado.expirado) {
+                            bannerHora.textContent = `Tiempo expirado — atendiendo tickets restantes`;
+                        } else {
+                            bannerHora.textContent = `Hasta las ${estado.hora_fin}`;
+                        }
+                    }
+                }
+            } else if (cajaRapidaActivaEnMiSector) {
+                isCajaRapidaActiva = false;
+                tipoCajaFiltro = 'normal';
+                cajaRapidaHoraFin = null;
+                if (banner) {
+                    banner.classList.remove('flex');
+                    banner.classList.add('hidden');
+                }
+            } else {
+                isCajaRapidaActiva = false;
+                tipoCajaFiltro = null;
+                cajaRapidaHoraFin = null;
+                if (banner) {
+                    banner.classList.remove('flex');
+                    banner.classList.add('hidden');
+                }
+            }
+        } catch (err) {
+            console.error('Error al verificar Caja Rápida:', err);
+        }
+    }
+
+    // Verificar si el modo drenaje puede terminar
+    async function checkDrenajeCajaRapida() {
+        try {
+            const res = await fetch(`${API_BASE_URL}/api/caja-rapida/check-drenaje`, { method: 'POST' });
+            const data = await res.json();
+            if (!data.drenando) {
+                await checkCajaRapida();
+                await fetchTickets();
+            }
+        } catch (err) {
+            console.error('Error en check drenaje:', err);
+        }
     }
 
     // -----------------------------
@@ -123,6 +198,33 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (completeCurrentBtn) completeCurrentBtn.addEventListener("click", completarTicketActual);
         if (cancelCurrentBtn) cancelCurrentBtn.addEventListener("click", cancelarTicketActual);
         if (logoutBtn) logoutBtn.addEventListener("click", cerrarSesion);
+
+        // Atajos de teclado
+        document.addEventListener("keydown", (e) => {
+            // Bloquear TODAS las teclas si hay un modal de confirmación abierto
+            const modal = document.getElementById("confirm-modal");
+            if (modal && !modal.classList.contains("hidden")) {
+                e.preventDefault();
+                e.stopPropagation();
+                return;
+            }
+
+            // Enter: Llamar al siguiente ticket
+            if (e.key === "Enter") {
+                if (!currentTicket && callNextBtn && !callNextBtn.disabled) {
+                    e.preventDefault();
+                    llamarSiguienteTicket();
+                }
+            }
+
+            // F: Completar ticket actual
+            if (e.key === "f" || e.key === "F") {
+                if (currentTicket && completeCurrentBtn && !completeCurrentBtn.classList.contains("hidden")) {
+                    e.preventDefault();
+                    completarTicketActual();
+                }
+            }
+        });
     }
 
     function mostrarConfirmacion(mensaje, titulo = "Confirmación") {
@@ -172,13 +274,20 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
 
         try {
+            const bodyData = {
+                id_ventanilla: currentUser.ventanilla.id,
+                id_empleado: currentUser.id
+            };
+
+            // Filtrar por tipo de caja si corresponde
+            if (tipoCajaFiltro) {
+                bodyData.tipo_caja = tipoCajaFiltro;
+            }
+
             const res = await fetch(`${API_BASE_URL}/api/tickets/llamar-siguiente`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    id_ventanilla: currentUser.ventanilla.id,
-                    id_empleado: currentUser.id
-                })
+                body: JSON.stringify(bodyData)
             });
 
             if (!res.ok) {
@@ -247,6 +356,11 @@ document.addEventListener("DOMContentLoaded", async () => {
             await fetchTickets();
             lanzarAlerta(`Ticket ${completedFolio} completado exitosamente`, 'success');
 
+            // Verificar si el modo drenaje de caja rápida puede terminar
+            if (tipoCajaFiltro === 'rapida') {
+                await checkDrenajeCajaRapida();
+            }
+
         } catch (err) {
             console.error("Error al completar ticket:", err);
             lanzarAlerta(err.message || "Error al completar el ticket", 'error');
@@ -284,6 +398,11 @@ document.addEventListener("DOMContentLoaded", async () => {
             await fetchTickets();
             lanzarAlerta(`Ticket ${canceledFolio} cancelado exitosamente`, 'success');
 
+            // Verificar si el modo drenaje de caja rápida puede terminar
+            if (tipoCajaFiltro === 'rapida') {
+                await checkDrenajeCajaRapida();
+            }
+
         } catch (err) {
             console.error("Error al cancelar ticket:", err);
             lanzarAlerta(err.message || "Error al cancelar el ticket", 'error');
@@ -306,7 +425,14 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     async function getAllTickets() {
         try {
-            const res = await fetch(`${API_BASE_URL}/api/tickets?sector=${encodeURIComponent(currentUser.sector)}`);
+            let url = `${API_BASE_URL}/api/tickets?sector=${encodeURIComponent(currentUser.sector)}`;
+
+            // Filtrar por tipo de caja si corresponde
+            if (tipoCajaFiltro) {
+                url += `&tipo_caja=${tipoCajaFiltro}`;
+            }
+
+            const res = await fetch(url);
             if (!res.ok) return [];
 
             const tickets = await res.json();
@@ -394,6 +520,28 @@ document.addEventListener("DOMContentLoaded", async () => {
             console.log('Cambio detectado, refrescando...');
             await fetchTickets();
             await recuperarTicketActivo();
+        });
+
+        // Escuchar cambios en Caja Rápida
+        socket.on('caja_rapida_updated', async (data) => {
+            const wasActive = isCajaRapidaActiva;
+            const prevFiltro = tipoCajaFiltro;
+            await checkCajaRapida();
+            await fetchTickets();
+
+            // Notificar al empleado del cambio
+            if (isCajaRapidaActiva && !wasActive) {
+                if (data && data.expirado) {
+                    lanzarAlerta('⏰ Tiempo de Caja Rápida expirado — atiende los tickets restantes', 'warning');
+                } else {
+                    lanzarAlerta(`Modo Caja Rápida activado hasta las ${cajaRapidaHoraFin}`, 'warning');
+                }
+            } else if (!isCajaRapidaActiva && wasActive) {
+                lanzarAlerta('Modo Caja Rápida desactivado', 'success');
+            } else if (prevFiltro === 'normal' && tipoCajaFiltro === null) {
+                // Las cajas normales vuelven a ver todos los tickets
+                lanzarAlerta('Modo Caja Rápida finalizado', 'success');
+            }
         });
     } else {
         console.error("No se pudo conectar al WebSocket");
