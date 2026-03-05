@@ -18,33 +18,48 @@ document.addEventListener("DOMContentLoaded", async function () {
     const audioQueue = [];
     let isPlaying = false;
 
-    // Botón para habilitar audio (recomendado en pantallas)
-    const activarAudioBtn = document.getElementById("activarAudio");
-    if (activarAudioBtn) {
-        activarAudioBtn.addEventListener("click", () => {
-            audioHabilitado = true;
+    // Crear AudioContext al cargar la página (optimistamente)
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    audioContext = new AudioCtx();
+    audioHabilitado = true;
 
-            // Crear y desbloquear AudioContext con gesto del usuario (requerido por iOS Safari)
-            const AudioCtx = window.AudioContext || window.webkitAudioContext;
-            audioContext = new AudioCtx();
+    // Intentar desbloquear AudioContext inmediatamente
+    if (audioContext.state === "suspended") {
+        audioContext.resume().then(() => {
+            console.log("🔊 AudioContext desbloqueado automáticamente al cargar");
+        }).catch(() => {
+            console.log("⏳ AudioContext suspendido, esperando señal de activación...");
+        });
+    }
 
-            // En iOS Safari, el contexto inicia en "suspended" hasta un gesto del usuario
-            if (audioContext.state === "suspended") {
-                audioContext.resume();
-            }
+    // Función para intentar desbloquear el AudioContext
+    function intentarDesbloquearAudio() {
+        if (!audioContext) return;
+        if (audioContext.state === "running") return; // Ya está activo
 
-            // Reproducir un buffer silencioso para desbloquear completamente en iOS
+        audioContext.resume().then(() => {
+            // Reproducir buffer silencioso para desbloquear completamente (iOS)
             const silentBuffer = audioContext.createBuffer(1, 1, 22050);
             const source = audioContext.createBufferSource();
             source.buffer = silentBuffer;
             source.connect(audioContext.destination);
             source.start(0);
-
-            activarAudioBtn.textContent = "🔊 Audio activado";
-            activarAudioBtn.disabled = true;
-            activarAudioBtn.classList.add("opacity-60", "cursor-not-allowed");
+            console.log("🔊 Audio desbloqueado exitosamente");
+        }).catch(err => {
+            console.warn("⚠️ No se pudo desbloquear audio:", err);
         });
     }
+
+    // Fallback: activar con primera interacción del usuario en la página
+    function fallbackInteraccion() {
+        intentarDesbloquearAudio();
+        document.removeEventListener("click", fallbackInteraccion);
+        document.removeEventListener("touchstart", fallbackInteraccion);
+        document.removeEventListener("keydown", fallbackInteraccion);
+    }
+    document.addEventListener("click", fallbackInteraccion);
+    document.addEventListener("touchstart", fallbackInteraccion);
+    document.addEventListener("keydown", fallbackInteraccion);
 
     function reproducirAudio(url) {
         if (!audioHabilitado || !audioContext) return;
@@ -373,6 +388,12 @@ document.addEventListener("DOMContentLoaded", async function () {
         socket.on('tickets_updated', () => {
             console.log('Actualización de tickets recibida por WebSocket');
             cargarTicketsInteligente();
+        });
+
+        // Escuchar señal de activación de audio desde index.html (al generar ticket)
+        socket.on('activar_audio_pantalla', () => {
+            console.log('🔊 Señal de activación de audio recibida vía WebSocket');
+            intentarDesbloquearAudio();
         });
 
         socket.on('disconnect', () => {

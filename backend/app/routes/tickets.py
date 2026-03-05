@@ -150,6 +150,8 @@ def generar_ticket():
 
         # Emitir evento para actualizar las pantallas
         socketio.emit('tickets_updated', namespace='/')
+        # Emitir evento para activar audio en pantalla
+        socketio.emit('activar_audio_pantalla', namespace='/')
 
         return jsonify({
             "mensaje": "Ticket generado exitosamente",
