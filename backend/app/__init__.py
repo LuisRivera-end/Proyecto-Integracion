@@ -14,6 +14,7 @@ from app.routes.tickets import bp as tickets_bp
 from app.routes.employees import bp as employees_bp
 from app.routes.ventanillas import bp as ventanillas_bp
 from app.routes.reporte import bp as reporte_bp
+from app.routes.caja_rapida import bp as caja_rapida_bp
 
 from app.websocket.print_handlers import register_socket_handlers, set_ventanilla_cleanup
 from app.websocket.ventanilla_handlers import register_ventanilla_handlers
@@ -63,5 +64,6 @@ def create_app():
     app.register_blueprint(employees_bp)
     app.register_blueprint(ventanillas_bp)
     app.register_blueprint(reporte_bp)
+    app.register_blueprint(caja_rapida_bp)
     
     return app, socketio

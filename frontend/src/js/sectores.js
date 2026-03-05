@@ -13,6 +13,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   // ──────────────────────────────────────────────
   const socket = io(API_BASE_URL);
   let editingSectorId = null;
+  let ventanillasList = []; // módulo scope para que refreshVentanillasTable pueda actualizarlo
 
   socket.on('connect', () => {
     console.log('🟢 Departamentos WebSocket conectado');
@@ -144,9 +145,20 @@ document.addEventListener("DOMContentLoaded", async () => {
   async function refreshVentanillasTable(idSector) {
     try {
       const ventanillas = await fetchVentanillas(idSector);
+      ventanillasList = ventanillas; // Actualizar la lista global
       const tbody = document.getElementById('ventanillasTableBody');
       if (!tbody) return;
       renderVentanillasRows(tbody, ventanillas);
+
+      // También actualizar checkboxes de caja rápida si existen
+      const crListEl = document.getElementById('caja-rapida-ventanillas-list');
+      if (crListEl && typeof window._renderCajaRapidaCheckboxes === 'function') {
+        // Obtener IDs actualmente seleccionados
+        const currentChecked = Array.from(
+          crListEl.querySelectorAll('.caja-rapida-ventanilla-cb:checked')
+        ).map(cb => parseInt(cb.value));
+        window._renderCajaRapidaCheckboxes(currentChecked);
+      }
     } catch (err) {
       console.error('Error refreshing ventanillas:', err);
     }
@@ -187,9 +199,9 @@ document.addEventListener("DOMContentLoaded", async () => {
         </td>
         <td class="px-4 py-3 text-center">
           <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold
-            ${isActive 
-              ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' 
-              : 'bg-red-100 text-red-700 border border-red-200'}">
+            ${isActive
+          ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+          : 'bg-red-100 text-red-700 border border-red-200'}">
             <span class="w-1.5 h-1.5 rounded-full ${isActive ? 'bg-emerald-500' : 'bg-red-500'}"></span>
             ${isActive ? 'Activa' : 'Inactiva'}
           </span>
@@ -202,11 +214,11 @@ document.addEventListener("DOMContentLoaded", async () => {
             ${hasEmployee && isActive ? 'disabled title="Empleado asignado"' : ''}
             class="toggle-ventanilla-btn px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 
               ${isActive
-                ? (hasEmployee 
-                    ? 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200'
-                    : 'bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 hover:border-red-300 active:scale-95')
-                : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border border-emerald-200 hover:border-emerald-300 active:scale-95'
-              }">
+          ? (hasEmployee
+            ? 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200'
+            : 'bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 hover:border-red-300 active:scale-95')
+          : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border border-emerald-200 hover:border-emerald-300 active:scale-95'
+        }">
             ${isActive ? 'Deshabilitar' : 'Habilitar'}
           </button>
         </td>
@@ -262,7 +274,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (existingForm) existingForm.remove();
 
     // Fetch ventanillas for this sector
-    let ventanillasList = [];
     try {
       ventanillasList = await fetchVentanillas(id);
     } catch (err) {
@@ -278,6 +289,54 @@ document.addEventListener("DOMContentLoaded", async () => {
           <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Nombre del departamento *</label>
           <input id="editSectorNombre" type="text" required value="${nombre}"
             class="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-medium" />
+        </div>
+
+        <!-- Caja Rápida toggle (solo para Cajas) -->
+        <div id="caja-rapida-section" class="hidden">
+          <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Modo Caja Rápida</label>
+          <div class="rounded-xl border border-amber-200 bg-amber-50 p-5">
+            <div class="flex items-center justify-between mb-4">
+              <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center">
+                  <svg class="w-4 h-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                </div>
+                <span class="font-bold text-slate-700 text-sm">Caja Rápida</span>
+              </div>
+              <label class="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" id="caja-rapida-toggle" class="sr-only peer">
+                <div class="w-11 h-6 bg-gray-300 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-amber-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
+              </label>
+            </div>
+            <div id="caja-rapida-config" class="hidden space-y-3">
+             <div class="relative group">
+                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">
+                  Hora de finalización *
+                </label>
+
+                <input 
+                  id="caja-rapida-hora-fin"
+                  type="time"
+                  class="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all font-medium"
+                />
+
+                <div class="absolute left-0 -bottom-8 hidden group-hover:block bg-slate-800 text-white text-xs px-2 py-1 rounded shadow">
+                  Selecciona hora y minutos de finalización Ejemplo: 03:30 PM
+                </div>
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Selecciona las ventanillas *</label>
+                <div id="caja-rapida-ventanillas-list" class="space-y-2 max-h-40 overflow-y-auto">
+                </div>
+              </div>
+              <p id="caja-rapida-status-text" class="text-xs text-amber-700 font-medium"></p>
+              <button type="button" id="caja-rapida-action-btn"
+                class="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-2.5 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg text-sm">
+                Activar Caja Rápida
+              </button>
+            </div>
+          </div>
         </div>
 
         <!-- Ventanillas Table -->
@@ -317,6 +376,146 @@ document.addEventListener("DOMContentLoaded", async () => {
     // Render ventanillas rows
     const tbody = document.getElementById('ventanillasTableBody');
     renderVentanillasRows(tbody, ventanillasList);
+
+    // ── Caja Rápida logic (solo si el sector es "Cajas") ──
+    const nombreLower = nombre.trim().toLowerCase();
+    if (nombreLower === 'cajas') {
+      const section = document.getElementById('caja-rapida-section');
+      const toggle = document.getElementById('caja-rapida-toggle');
+      const config = document.getElementById('caja-rapida-config');
+      const horaFinInput = document.getElementById('caja-rapida-hora-fin');
+      const statusText = document.getElementById('caja-rapida-status-text');
+      const actionBtn = document.getElementById('caja-rapida-action-btn');
+      const ventanillasListEl = document.getElementById('caja-rapida-ventanillas-list');
+
+      section.classList.remove('hidden');
+
+      // Renderizar checkboxes de ventanillas
+      function renderVentanillasCheckboxes(selectedIds = []) {
+        ventanillasListEl.innerHTML = '';
+        ventanillasList.forEach(v => {
+          const isChecked = selectedIds.includes(v.ID_Ventanilla);
+          const isActive = v.Activa === 1;
+          const div = document.createElement('div');
+          div.className = `flex items-center gap-2 rounded-lg px-3 py-2 border ${isActive ? 'bg-white border-slate-200' : 'bg-slate-100 border-slate-200 opacity-60'}`;
+          div.innerHTML = `
+            <input type="checkbox" id="cr-v-${v.ID_Ventanilla}" value="${v.ID_Ventanilla}"
+              class="caja-rapida-ventanilla-cb w-4 h-4 text-amber-500 border-gray-300 rounded focus:ring-amber-400"
+              ${isChecked ? 'checked' : ''} ${!isActive ? 'disabled' : ''}>
+            <label for="cr-v-${v.ID_Ventanilla}" class="text-sm font-medium cursor-pointer flex-1 ${isActive ? 'text-slate-700' : 'text-slate-400 cursor-not-allowed'}">${v.Ventanilla}${!isActive ? ' (Inactiva)' : ''}</label>
+          `;
+          ventanillasListEl.appendChild(div);
+        });
+      }
+
+      // Exponer para que refreshVentanillasTable pueda actualizar checkboxes
+      window._renderCajaRapidaCheckboxes = renderVentanillasCheckboxes;
+
+      // Consultar estado actual
+      async function cargarEstadoCajaRapida() {
+        try {
+          const res = await fetch(`${API_BASE_URL}/api/caja-rapida/estado`);
+          const estado = await res.json();
+
+          if (estado.activo && estado.id_sector === id) {
+            toggle.checked = true;
+            config.classList.remove('hidden');
+            horaFinInput.value = estado.hora_fin || '';
+            renderVentanillasCheckboxes(estado.ventanillas || []);
+            const count = (estado.ventanillas || []).length;
+            statusText.textContent = `Activo desde ${estado.hora_inicio} hasta ${estado.hora_fin} (${count} ventanilla${count !== 1 ? 's' : ''})`;
+            actionBtn.textContent = 'Desactivar Caja Rápida';
+            actionBtn.className = 'w-full bg-red-500 hover:bg-red-600 text-white font-bold py-2.5 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg text-sm';
+          } else {
+            toggle.checked = false;
+            config.classList.add('hidden');
+            statusText.textContent = '';
+            renderVentanillasCheckboxes([]);
+            actionBtn.textContent = 'Activar Caja Rápida';
+            actionBtn.className = 'w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-2.5 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg text-sm';
+          }
+        } catch (err) {
+          console.error('Error al cargar estado Caja Rápida:', err);
+        }
+      }
+
+      cargarEstadoCajaRapida();
+
+      // Toggle muestra/oculta config
+      toggle.addEventListener('change', () => {
+        if (toggle.checked) {
+          config.classList.remove('hidden');
+        } else {
+          config.classList.add('hidden');
+        }
+      });
+
+      // Obtener ventanillas seleccionadas
+      function getSelectedVentanillas() {
+        const checkboxes = ventanillasListEl.querySelectorAll('.caja-rapida-ventanilla-cb:checked');
+        return Array.from(checkboxes).map(cb => parseInt(cb.value));
+      }
+
+      // Botón de acción
+      actionBtn.addEventListener('click', async () => {
+        try {
+          const res = await fetch(`${API_BASE_URL}/api/caja-rapida/estado`);
+          const estado = await res.json();
+
+          if (estado.activo && estado.id_sector === id) {
+            // Desactivar
+            const desRes = await fetch(`${API_BASE_URL}/api/caja-rapida/desactivar`, { method: 'POST' });
+            if (desRes.ok) {
+              lanzarAlerta('Caja Rápida desactivada', 'success');
+              toggle.checked = false;
+              config.classList.add('hidden');
+              cargarEstadoCajaRapida();
+            }
+          } else {
+            // Activar
+            const horaFin = horaFinInput.value;
+            if (!horaFin) {
+              lanzarAlerta('Debes ingresar la hora de finalización', 'error');
+              return;
+            }
+            // Validar que la hora no haya pasado
+            const ahora = new Date();
+            const [h, m] = horaFin.split(':').map(Number);
+            const horaFinDate = new Date();
+            horaFinDate.setHours(h, m, 0, 0);
+            if (horaFinDate <= ahora) {
+              lanzarAlerta('La hora de finalización ya pasó. Selecciona una hora futura.', 'error');
+              return;
+            }
+            const selectedVentanillas = getSelectedVentanillas();
+            if (selectedVentanillas.length === 0) {
+              lanzarAlerta('Debes seleccionar al menos una ventanilla', 'error');
+              return;
+            }
+            const actRes = await fetch(`${API_BASE_URL}/api/caja-rapida/activar`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ id_sector: id, hora_fin: horaFin, ventanillas: selectedVentanillas })
+            });
+            if (actRes.ok) {
+              lanzarAlerta('Caja Rápida activada', 'success');
+              cargarEstadoCajaRapida();
+            } else {
+              const errData = await actRes.json();
+              lanzarAlerta(errData.error || 'Error al activar', 'error');
+            }
+          }
+        } catch (err) {
+          console.error(err);
+          lanzarAlerta('Error de conexión', 'error');
+        }
+      });
+
+      // Escuchar cambios en tiempo real
+      socket.on('caja_rapida_updated', () => {
+        cargarEstadoCajaRapida();
+      });
+    }
 
     // Handle edit form submit (save department name + ventanilla renames)
     document.getElementById('editSectorForm').addEventListener('submit', async (e) => {
