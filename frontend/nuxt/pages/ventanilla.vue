@@ -106,7 +106,6 @@
 </template>
 
 <script setup>
-import { io } from 'socket.io-client'
 
 definePageMeta({ layout: 'default', middleware: 'auth' })
 useHead({ title: 'Panel de Ventanilla' })
@@ -114,6 +113,7 @@ useHead({ title: 'Panel de Ventanilla' })
 const { API_BASE_URL } = useConfig()
 const { lanzarAlerta } = useToast()
 const { logoutWithOverlay } = useAuth()
+const socket = useSocket()
 
 const currentUser = ref(null)
 const currentTicket = ref(null)
@@ -160,6 +160,9 @@ async function fetchTickets() {
   if (!currentUser.value?.sector) return
   try {
     let url = `${API_BASE_URL}/api/tickets?sector=${encodeURIComponent(currentUser.value.sector)}`
+    if (currentUser.value?.id) {
+       url += `&id_empleado=${currentUser.value.id}`
+    }
     if (tipoCajaFiltro.value) {
       url += `&tipo_caja=${tipoCajaFiltro.value}`
     }
@@ -291,6 +294,7 @@ async function checkDrenajeCajaRapida() {
 }
 
 function cerrarSesion() {
+  socket.emit('ventanilla_disconnect')
   logoutWithOverlay()
 }
 
@@ -316,7 +320,6 @@ function handleKeydown(e) {
   }
 }
 
-let socket = null
 
 onMounted(async () => {
   const stored = localStorage.getItem('currentUser')
@@ -327,38 +330,53 @@ onMounted(async () => {
   await recuperarTicketActivo()
   await fetchTickets()
 
+  // --- WebSocket Listeners ---
+  socket.on('tickets_updated', handleTicketsUpdated)
+  socket.on('caja_rapida_updated', handleCajaRapidaUpdated)
+
   document.addEventListener("keydown", handleKeydown)
 
-  socket = io(API_BASE_URL, { transports: ['websocket', 'polling'], rejectUnauthorized: false })
   socket.on('connect', () => {
     if (currentUser.value?.id) socket.emit('ventanilla_register', { id_empleado: currentUser.value.id })
   })
-  socket.on('tickets_updated', async () => {
-    await fetchTickets()
-    await recuperarTicketActivo()
-  })
   
-  socket.on('caja_rapida_updated', async (data) => {
-    const wasActive = isCajaRapidaActiva.value
-    const prevFiltro = tipoCajaFiltro.value
-    await checkCajaRapida()
-    await fetchTickets()
-
-    if (isCajaRapidaActiva.value && !wasActive) {
-      if (data && data.expirado) {
-        lanzarAlerta('Tiempo de Caja Rápida expirado — atiende los tickets restantes', 'warning')
-      } else {
-        lanzarAlerta(`Modo Caja Rápida activado hasta las ${cajaRapidaHoraFin.value}`, 'warning')
-      }
-    } else if (!isCajaRapidaActiva.value && wasActive) {
-      lanzarAlerta('Modo Caja Rápida desactivado', 'success')
-    } else if (prevFiltro === 'normal' && tipoCajaFiltro.value === null) {
-      lanzarAlerta('Modo Caja Rápida finalizado', 'success')
-    }
-  })
+  // Si ya está conectado al montar, emitir inmediatamente
+  if (socket.connected && currentUser.value?.id) {
+    socket.emit('ventanilla_register', { id_empleado: currentUser.value.id })
+  }
 })
-onUnmounted(() => { 
-  if (socket) socket.disconnect() 
+
+async function handleTicketsUpdated() {
+  console.log('🔄 Actualizando tickets por WS...');
+  await fetchTickets()
+  await recuperarTicketActivo()
+}
+
+async function handleCajaRapidaUpdated(data) {
+  console.log('⚡ Cambio detectado en Caja Rápida...');
+  const wasActive = isCajaRapidaActiva.value
+  const prevFiltro = tipoCajaFiltro.value
+  
+  await checkCajaRapida()
+  await fetchTickets()
+
+  if (isCajaRapidaActiva.value && !wasActive) {
+    if (data && data.data && data.data.expirado) {
+      lanzarAlerta('Tiempo de Caja Rápida expirado — atendiendo tickets restantes', 'warning')
+    } else {
+      lanzarAlerta(`Modo Caja Rápida activado hasta las ${cajaRapidaHoraFin.value}`, 'warning')
+    }
+  } else if (!isCajaRapidaActiva.value && wasActive) {
+    lanzarAlerta('Modo Caja Rápida desactivado', 'success')
+  } else if (prevFiltro === 'normal' && tipoCajaFiltro.value === null) {
+    lanzarAlerta('Modo Caja Rápida finalizado', 'success')
+  }
+}
+
+onUnmounted(() => {
   document.removeEventListener("keydown", handleKeydown)
+  socket.off('tickets_updated', handleTicketsUpdated)
+  socket.off('caja_rapida_updated', handleCajaRapidaUpdated)
+  socket.emit('ventanilla_disconnect')
 })
 </script>

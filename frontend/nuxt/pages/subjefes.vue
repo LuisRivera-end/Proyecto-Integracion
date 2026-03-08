@@ -153,13 +153,13 @@
 </template>
 
 <script setup>
-import { io } from 'socket.io-client'
 
 definePageMeta({ layout: 'admin', middleware: 'auth' })
 useHead({ title: 'Gestión de Empleados — Jefe' })
 
 const { API_BASE_URL } = useConfig()
 const { lanzarAlerta } = useToast()
+const socket = useSocket()
 
 const currentUser = ref(null)
 const jefeSector = ref('')
@@ -252,7 +252,6 @@ async function guardarEdicion() {
 
 function cancelarEdicion() { editEmpleado.value = null }
 
-let socket = null
 
 onMounted(() => {
   const u = JSON.parse(localStorage.getItem('currentUser') || 'null')
@@ -263,11 +262,10 @@ onMounted(() => {
   loadEmployees()
   cargarRoles()
 
-  socket = io(API_BASE_URL, { transports: ['websocket', 'polling'], rejectUnauthorized: false })
   socket.on('connect', () => { if (u.id) socket.emit('ventanilla_register', { id_empleado: u.id }) })
   socket.on('ventanilla_status_changed', () => loadEmployees())
 })
-onUnmounted(() => { if (socket) socket.disconnect() })
+onUnmounted(() => { socket.off('ventanilla_status_changed') })
 </script>
 
 <style scoped>

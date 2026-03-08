@@ -2,18 +2,18 @@ from pydantic_settings import BaseSettings
 from pydantic import ConfigDict
 
 class Settings(BaseSettings):
-    DB_HOST: str = "mariadb"
-    MARIADB_USER: str = "root"
-    MARIADB_PASSWORD: str = ""
-    MARIADB_DATABASE: str = "ual_db"
+    DB_HOST: str = "127.0.0.1"
+    MARIADB_USER: str
+    MARIADB_PASSWORD: str
+    MARIADB_DATABASE: str
     
     HOST: str = "0.0.0.0"
     PORT: int = 5000
     DEBUG: bool = True
     
-    SECRET_KEY: str = "B7v!q9#pLz2&XkR8@fH4$yT1*mN6^sD0"
+    SECRET_KEY: str
     
-    model_config = ConfigDict(env_file=".env", extra="ignore")
+    model_config = ConfigDict(env_file=("../.env", ".env"), extra="ignore")
 
 settings = Settings()
 

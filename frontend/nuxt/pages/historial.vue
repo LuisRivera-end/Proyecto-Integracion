@@ -259,12 +259,12 @@
 </template>
 
 <script setup>
-import { io } from 'socket.io-client'
 
 definePageMeta({ layout: 'admin', middleware: 'auth' })
 useHead({ title: 'Historial de Tickets' })
 
 const { API_BASE_URL } = useConfig()
+const socket = useSocket()
 
 const currentUser = ref(null)
 const esSubjefe = ref(false)
@@ -388,7 +388,6 @@ async function generarReporte() {
   } catch (err) { modalError.value = err.message } finally { generando.value = false }
 }
 
-let socket = null
 
 onMounted(async () => {
   currentUser.value = JSON.parse(localStorage.getItem('currentUser') || 'null')
@@ -400,9 +399,8 @@ onMounted(async () => {
   aplicarFiltros()
   cargarTotalTickets()
 
-  socket = io(API_BASE_URL, { transports: ['websocket', 'polling'], rejectUnauthorized: false })
   socket.on('connect', () => { if (currentUser.value?.id) socket.emit('ventanilla_register', { id_empleado: currentUser.value.id }) })
   socket.on('tickets_updated', async () => { await cargarHistorial(); aplicarFiltros(); cargarTotalTickets() })
 })
-onUnmounted(() => { if (socket) socket.disconnect() })
+onUnmounted(() => { socket.off('tickets_updated') })
 </script>

@@ -94,10 +94,12 @@
                   <td class="px-6 py-3.5 text-slate-600 text-sm">{{ emp.Rol || 'N/A' }}</td>
                   <td class="px-6 py-3.5 text-center">
                     <span v-if="emp.ID_ROL === 1" class="text-slate-300 text-xs italic">Sin acciones</span>
-                    <span v-else-if="activosSet.has(emp.ID_Empleado)" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-green-100 text-green-700 border border-green-200">
-                      <span class="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span> En ventanilla
-                    </span>
-                    <button v-else class="edit-btn" @click="abrirEdicion(emp.ID_Empleado)">Editar</button>
+                    <div v-else class="flex flex-col items-center gap-1">
+                      <span v-if="activosSet.has(emp.ID_Empleado)" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-green-100 text-green-700 border border-green-200 mb-1">
+                        <span class="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span> En ventanilla
+                      </span>
+                      <button v-if="!activosSet.has(emp.ID_Empleado)" class="edit-btn" @click="abrirEdicion(emp.ID_Empleado)">Editar</button>
+                    </div>
                   </td>
                 </tr>
               </tbody>
@@ -181,13 +183,13 @@
 </template>
 
 <script setup>
-import { io } from 'socket.io-client'
 
 definePageMeta({ layout: 'admin', middleware: 'auth' })
 useHead({ title: 'Administración — Empleados' })
 
 const { API_BASE_URL } = useConfig()
 const { lanzarAlerta } = useToast()
+const socket = useSocket()
 
 const empleados = ref([])
 const activosSet = ref(new Set())
@@ -204,7 +206,6 @@ const editForm = reactive({ nombre1: '', nombre2: '', apellido1: '', apellido2: 
 const editVentanillasDisp = ref([])
 const editSectoresDisp = ref([])
 
-let socket = null
 
 const nombreCompleto = (emp) => [emp.nombre1, emp.nombre2 || '', emp.Apellido1, emp.Apellido2 || ''].filter(n => n.trim() !== '').join(' ')
 
@@ -261,14 +262,6 @@ async function agregarEmpleado() {
 }
 
 async function abrirEdicion(id) {
-  try {
-    const activosRes = await fetch(`${API_BASE_URL}/api/employees/activos`)
-    if (activosRes.ok) {
-      const activos = await activosRes.json()
-      if (activos.includes(id)) { lanzarAlerta('No se puede editar, el empleado está en ventanilla', 'warning'); return }
-    }
-  } catch {}
-
   editAccordion.value?.open()
 
   try {
@@ -327,14 +320,12 @@ onMounted(() => {
   loadEmployees()
   cargarRoles()
 
-  socket = io(API_BASE_URL, { transports: ['websocket', 'polling'], rejectUnauthorized: false })
   socket.on('connect', () => {
-    const u = JSON.parse(localStorage.getItem('currentUser') || 'null')
-    if (u?.id) socket.emit('ventanilla_register', { id_empleado: u.id })
+    loadEmployees() // Refrescar al reconectar
   })
   socket.on('ventanilla_status_changed', () => loadEmployees())
 })
-onUnmounted(() => { if (socket) socket.disconnect() })
+onUnmounted(() => { socket.off('ventanilla_status_changed') })
 </script>
 
 <style scoped>

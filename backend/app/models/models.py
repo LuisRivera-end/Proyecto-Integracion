@@ -29,7 +29,7 @@ class Empleado(Base):
     Nombre = Column(String(50), nullable=False)
     Apellidos = Column(String(50), nullable=False)
     Usuario = Column(String(20), nullable=False, unique=True)
-    Contrasena = Column(String(100), nullable=False)
+    Passwd = Column(String(100), nullable=False)
     ID_ROL = Column(Integer, nullable=False)
     ID_Estado = Column(Integer, default=1)
 

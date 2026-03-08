@@ -1,25 +1,19 @@
 from datetime import datetime
-from app.models.database import get_db_connection
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import text
 from functools import wraps
-from flask import session, jsonify
 import pytz
 import subprocess
 import os
 import uuid
 import threading
 
-def get_sector_prefix(sector_nombre):
+async def get_sector_prefix(sector_nombre: str, db: AsyncSession):
     """Genera un prefijo único para el sector basándose en su nombre.
     Consulta todos los sectores en orden de creación (ID) y asigna
     prefijos determinísticamente para evitar colisiones."""
-    conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)
-    try:
-        cursor.execute("SELECT Sector FROM Sectores ORDER BY ID_Sector")
-        sectores = [row["Sector"] for row in cursor.fetchall()]
-    finally:
-        cursor.close()
-        conn.close()
+    result = await db.execute(text("SELECT Sector FROM Sectores ORDER BY ID_Sector"))
+    sectores = [row[0] for row in result.fetchall()]
 
     asignados = {}
     for nombre in sectores:
@@ -59,33 +53,25 @@ def _gen_prefix(nombre, usados):
 
     return "X"
 
-def generar_folio_unico(sector_nombre):
-    prefix = get_sector_prefix(sector_nombre)
+async def generar_folio_unico(sector_nombre: str, db: AsyncSession):
+    prefix = await get_sector_prefix(sector_nombre, db)
     prefix_len = len(prefix)
     
     # Obtener la fecha actual en zona horaria de México
     tz_mexico = pytz.timezone('America/Mexico_City')
     hoy = datetime.now(tz_mexico).strftime('%Y-%m-%d')
         
-    conn = get_db_connection()
-    cursor = conn.cursor()
+    result = await db.execute(text("""
+        SELECT MAX(CAST(SUBSTRING(Folio, :prefix_len + 1) AS UNSIGNED)) AS max_num
+        FROM Turno
+        WHERE Folio LIKE CONCAT(:prefix, '%%') AND DATE(Fecha_Ticket) = :hoy
+    """), {"prefix_len": prefix_len, "prefix": prefix, "hoy": hoy})
     
-    try:
-        # Obtener el número máximo de hoy entre los folios de este sector
-        cursor.execute("""
-            SELECT MAX(CAST(SUBSTRING(Folio, %s + 1) AS UNSIGNED)) AS max_num
-            FROM Turno
-            WHERE Folio LIKE CONCAT(%s, '%%') AND DATE(Fecha_Ticket) = %s
-        """, (prefix_len, prefix, hoy))
-        
-        result = cursor.fetchone()
-        max_num = max(result[0], 9) if result and result[0] is not None else 9
-        
-        folio = prefix + str(max_num + 1)
-        return folio
-    finally:
-        cursor.close()
-        conn.close()
+    row = result.fetchone()
+    max_num = max(row[0], 9) if row and row[0] is not None else 9
+    
+    folio = prefix + str(max_num + 1)
+    return folio
 
 def obtener_fecha_actual():
     tz_mexico = pytz.timezone('America/Mexico_City')

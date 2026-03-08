@@ -9,3 +9,6 @@ requests
 python-dotenv
 matplotlib
 gTTS
+pytz==2024.1
+fpdf2
+itsdangerous

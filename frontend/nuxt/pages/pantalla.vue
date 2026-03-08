@@ -126,12 +126,12 @@
 </template>
 
 <script setup>
-import { io } from 'socket.io-client'
 
 definePageMeta({ layout: 'default' })
 useHead({ title: 'Pantalla de Turnos' })
 
 const { API_BASE_URL } = useConfig()
+const socket = useSocket()
 
 const allTickets = ref([])
 const audioActivado = ref(false)
@@ -260,18 +260,16 @@ async function cargarTickets() {
   }
 }
 
-let socket = null
 
 onMounted(() => {
   cargarTickets()
-  socket = io(API_BASE_URL, { transports: ['websocket', 'polling'], rejectUnauthorized: false })
   socket.on('connect', () => {
     const u = JSON.parse(localStorage.getItem('currentUser') || 'null')
     if (u?.id) socket.emit('ventanilla_register', { id_empleado: u.id })
   })
   socket.on('tickets_updated', () => cargarTickets())
 })
-onUnmounted(() => { if (socket) socket.disconnect() })
+onUnmounted(() => { socket.off('tickets_updated') })
 </script>
 
 <style scoped>
