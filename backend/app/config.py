@@ -1,13 +1,21 @@
-import os
-from dotenv import load_dotenv
+from pydantic_settings import BaseSettings
+from pydantic import ConfigDict
 
-load_dotenv()
+class Settings(BaseSettings):
+    DB_HOST: str = "127.0.0.1"
+    MARIADB_USER: str
+    MARIADB_PASSWORD: str
+    MARIADB_DATABASE: str
+    
+    HOST: str = "0.0.0.0"
+    PORT: int = 5000
+    DEBUG: bool = True
+    
+    SECRET_KEY: str
+    
+    model_config = ConfigDict(env_file=("../.env", ".env"), extra="ignore")
 
-class Config:
-    DB_HOST = os.getenv("DB_HOST", "mariadb")
-    DB_USER = os.getenv("MARIADB_USER")
-    DB_PASSWORD = os.getenv("MARIADB_PASSWORD")
-    DB_NAME = os.getenv("MARIADB_DATABASE")
-    HOST = os.getenv("HOST", "0.0.0.0")
-    PORT = os.getenv("PORT", 5000)
-    DEBUG = os.getenv("DEBUG", True)
+settings = Settings()
+
+# Construir URL de SQLAlchemy
+DATABASE_URL = f"mysql+asyncmy://{settings.MARIADB_USER}:{settings.MARIADB_PASSWORD}@{settings.DB_HOST}/{settings.MARIADB_DATABASE}"

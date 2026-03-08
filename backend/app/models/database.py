@@ -1,17 +1,23 @@
-import pymysql
-from app.config import Config
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
+from sqlalchemy.orm import declarative_base
+from app.config import DATABASE_URL
 
-def get_db_connection():
-    class DictConnection(pymysql.connections.Connection):
-        def cursor(self, dictionary=False):
-            if dictionary:
-                return super().cursor(pymysql.cursors.DictCursor)
-            return super().cursor()
+engine = create_async_engine(
+    DATABASE_URL,
+    echo=False,  # Cambiar a True para ver las queries en consola
+    pool_recycle=3600
+)
 
-    return DictConnection(
-        host=Config.DB_HOST,
-        user=Config.DB_USER,
-        password=Config.DB_PASSWORD,
-        database=Config.DB_NAME,
-        autocommit=False
-    )
+AsyncSessionLocal = async_sessionmaker(
+    engine,
+    class_=AsyncSession,
+    expire_on_commit=False,
+    autoflush=False
+)
+
+Base = declarative_base()
+
+# Dependencia para inyectar en las rutas FastAPI
+async def get_db():
+    async with AsyncSessionLocal() as session:
+        yield session

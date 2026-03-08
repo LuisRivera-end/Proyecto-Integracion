@@ -1,16 +1,14 @@
 # backend/requirements.txt
-Flask
-PyMySQL
-flask_cors
-FPDF
+fastapi
+pydantic
+pydantic-settings
+sqlalchemy[asyncio]
+asyncmy
+uvicorn[standard]
 requests
-Flask-SocketIO
-python-socketio
-gevent
-gevent-websocket
-flask_session
-pytz
 python-dotenv
-gunicorn
 matplotlib
 gTTS
+pytz==2024.1
+fpdf2
+itsdangerous

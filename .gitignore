@@ -36,3 +36,5 @@ Thumbs.db
 #.exe
 PrintClient.exe
 dist/
+.output/
+.nuxt/
