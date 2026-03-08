@@ -41,7 +41,7 @@
               <button
                 v-for="sector in sectores"
                 :key="sector.id"
-                @click="generarTicket(sector.id, sector.nombre)"
+                @click="handleSectorClick(sector)"
                 class="bg-gradient-to-br from-slate-600 to-emerald-600 hover:from-slate-700 hover:to-emerald-700 text-white font-bold py-5 px-4 rounded-2xl transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1 active:scale-95"
               >
                 {{ sector.nombre }}
@@ -109,6 +109,55 @@
         <div v-if="errorMessage" class="mt-4 bg-red-50 border border-red-300 text-red-700 px-4 py-3 rounded-xl">
           <p>{{ errorMessage }}</p>
         </div>
+
+        <!-- Modal Selección Caja Normal / Caja Rápida -->
+        <div v-if="mostrarModalCaja" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div class="bg-white/95 backdrop-blur-sm rounded-3xl shadow-2xl p-10 border border-slate-200 max-w-lg w-full mx-4">
+            <div class="text-center mb-8">
+              <div class="inline-flex items-center justify-center w-16 h-16 bg-amber-100 rounded-full mb-4">
+                <svg class="w-8 h-8 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+              </div>
+              <h2 class="text-2xl font-bold text-slate-800 mb-2">Tipo de Atención</h2>
+              <p class="text-slate-500 text-sm">Selecciona el tipo de caja que necesitas</p>
+            </div>
+
+            <div class="space-y-4">
+              <button @click="onCajaNormal" class="w-full bg-emerald-50 hover:bg-emerald-100 border-2 border-emerald-200 hover:border-emerald-400 text-left p-5 rounded-2xl transition-all duration-200 group cursor-pointer">
+                <div class="flex items-center gap-4">
+                  <div class="w-12 h-12 rounded-xl bg-emerald-200 flex items-center justify-center flex-shrink-0 group-hover:bg-emerald-300 transition-colors">
+                    <svg class="w-6 h-6 text-emerald-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p class="font-bold text-slate-800 text-lg">Caja Normal</p>
+                    <p class="text-slate-500 text-sm mt-0.5">Seleccione esta opción para realizar su pago directamente en ventanilla</p>
+                  </div>
+                </div>
+              </button>
+
+              <button @click="onCajaRapida" class="w-full bg-amber-50 hover:bg-amber-100 border-2 border-amber-200 hover:border-amber-400 text-left p-5 rounded-2xl transition-all duration-200 group cursor-pointer">
+                <div class="flex items-center gap-4">
+                  <div class="w-12 h-12 rounded-xl bg-amber-200 flex items-center justify-center flex-shrink-0 group-hover:bg-amber-300 transition-colors">
+                    <svg class="w-6 h-6 text-amber-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p class="font-bold text-slate-800 text-lg">Caja Rápida</p>
+                    <p class="text-slate-500 text-sm mt-0.5">Seleccione esta opción si ya realizó su pago por transferencia y solo requiere recoger su recibo</p>
+                  </div>
+                </div>
+              </button>
+            </div>
+
+            <button @click="onCajaCancel" class="w-full mt-6 bg-slate-100 hover:bg-slate-200 text-slate-600 font-semibold py-3 rounded-xl transition-all duration-200 cursor-pointer">
+              Cancelar
+            </button>
+          </div>
+        </div>
       </div>
 
       <ClientOnly>
@@ -134,6 +183,8 @@ const ticketFolio = ref('')
 const ticketSector = ref('')
 const ticketFecha = ref('')
 const errorMessage = ref('')
+const mostrarModalCaja = ref(false)
+let currentSectorForCaja = null
 let lastTicketData = null
 
 // Load sectors
@@ -153,12 +204,52 @@ const cargarSectores = async () => {
   }
 }
 
-const generarTicket = async (sectorId, sectorNombre) => {
+const handleSectorClick = async (sector) => {
+  if (sector.nombre.toLowerCase() === 'cajas') {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/caja-rapida/estado`)
+      const estado = await res.json()
+      
+      if (estado.activo) {
+        currentSectorForCaja = sector
+        mostrarModalCaja.value = true
+        return
+      }
+    } catch (err) {
+      console.error('Error al verificar Caja Rápida:', err)
+    }
+  }
+  
+  generarTicket(sector.id, sector.nombre, 'normal')
+}
+
+const onCajaNormal = () => {
+  mostrarModalCaja.value = false
+  if (currentSectorForCaja) {
+    generarTicket(currentSectorForCaja.id, currentSectorForCaja.nombre, 'normal')
+    currentSectorForCaja = null
+  }
+}
+
+const onCajaRapida = () => {
+  mostrarModalCaja.value = false
+  if (currentSectorForCaja) {
+    generarTicket(currentSectorForCaja.id, currentSectorForCaja.nombre, 'rapida')
+    currentSectorForCaja = null
+  }
+}
+
+const onCajaCancel = () => {
+  mostrarModalCaja.value = false
+  currentSectorForCaja = null
+}
+
+const generarTicket = async (sectorId, sectorNombre, tipoCaja = 'normal') => {
   try {
     const res = await fetch(`${API_BASE_URL}/api/ticket`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sector: sectorNombre }),
+      body: JSON.stringify({ sector: sectorNombre, tipo_caja: tipoCaja }),
       credentials: 'include',
     })
     const data = await res.json()

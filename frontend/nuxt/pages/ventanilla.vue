@@ -23,6 +23,21 @@
 
           <!-- Main Card -->
           <div class="bg-white/95 backdrop-blur-sm rounded-3xl shadow-xl p-8 border border-slate-200">
+            <!-- Banner Caja Rápida -->
+            <div v-if="cajaRapidaVisible"
+                class="mb-6 rounded-xl border border-amber-300 bg-gradient-to-r from-amber-50 to-amber-100 p-4 items-center gap-3 shadow-sm flex">
+                <div class="w-10 h-10 rounded-lg bg-amber-200 flex items-center justify-center flex-shrink-0">
+                    <svg class="w-5 h-5 text-amber-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                </div>
+                <div>
+                    <p class="font-bold text-amber-800 text-sm">Modo Caja Rápida Activo</p>
+                    <p class="text-xs text-amber-600 font-medium">{{ cajaRapidaBannerHora }}</p>
+                </div>
+            </div>
+
             <button @click="llamarSiguiente" :disabled="!!currentTicket" :class="[
               'w-full text-white text-lg font-bold py-3 mb-6 rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl',
               currentTicket ? 'bg-gray-400 opacity-50 cursor-not-allowed' : 'bg-gradient-to-r from-slate-500 to-emerald-600 hover:from-slate-700 hover:to-emerald-700'
@@ -115,6 +130,13 @@ const userSectorDisplay = computed(() => {
 })
 const userName = computed(() => currentUser.value?.username || '')
 
+const isCajaRapidaActiva = ref(false)
+const cajaRapidaHoraFin = ref(null)
+const tipoCajaFiltro = ref(null) // null = sin filtro, 'rapida' = solo rápida, 'normal' = solo normal
+
+const cajaRapidaVisible = computed(() => isCajaRapidaActiva.value)
+const cajaRapidaBannerHora = ref('')
+
 function mostrarConfirmacion(msg, titulo = 'Confirmación') {
   return new Promise((resolve) => {
     confirmTitle.value = titulo
@@ -137,7 +159,11 @@ async function recuperarTicketActivo() {
 async function fetchTickets() {
   if (!currentUser.value?.sector) return
   try {
-    const res = await fetch(`${API_BASE_URL}/api/tickets?sector=${encodeURIComponent(currentUser.value.sector)}`)
+    let url = `${API_BASE_URL}/api/tickets?sector=${encodeURIComponent(currentUser.value.sector)}`
+    if (tipoCajaFiltro.value) {
+      url += `&tipo_caja=${tipoCajaFiltro.value}`
+    }
+    const res = await fetch(url)
     if (!res.ok) {
       pendientes.value = []
       return
@@ -163,9 +189,14 @@ async function fetchTickets() {
 async function llamarSiguiente() {
   if (!currentUser.value?.ventanilla || currentTicket.value) return
   try {
+    const bodyData = { id_ventanilla: currentUser.value.ventanilla.id, id_empleado: currentUser.value.id }
+    if (tipoCajaFiltro.value) {
+      bodyData.tipo_caja = tipoCajaFiltro.value
+    }
+
     const res = await fetch(`${API_BASE_URL}/api/tickets/llamar-siguiente`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id_ventanilla: currentUser.value.ventanilla.id, id_empleado: currentUser.value.id })
+      body: JSON.stringify(bodyData)
     })
     if (!res.ok) { const e = await res.json(); throw new Error(e.error) }
     const data = await res.json()
@@ -183,6 +214,10 @@ async function completarTicket() {
     currentTicket.value = null
     await fetchTickets()
     lanzarAlerta(`Ticket ${f} completado exitosamente`, 'success')
+
+    if (tipoCajaFiltro.value === 'rapida') {
+      await checkDrenajeCajaRapida()
+    }
   } catch (err) { lanzarAlerta(err.message || 'Error', 'error') }
 }
 
@@ -197,22 +232,102 @@ async function cancelarTicket() {
     currentTicket.value = null
     await fetchTickets()
     lanzarAlerta(`Ticket ${f} cancelado`, 'success')
+
+    if (tipoCajaFiltro.value === 'rapida') {
+      await checkDrenajeCajaRapida()
+    }
   } catch (err) { lanzarAlerta(err.message || 'Error', 'error') }
+}
+
+async function checkCajaRapida() {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/caja-rapida/estado`)
+    const estado = await res.json()
+
+    const miVentanillaId = currentUser.value?.ventanilla ? currentUser.value.ventanilla.id : null
+
+    // Mi ventanilla está en modo rápida (activo O drenando)
+    const esMiVentanillaActiva = (estado.activo || estado.expirado) && miVentanillaId &&
+        Array.isArray(estado.ventanillas) && estado.ventanillas.includes(miVentanillaId)
+
+    // Caja rápida activa en mi sector pero NO en mi ventanilla
+    const cajaRapidaActivaEnMiSector = (estado.activo || estado.expirado) && currentUser.value?.sector &&
+        currentUser.value.sector.toLowerCase() === 'cajas'
+
+    if (esMiVentanillaActiva) {
+      isCajaRapidaActiva.value = true
+      tipoCajaFiltro.value = 'rapida'
+      cajaRapidaHoraFin.value = estado.hora_fin
+      if (estado.expirado) {
+        cajaRapidaBannerHora.value = `Tiempo expirado — atendiendo tickets restantes`
+      } else {
+        cajaRapidaBannerHora.value = `Hasta las ${estado.hora_fin}`
+      }
+    } else if (cajaRapidaActivaEnMiSector) {
+      isCajaRapidaActiva.value = false
+      tipoCajaFiltro.value = 'normal'
+      cajaRapidaHoraFin.value = null
+    } else {
+      isCajaRapidaActiva.value = false
+      tipoCajaFiltro.value = null
+      cajaRapidaHoraFin.value = null
+    }
+  } catch (err) {
+    console.error('Error al verificar Caja Rápida:', err)
+  }
+}
+
+async function checkDrenajeCajaRapida() {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/caja-rapida/check-drenaje`, { method: 'POST' })
+    const data = await res.json()
+    if (!data.drenando) {
+      await checkCajaRapida()
+      await fetchTickets()
+    }
+  } catch (err) {
+    console.error('Error en check drenaje:', err)
+  }
 }
 
 function cerrarSesion() {
   logoutWithOverlay()
 }
 
+function handleKeydown(e) {
+  if (showConfirm.value) {
+    e.preventDefault()
+    e.stopPropagation()
+    return
+  }
+  
+  if (e.key === 'Enter') {
+    if (!currentTicket.value) {
+      e.preventDefault()
+      llamarSiguiente()
+    }
+  }
+  
+  if (e.key === 'f' || e.key === 'F') {
+    if (currentTicket.value) {
+      e.preventDefault()
+      completarTicket()
+    }
+  }
+}
+
 let socket = null
 
-onMounted(() => {
+onMounted(async () => {
   const stored = localStorage.getItem('currentUser')
   if (!stored) { navigateTo('/login'); return }
   currentUser.value = JSON.parse(stored)
 
-  recuperarTicketActivo()
-  fetchTickets()
+  await checkCajaRapida()
+  await recuperarTicketActivo()
+  await fetchTickets()
+
+  document.addEventListener("keydown", handleKeydown)
 
   socket = io(API_BASE_URL, { transports: ['websocket', 'polling'], rejectUnauthorized: false })
   socket.on('connect', () => {
@@ -222,6 +337,28 @@ onMounted(() => {
     await fetchTickets()
     await recuperarTicketActivo()
   })
+  
+  socket.on('caja_rapida_updated', async (data) => {
+    const wasActive = isCajaRapidaActiva.value
+    const prevFiltro = tipoCajaFiltro.value
+    await checkCajaRapida()
+    await fetchTickets()
+
+    if (isCajaRapidaActiva.value && !wasActive) {
+      if (data && data.expirado) {
+        lanzarAlerta('Tiempo de Caja Rápida expirado — atiende los tickets restantes', 'warning')
+      } else {
+        lanzarAlerta(`Modo Caja Rápida activado hasta las ${cajaRapidaHoraFin.value}`, 'warning')
+      }
+    } else if (!isCajaRapidaActiva.value && wasActive) {
+      lanzarAlerta('Modo Caja Rápida desactivado', 'success')
+    } else if (prevFiltro === 'normal' && tipoCajaFiltro.value === null) {
+      lanzarAlerta('Modo Caja Rápida finalizado', 'success')
+    }
+  })
 })
-onUnmounted(() => { if (socket) socket.disconnect() })
+onUnmounted(() => { 
+  if (socket) socket.disconnect() 
+  document.removeEventListener("keydown", handleKeydown)
+})
 </script>
