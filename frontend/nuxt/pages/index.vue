@@ -42,7 +42,7 @@
                 v-for="sector in sectores"
                 :key="sector.id"
                 @click="handleSectorClick(sector)"
-                class="bg-gradient-to-br from-slate-600 to-emerald-600 hover:from-slate-700 hover:to-emerald-700 text-white font-bold py-5 px-4 rounded-2xl transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1 active:scale-95"
+                class="w-full bg-[#a1d99b] border border-slate-200 text-slate-700 font-semibold px-5 py-5 rounded-xl transition-all duration-200 shadow-sm hover:bg-emerald-600 hover:text-white hover:border-emerald-600 hover:shadow-md transform hover:-translate-y-0.5 min-h-[64px] text-lg cursor-pointer flex items-center justify-center"
               >
                 {{ sector.nombre }}
               </button>
