@@ -26,7 +26,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 if (sectores.length % 2 !== 0 && i === sectores.length - 1) {
                     btn.classList.add("col-span-2", "justify-self-center", "max-w-[calc(50%-0.5rem)]");
                 }
-                btn.addEventListener("click", () => generarTicket(s.Sector, btn));
+                btn.addEventListener("click", () => handleSectorClick(s.Sector, btn));
                 sectorButtonsContainer.appendChild(btn);
             });
         } catch (error) {
@@ -39,7 +39,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     cargarSectores();
 
     // Generar ticket directamente al hacer clic en un botón de sector
-    async function generarTicket(sector, btn) {
+    async function generarTicket(sector, btn, tipoCaja = 'normal') {
         // Deshabilitar todos los botones mientras se genera el ticket
         const allButtons = sectorButtonsContainer.querySelectorAll("button");
         allButtons.forEach(b => b.disabled = true);
@@ -51,7 +51,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             const response = await fetch(`${API_BASE_URL}/api/ticket`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ sector })
+                body: JSON.stringify({ sector, tipo_caja: tipoCaja })
             });
 
             const data = await response.json();
@@ -65,7 +65,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             if (data.fecha) document.getElementById("result-fecha").textContent = data.fecha;
 
             // Guardar el tipo de ticket en un atributo para usar en impresión/descarga
-            document.getElementById("ticket-result").setAttribute("data-ticket-type", "normal");
+            document.getElementById("ticket-result").setAttribute("data-ticket-type", tipoCaja);
 
             // Cambiar vistas
             formContainer.classList.add("hidden");
@@ -78,6 +78,64 @@ document.addEventListener("DOMContentLoaded", async () => {
             allButtons.forEach(b => b.disabled = false);
             btn.textContent = originalText;
         }
+    }
+
+    // Manejo de selección de sector con verificación de Caja Rápida
+    async function handleSectorClick(sector, btn) {
+        // Solo verificar Caja Rápida si el sector es "Cajas"
+        if (sector.toLowerCase() === 'cajas') {
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/caja-rapida/estado`);
+                const estado = await res.json();
+
+                if (estado.activo) {
+                    // Mostrar modal de selección
+                    mostrarModalCaja(sector, btn);
+                    return;
+                }
+            } catch (err) {
+                console.error('Error al verificar Caja Rápida:', err);
+            }
+        }
+
+        // Flujo normal
+        generarTicket(sector, btn, 'normal');
+    }
+
+    function mostrarModalCaja(sector, btn) {
+        const modal = document.getElementById('caja-modal');
+        const btnNormal = document.getElementById('caja-modal-normal');
+        const btnRapida = document.getElementById('caja-modal-rapida');
+        const btnCancel = document.getElementById('caja-modal-cancel');
+
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+
+        function cleanup() {
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            btnNormal.removeEventListener('click', onNormal);
+            btnRapida.removeEventListener('click', onRapida);
+            btnCancel.removeEventListener('click', onCancel);
+        }
+
+        function onNormal() {
+            cleanup();
+            generarTicket(sector, btn, 'normal');
+        }
+
+        function onRapida() {
+            cleanup();
+            generarTicket(sector, btn, 'rapida');
+        }
+
+        function onCancel() {
+            cleanup();
+        }
+
+        btnNormal.addEventListener('click', onNormal);
+        btnRapida.addEventListener('click', onRapida);
+        btnCancel.addEventListener('click', onCancel);
     }
 
     function showError(message) {

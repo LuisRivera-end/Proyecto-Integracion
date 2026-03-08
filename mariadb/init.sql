@@ -102,6 +102,7 @@ CREATE TABLE Turno (
     Folio VARCHAR(10) NOT NULL,
     ID_Estados INT(1) NOT NULL,
     Fecha_Ultimo_Estado DATETIME(3) NOT NULL,
+    Tipo_Caja VARCHAR(10) NOT NULL DEFAULT 'normal',
     FOREIGN KEY (ID_Sector) REFERENCES Sectores (ID_Sector),
     FOREIGN KEY (ID_Ventanilla) REFERENCES Ventanillas (ID_Ventanilla),
     FOREIGN KEY (ID_Estados) REFERENCES Estados_Turno (ID_Estado)
