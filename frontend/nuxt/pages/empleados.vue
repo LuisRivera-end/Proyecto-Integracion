@@ -190,12 +190,15 @@ useHead({ title: 'Administración — Empleados' })
 const { API_BASE_URL } = useConfig()
 const { lanzarAlerta } = useToast()
 const socket = useSocket()
+const { getCurrentUser, getSessionToken } = useAuth()
+const currentUser = ref(null)
 
 const empleados = ref([])
 const activosSet = ref(new Set())
 const roles = ref([])
 const sectoresForm = ref([])
 const editAccordion = ref(null)
+
 
 // Add form
 const form = reactive({ nombre1: '', nombre2: '', apellido1: '', apellido2: '', usuario: '', passwd: '', id_rol: '', id_sector: 0 })
@@ -211,15 +214,22 @@ const nombreCompleto = (emp) => [emp.nombre1, emp.nombre2 || '', emp.Apellido1, 
 
 async function loadEmployees() {
   try {
+    if (!getSessionToken()) return
+
     const [empRes, activosRes] = await Promise.all([
       fetch(`${API_BASE_URL}/api/employees/full`),
       fetch(`${API_BASE_URL}/api/employees/activos`)
     ])
+
     if (!empRes.ok) throw new Error()
+
     empleados.value = await empRes.json()
     const activos = activosRes.ok ? await activosRes.json() : []
     activosSet.value = new Set(activos)
-  } catch { lanzarAlerta('Error al cargar empleados', 'error') }
+
+  } catch {
+    lanzarAlerta('Error al cargar empleados', 'error')
+  }
 }
 
 async function cargarRoles() {
@@ -316,16 +326,36 @@ async function guardarEdicion() {
 
 function cancelarEdicion() { editEmpleado.value = null }
 
-onMounted(() => {
-  loadEmployees()
-  cargarRoles()
+  let onConnect
+  let onStatusChanged
 
-  socket.on('connect', () => {
-    loadEmployees() // Refrescar al reconectar
+  onMounted(() => {
+    currentUser.value = getCurrentUser()
+
+    onConnect = () => {
+      const token = getSessionToken()
+      if (currentUser.value?.id && token) {
+        socket.emit('ventanilla_register', {
+          id_empleado: currentUser.value.id,
+          session_token: token
+        })
+      }
+
+      loadEmployees()
+    }
+
+    onStatusChanged = () => {
+      loadEmployees()
+    }
+
+    socket.on('connect', onConnect)
+    socket.on('ventanilla_status_changed', onStatusChanged)
   })
-  socket.on('ventanilla_status_changed', () => loadEmployees())
-})
-onUnmounted(() => { socket.off('ventanilla_status_changed') })
+
+  onUnmounted(() => {
+    socket.off('connect', onConnect)
+    socket.off('ventanilla_status_changed', onStatusChanged)
+  })
 </script>
 
 <style scoped>

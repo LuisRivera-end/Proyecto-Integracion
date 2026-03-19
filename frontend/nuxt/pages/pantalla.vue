@@ -132,6 +132,7 @@ useHead({ title: 'Pantalla de Turnos' })
 
 const { API_BASE_URL } = useConfig()
 const socket = useSocket()
+const { getCurrentUser, getSessionToken } = useAuth()
 
 const allTickets = ref([])
 const audioActivado = ref(false)
@@ -264,8 +265,8 @@ async function cargarTickets() {
 onMounted(() => {
   cargarTickets()
   socket.on('connect', () => {
-    const u = JSON.parse(localStorage.getItem('currentUser') || 'null')
-    if (u?.id) socket.emit('ventanilla_register', { id_empleado: u.id })
+    const u = getCurrentUser()
+    if (u?.id) socket.emit('ventanilla_register', { id_empleado: u.id, session_token: getSessionToken() })
   })
   socket.on('tickets_updated', () => cargarTickets())
 })

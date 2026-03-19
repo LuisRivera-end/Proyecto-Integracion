@@ -265,6 +265,8 @@ useHead({ title: 'Historial de Tickets' })
 
 const { API_BASE_URL } = useConfig()
 const socket = useSocket()
+const { getCurrentUser, getSessionToken } = useAuth()
+const { lanzarAlerta } = useToast()
 
 const currentUser = ref(null)
 const esSubjefe = ref(false)
@@ -389,8 +391,10 @@ async function generarReporte() {
 }
 
 
+
+
 onMounted(async () => {
-  currentUser.value = JSON.parse(localStorage.getItem('currentUser') || 'null')
+  currentUser.value = getCurrentUser()
   esSubjefe.value = currentUser.value?.rol === 6
   sectorSubjefe.value = esSubjefe.value ? currentUser.value.sector : null
 
@@ -399,8 +403,12 @@ onMounted(async () => {
   aplicarFiltros()
   cargarTotalTickets()
 
-  socket.on('connect', () => { if (currentUser.value?.id) socket.emit('ventanilla_register', { id_empleado: currentUser.value.id }) })
+  socket.on('connect', () => { if (currentUser.value?.id) socket.emit('ventanilla_register', { id_empleado: currentUser.value.id, session_token: getSessionToken() }) })
   socket.on('tickets_updated', async () => { await cargarHistorial(); aplicarFiltros(); cargarTotalTickets() })
+
 })
-onUnmounted(() => { socket.off('tickets_updated') })
+onUnmounted(() => {
+  socket.off('tickets_updated')
+
+})
 </script>

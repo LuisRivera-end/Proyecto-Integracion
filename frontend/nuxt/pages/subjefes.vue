@@ -160,6 +160,7 @@ useHead({ title: 'Gestión de Empleados — Jefe' })
 const { API_BASE_URL } = useConfig()
 const { lanzarAlerta } = useToast()
 const socket = useSocket()
+const { getCurrentUser, getSessionToken } = useAuth()
 
 const currentUser = ref(null)
 const jefeSector = ref('')
@@ -253,8 +254,10 @@ async function guardarEdicion() {
 function cancelarEdicion() { editEmpleado.value = null }
 
 
+
+
 onMounted(() => {
-  const u = JSON.parse(localStorage.getItem('currentUser') || 'null')
+  const u = getCurrentUser()
   if (!u || u.rol !== 6) { navigateTo('/login'); return }
   currentUser.value = u
   jefeSector.value = u.sector || 'Sin Sector'
@@ -262,10 +265,14 @@ onMounted(() => {
   loadEmployees()
   cargarRoles()
 
-  socket.on('connect', () => { if (u.id) socket.emit('ventanilla_register', { id_empleado: u.id }) })
+  socket.on('connect', () => { if (u.id) socket.emit('ventanilla_register', { id_empleado: u.id, session_token: getSessionToken() }) })
   socket.on('ventanilla_status_changed', () => loadEmployees())
+
 })
-onUnmounted(() => { socket.off('ventanilla_status_changed') })
+onUnmounted(() => {
+  socket.off('ventanilla_status_changed')
+
+})
 </script>
 
 <style scoped>

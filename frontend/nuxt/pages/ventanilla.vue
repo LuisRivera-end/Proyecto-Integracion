@@ -38,7 +38,7 @@
                 </div>
             </div>
 
-            <button @click="llamarSiguiente" :disabled="!!currentTicket" :class="[
+            <button @click="llamarSiguiente" :disabled="!!currentTicket" title="También puedes presionar la tecla Enter" :class="[
               'w-full text-white text-lg font-bold py-3 mb-6 rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl',
               currentTicket ? 'bg-gray-400 opacity-50 cursor-not-allowed' : 'bg-gradient-to-r from-slate-500 to-emerald-600 hover:from-slate-700 hover:to-emerald-700'
             ]">
@@ -60,7 +60,7 @@
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                     Cancelar Ticket
                   </button>
-                  <button @click="completarTicket" class="flex-1 bg-green-600 hover:bg-green-700 text-white text-lg font-bold py-3 rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl flex items-center justify-center gap-2">
+                  <button @click="completarTicket" title="También puedes presionar la tecla F" class="flex-1 bg-green-600 hover:bg-green-700 text-white text-lg font-bold py-3 rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl flex items-center justify-center gap-2">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
                     Completar Ticket
                   </button>
@@ -112,7 +112,7 @@ useHead({ title: 'Panel de Ventanilla' })
 
 const { API_BASE_URL } = useConfig()
 const { lanzarAlerta } = useToast()
-const { logoutWithOverlay } = useAuth()
+const { logoutWithOverlay, getCurrentUser, getSessionToken } = useAuth()
 const socket = useSocket()
 
 const currentUser = ref(null)
@@ -242,6 +242,14 @@ async function cancelarTicket() {
   } catch (err) { lanzarAlerta(err.message || 'Error', 'error') }
 }
 
+function formatHora12(hora24) {
+  if (!hora24) return ''
+  const [h, m] = hora24.split(':').map(Number)
+  const ampm = h >= 12 ? 'PM' : 'AM'
+  const h12 = h % 12 || 12
+  return `${h12}:${String(m).padStart(2, '0')} ${ampm}`
+}
+
 async function checkCajaRapida() {
   try {
     const res = await fetch(`${API_BASE_URL}/api/caja-rapida/estado`)
@@ -264,7 +272,7 @@ async function checkCajaRapida() {
       if (estado.expirado) {
         cajaRapidaBannerHora.value = `Tiempo expirado — atendiendo tickets restantes`
       } else {
-        cajaRapidaBannerHora.value = `Hasta las ${estado.hora_fin}`
+        cajaRapidaBannerHora.value = `Hasta las ${formatHora12(estado.hora_fin)}`
       }
     } else if (cajaRapidaActivaEnMiSector) {
       isCajaRapidaActiva.value = false
@@ -321,10 +329,12 @@ function handleKeydown(e) {
 }
 
 
+
+
 onMounted(async () => {
-  const stored = localStorage.getItem('currentUser')
-  if (!stored) { navigateTo('/login'); return }
-  currentUser.value = JSON.parse(stored)
+  const user = getCurrentUser()
+  if (!user) { navigateTo('/login'); return }
+  currentUser.value = user
 
   await checkCajaRapida()
   await recuperarTicketActivo()
@@ -337,12 +347,12 @@ onMounted(async () => {
   document.addEventListener("keydown", handleKeydown)
 
   socket.on('connect', () => {
-    if (currentUser.value?.id) socket.emit('ventanilla_register', { id_empleado: currentUser.value.id })
+    if (currentUser.value?.id) socket.emit('ventanilla_register', { id_empleado: currentUser.value.id, session_token: getSessionToken() })
   })
   
   // Si ya está conectado al montar, emitir inmediatamente
   if (socket.connected && currentUser.value?.id) {
-    socket.emit('ventanilla_register', { id_empleado: currentUser.value.id })
+    socket.emit('ventanilla_register', { id_empleado: currentUser.value.id, session_token: getSessionToken() })
   }
 })
 

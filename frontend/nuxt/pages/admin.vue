@@ -244,6 +244,7 @@ useHead({ title: 'Administrador — Departamentos' })
 const { API_BASE_URL } = useConfig()
 const { lanzarAlerta } = useToast()
 const socket = useSocket()
+const { getCurrentUser, getSessionToken } = useAuth()
 
 // Sector list
 const sectores = ref([])
@@ -271,18 +272,14 @@ const cajaRapidaMensajeEstado = ref('')
 
 
 
+
 onMounted(() => {
   cargarSectores()
 
   socket.on('connect', () => {
     console.log('🟢 Departamentos WebSocket conectado')
-    const storedUser = localStorage.getItem('currentUser')
-    if (storedUser) {
-      try {
-        const currentUser = JSON.parse(storedUser)
-        if (currentUser.id) socket.emit('ventanilla_register', { id_empleado: currentUser.id })
-      } catch {}
-    }
+    const currentUser = getCurrentUser()
+    if (currentUser?.id) socket.emit('ventanilla_register', { id_empleado: currentUser.id, session_token: getSessionToken() })
   })
 
   socket.on('ventanilla_status_changed', () => {
@@ -300,6 +297,8 @@ onMounted(() => {
     }
   })
 
+
+
   // Semester cleanup
   verificarLimpiezaSemestral()
 })
@@ -308,6 +307,7 @@ onUnmounted(() => {
   socket.off('ventanilla_status_changed')
   socket.off('sectores_updated')
   socket.off('caja_rapida_updated')
+
 })
 
 // Load sectors
