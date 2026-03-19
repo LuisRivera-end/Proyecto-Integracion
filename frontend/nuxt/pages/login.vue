@@ -94,28 +94,31 @@ const showError = (message) => {
 }
 
 // Al llegar al login, limpiar solo los datos locales de esta pestaña.
-// NO llamar al backend logout porque eso emite session_unlocked
-// y puede interferir con otras sesiones.
 onMounted(() => {
   const existingToken = getSessionToken()
   if (existingToken) {
-    // Solo limpiar datos locales de este tab, sin tocar el backend
     localStorage.removeItem(`session_${existingToken}`)
     sessionStorage.removeItem('session_token')
   }
 
-  socket.on('session_locked', (payload) => {
-    console.log('🔒 Sesión bloqueada para empleado:', payload?.employee_id)
+  // Escuchar eventos WS de sesión en tiempo real
+  socket.on('session_already_active', (payload) => {
+    console.log('🔒 Intento de login bloqueado — sesión ya activa para empleado:', payload?.employee_id)
   })
 
-  socket.on('session_unlocked', (payload) => {
-    console.log('🔓 Sesión liberada para empleado:', payload?.employee_id)
+  socket.on('session_started', (payload) => {
+    console.log('🟢 Sesión iniciada para empleado:', payload?.employee_id)
+  })
+
+  socket.on('session_ended', (payload) => {
+    console.log('🔓 Sesión cerrada para empleado:', payload?.employee_id)
   })
 })
 
 onUnmounted(() => {
-  socket.off('session_locked')
-  socket.off('session_unlocked')
+  socket.off('session_already_active')
+  socket.off('session_started')
+  socket.off('session_ended')
 })
 
 const handleLogin = async () => {

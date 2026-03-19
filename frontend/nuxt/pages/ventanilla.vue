@@ -112,7 +112,7 @@ useHead({ title: 'Panel de Ventanilla' })
 
 const { API_BASE_URL } = useConfig()
 const { lanzarAlerta } = useToast()
-const { logoutWithOverlay, getCurrentUser } = useAuth()
+const { logoutWithOverlay, getCurrentUser, getSessionToken } = useAuth()
 const socket = useSocket()
 
 const currentUser = ref(null)
@@ -329,13 +329,7 @@ function handleKeydown(e) {
 }
 
 
-function handleForceLogout(payload) {
-  const user = getCurrentUser()
-  if (user && payload?.employee_id === user.id) {
-    lanzarAlerta('Su sesión fue cerrada desde otro lugar', 'error')
-    logoutWithOverlay()
-  }
-}
+
 
 onMounted(async () => {
   const user = getCurrentUser()
@@ -349,17 +343,16 @@ onMounted(async () => {
   // --- WebSocket Listeners ---
   socket.on('tickets_updated', handleTicketsUpdated)
   socket.on('caja_rapida_updated', handleCajaRapidaUpdated)
-  socket.on('session_unlocked', handleForceLogout)
 
   document.addEventListener("keydown", handleKeydown)
 
   socket.on('connect', () => {
-    if (currentUser.value?.id) socket.emit('ventanilla_register', { id_empleado: currentUser.value.id })
+    if (currentUser.value?.id) socket.emit('ventanilla_register', { id_empleado: currentUser.value.id, session_token: getSessionToken() })
   })
   
   // Si ya está conectado al montar, emitir inmediatamente
   if (socket.connected && currentUser.value?.id) {
-    socket.emit('ventanilla_register', { id_empleado: currentUser.value.id })
+    socket.emit('ventanilla_register', { id_empleado: currentUser.value.id, session_token: getSessionToken() })
   }
 })
 
@@ -394,7 +387,6 @@ onUnmounted(() => {
   document.removeEventListener("keydown", handleKeydown)
   socket.off('tickets_updated', handleTicketsUpdated)
   socket.off('caja_rapida_updated', handleCajaRapidaUpdated)
-  socket.off('session_unlocked', handleForceLogout)
   socket.emit('ventanilla_disconnect')
 })
 </script>

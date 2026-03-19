@@ -265,7 +265,7 @@ useHead({ title: 'Historial de Tickets' })
 
 const { API_BASE_URL } = useConfig()
 const socket = useSocket()
-const { getCurrentUser, logoutWithOverlay } = useAuth()
+const { getCurrentUser, getSessionToken } = useAuth()
 const { lanzarAlerta } = useToast()
 
 const currentUser = ref(null)
@@ -391,13 +391,7 @@ async function generarReporte() {
 }
 
 
-function handleForceLogout(payload) {
-  const user = getCurrentUser()
-  if (user && payload?.employee_id === user.id) {
-    lanzarAlerta('Su sesión fue cerrada desde otro lugar', 'error')
-    logoutWithOverlay()
-  }
-}
+
 
 onMounted(async () => {
   currentUser.value = getCurrentUser()
@@ -409,12 +403,12 @@ onMounted(async () => {
   aplicarFiltros()
   cargarTotalTickets()
 
-  socket.on('connect', () => { if (currentUser.value?.id) socket.emit('ventanilla_register', { id_empleado: currentUser.value.id }) })
+  socket.on('connect', () => { if (currentUser.value?.id) socket.emit('ventanilla_register', { id_empleado: currentUser.value.id, session_token: getSessionToken() }) })
   socket.on('tickets_updated', async () => { await cargarHistorial(); aplicarFiltros(); cargarTotalTickets() })
-  socket.on('session_unlocked', handleForceLogout)
+
 })
 onUnmounted(() => {
   socket.off('tickets_updated')
-  socket.off('session_unlocked', handleForceLogout)
+
 })
 </script>

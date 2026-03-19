@@ -205,3 +205,15 @@ INSERT INTO Rol_Ventanilla (ID_Rol, ID_Ventanilla) VALUES
 
 -- Operador Tesoreria (Rol 5) tiene acceso a la ventanilla de Tesoreria
 (5, 10); -- Tesoreria1
+
+/* ====== Tabla de Sesiones Activas ====== */
+CREATE TABLE IF NOT EXISTS Sesion_Activa (
+    Token       VARCHAR(64)  PRIMARY KEY,
+    ID_Empleado INT(6)       NOT NULL,
+    Activa      TINYINT(1)   NOT NULL DEFAULT 1,
+    Creada      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    Expira      DATETIME     NOT NULL,
+    INDEX idx_empleado_activa (ID_Empleado, Activa),
+    FOREIGN KEY (ID_Empleado) REFERENCES Empleado(ID_Empleado)
+        ON DELETE CASCADE
+);

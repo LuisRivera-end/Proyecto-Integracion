@@ -160,7 +160,7 @@ useHead({ title: 'Gestión de Empleados — Jefe' })
 const { API_BASE_URL } = useConfig()
 const { lanzarAlerta } = useToast()
 const socket = useSocket()
-const { getCurrentUser, logoutWithOverlay } = useAuth()
+const { getCurrentUser, getSessionToken } = useAuth()
 
 const currentUser = ref(null)
 const jefeSector = ref('')
@@ -254,13 +254,7 @@ async function guardarEdicion() {
 function cancelarEdicion() { editEmpleado.value = null }
 
 
-function handleForceLogout(payload) {
-  const user = getCurrentUser()
-  if (user && payload?.employee_id === user.id) {
-    lanzarAlerta('Su sesión fue cerrada desde otro lugar', 'error')
-    logoutWithOverlay()
-  }
-}
+
 
 onMounted(() => {
   const u = getCurrentUser()
@@ -271,13 +265,13 @@ onMounted(() => {
   loadEmployees()
   cargarRoles()
 
-  socket.on('connect', () => { if (u.id) socket.emit('ventanilla_register', { id_empleado: u.id }) })
+  socket.on('connect', () => { if (u.id) socket.emit('ventanilla_register', { id_empleado: u.id, session_token: getSessionToken() }) })
   socket.on('ventanilla_status_changed', () => loadEmployees())
-  socket.on('session_unlocked', handleForceLogout)
+
 })
 onUnmounted(() => {
   socket.off('ventanilla_status_changed')
-  socket.off('session_unlocked', handleForceLogout)
+
 })
 </script>
 

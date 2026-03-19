@@ -24,37 +24,47 @@ export const useAuth = () => {
     }
   }
 
-  /** Check if this tab's session token is still valid on the backend */
+  /** Check if this tab's session token is still valid on the backend.
+   *  Envía SOLO el token — el backend retorna {user_id, rol}. */
   const checkSession = async (): Promise<boolean> => {
     try {
       const token = getSessionToken()
-      const user = getCurrentUser()
-      if (!token || !user) return false
+      if (!token) return false
 
       const res = await fetch(`${API_BASE_URL}/api/check_session`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ session_token: token, employee_id: user.id })
+        body: JSON.stringify({ session_token: token })
       })
-      return res.ok
+
+      if (!res.ok) return false
+
+      // Actualizar los datos locales con el rol del backend (fuente de verdad)
+      const data = await res.json()
+      const user = getCurrentUser()
+      if (user && data.rol !== undefined) {
+        user.rol = data.rol
+        localStorage.setItem(`session_${token}`, JSON.stringify(user))
+      }
+
+      return true
     } catch {
       return false
     }
   }
 
-  /** Logout: clear only this tab's session */
+  /** Logout: envía solo el token al backend */
   const logout = async () => {
     const token = getSessionToken()
-    const user = getCurrentUser()
 
     try {
-      if (token && user) {
+      if (token) {
         await fetch(`${API_BASE_URL}/api/logout`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
-          body: JSON.stringify({ session_token: token, employee_id: user.id })
+          body: JSON.stringify({ session_token: token })
         })
       }
     } catch {

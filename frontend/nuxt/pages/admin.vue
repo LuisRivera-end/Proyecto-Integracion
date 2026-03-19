@@ -244,7 +244,7 @@ useHead({ title: 'Administrador — Departamentos' })
 const { API_BASE_URL } = useConfig()
 const { lanzarAlerta } = useToast()
 const socket = useSocket()
-const { getCurrentUser, logoutWithOverlay } = useAuth()
+const { getCurrentUser, getSessionToken } = useAuth()
 
 // Sector list
 const sectores = ref([])
@@ -272,13 +272,6 @@ const cajaRapidaMensajeEstado = ref('')
 
 
 
-function handleForceLogout(payload) {
-  const user = getCurrentUser()
-  if (user && payload?.employee_id === user.id) {
-    lanzarAlerta('Su sesión fue cerrada desde otro lugar', 'error')
-    logoutWithOverlay()
-  }
-}
 
 onMounted(() => {
   cargarSectores()
@@ -286,7 +279,7 @@ onMounted(() => {
   socket.on('connect', () => {
     console.log('🟢 Departamentos WebSocket conectado')
     const currentUser = getCurrentUser()
-    if (currentUser?.id) socket.emit('ventanilla_register', { id_empleado: currentUser.id })
+    if (currentUser?.id) socket.emit('ventanilla_register', { id_empleado: currentUser.id, session_token: getSessionToken() })
   })
 
   socket.on('ventanilla_status_changed', () => {
@@ -304,7 +297,7 @@ onMounted(() => {
     }
   })
 
-  socket.on('session_unlocked', handleForceLogout)
+
 
   // Semester cleanup
   verificarLimpiezaSemestral()
@@ -314,7 +307,7 @@ onUnmounted(() => {
   socket.off('ventanilla_status_changed')
   socket.off('sectores_updated')
   socket.off('caja_rapida_updated')
-  socket.off('session_unlocked', handleForceLogout)
+
 })
 
 // Load sectors

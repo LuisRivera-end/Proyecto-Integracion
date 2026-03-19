@@ -18,7 +18,6 @@ class LoginResponse(BaseModel):
 
 class LogoutRequest(BaseModel):
     session_token: str
-    employee_id: int
 
 class RolResponse(BaseModel):
     ID_Rol: int

@@ -132,7 +132,7 @@ useHead({ title: 'Pantalla de Turnos' })
 
 const { API_BASE_URL } = useConfig()
 const socket = useSocket()
-const { getCurrentUser } = useAuth()
+const { getCurrentUser, getSessionToken } = useAuth()
 
 const allTickets = ref([])
 const audioActivado = ref(false)
@@ -266,7 +266,7 @@ onMounted(() => {
   cargarTickets()
   socket.on('connect', () => {
     const u = getCurrentUser()
-    if (u?.id) socket.emit('ventanilla_register', { id_empleado: u.id })
+    if (u?.id) socket.emit('ventanilla_register', { id_empleado: u.id, session_token: getSessionToken() })
   })
   socket.on('tickets_updated', () => cargarTickets())
 })
