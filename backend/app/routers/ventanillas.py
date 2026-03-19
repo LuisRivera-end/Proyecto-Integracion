@@ -186,6 +186,65 @@ async def get_ventanillas_disponibles(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.put("/ventanillas/{id_ventanilla}")
+async def update_ventanilla(id_ventanilla: int, req: dict, db: AsyncSession = Depends(get_db)):
+    """Actualiza el estado (Activa) o el nombre de una ventanilla"""
+    try:
+        # Verificar que la ventanilla existe
+        q_check = text("SELECT ID_Ventanilla, Ventanilla, Activa FROM Ventanillas WHERE ID_Ventanilla = :id")
+        res_check = await db.execute(q_check, {"id": id_ventanilla})
+        ventanilla = res_check.mappings().fetchone()
+        if not ventanilla:
+            raise HTTPException(status_code=404, detail="Ventanilla no encontrada")
+
+        # Cambiar estado activa/inactiva
+        if "activa" in req:
+            nueva_activa = int(req["activa"])
+            # Si se va a desactivar, verificar que no esté en uso
+            if nueva_activa == 0:
+                q_uso = text("""
+                    SELECT 1 FROM Empleado_Ventanilla
+                    WHERE ID_Ventanilla = :id AND ID_Estado = 1 AND Fecha_Termino IS NULL
+                """)
+                res_uso = await db.execute(q_uso, {"id": id_ventanilla})
+                if res_uso.fetchone():
+                    raise HTTPException(status_code=400, detail="No se puede deshabilitar: la ventanilla está en uso por un empleado")
+
+            q_update = text("UPDATE Ventanillas SET Activa = :activa WHERE ID_Ventanilla = :id")
+            await db.execute(q_update, {"activa": nueva_activa, "id": id_ventanilla})
+            await db.commit()
+
+            # Notificar vía WebSocket
+            await manager.broadcast_json({"type": "ventanilla_status_changed"})
+            await manager.broadcast_json({"type": "sectores_updated"})
+
+            estado = "habilitada" if nueva_activa == 1 else "deshabilitada"
+            return {"message": f"Ventanilla {estado} correctamente"}
+
+        # Cambiar nombre
+        if "nombre" in req:
+            nuevo_nombre = req["nombre"].strip()
+            if not nuevo_nombre:
+                raise HTTPException(status_code=400, detail="El nombre no puede estar vacío")
+
+            q_rename = text("UPDATE Ventanillas SET Ventanilla = :nombre WHERE ID_Ventanilla = :id")
+            await db.execute(q_rename, {"nombre": nuevo_nombre, "id": id_ventanilla})
+            await db.commit()
+
+            await manager.broadcast_json({"type": "ventanilla_status_changed"})
+            await manager.broadcast_json({"type": "sectores_updated"})
+
+            return {"message": f"Ventanilla renombrada a '{nuevo_nombre}'"}
+
+        raise HTTPException(status_code=400, detail="Se requiere 'activa' o 'nombre' en el cuerpo de la solicitud")
+
+    except HTTPException:
+        await db.rollback()
+        raise
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.put("/employees/{id_empleado}/ventanilla")
 async def update_employee_ventanilla(
     id_empleado: int, 
