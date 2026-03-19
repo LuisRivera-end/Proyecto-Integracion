@@ -3,14 +3,34 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
 from hashlib import sha256
 from typing import List
+import uuid
+import asyncio
 
 from app.models.database import get_db
-from app.schemas.auth import LoginRequest, LoginResponse, RolResponse, EstadoEmpleadoResponse
+from app.schemas.auth import LoginRequest, LoginResponse, LogoutRequest, RolResponse, EstadoEmpleadoResponse
 
 router = APIRouter(prefix="/api", tags=["Autenticación"])
 
-# Tracking de sesiones activo manual (similar to Flask logic)
+# Tracking de sesiones activas: { employee_id: session_token }
 active_sessions = {}
+
+def _broadcast_session_event(event_type: str, employee_id: int):
+    """Helper para emitir eventos de sesión por WS en background."""
+    async def _emit():
+        try:
+            from app.websocket.manager import manager
+            await manager.broadcast_json({
+                "type": event_type,
+                "employee_id": employee_id
+            })
+        except Exception as e:
+            print(f"⚠️ Error emitiendo {event_type}: {e}")
+    
+    try:
+        loop = asyncio.get_running_loop()
+        loop.create_task(_emit())
+    except RuntimeError:
+        pass
 
 @router.post("/login", response_model=LoginResponse)
 async def login(request: Request, credentials: LoginRequest, db: AsyncSession = Depends(get_db)):
@@ -47,12 +67,12 @@ async def login(request: Request, credentials: LoginRequest, db: AsyncSession = 
             estado_empleado = user["Estado_Empleado"] or "Inactivo"
             raise HTTPException(status_code=403, detail=f"Usuario no activo. Estado actual: {estado_empleado}")
 
-        # Check in active sessions
+        # Verificar si el usuario ya tiene una sesión activa
         if user["ID_Empleado"] in active_sessions:
-            # Replicating existing logic for concurrent WS checks
-            from app.websocket.manager import manager # We will define this later
-            if str(user["ID_Empleado"]) in manager.active_connections.get("empleados", {}):
-                raise HTTPException(status_code=403, detail="El usuario ya tiene una sesión iniciada en otro dispositivo o pestaña")
+            raise HTTPException(
+                status_code=403,
+                detail="El usuario ya tiene una sesión activa. Cierre la sesión existente primero."
+            )
 
         hashed_pw = sha256(credentials.password.encode()).hexdigest()
         if user["Passwd"] != hashed_pw:
@@ -75,9 +95,12 @@ async def login(request: Request, credentials: LoginRequest, db: AsyncSession = 
             sector_row = sector_res.mappings().fetchone()
             sector = sector_row["Sector"] if sector_row else "Desconocido"
 
-        active_sessions[user["ID_Empleado"]] = True
-        request.session["user_id"] = user["ID_Empleado"]
-        request.session["rol"] = user["ID_ROL"]
+        # Generar session token único
+        session_token = str(uuid.uuid4())
+        active_sessions[user["ID_Empleado"]] = session_token
+
+        # Emitir evento WS para notificar que la sesión fue tomada
+        _broadcast_session_event("session_locked", user["ID_Empleado"])
 
         return {
             "id": user["ID_Empleado"],
@@ -85,6 +108,7 @@ async def login(request: Request, credentials: LoginRequest, db: AsyncSession = 
             "rol": user["ID_ROL"],
             "sector": sector,
             "estado": user["Estado_Empleado"],
+            "session_token": session_token,
             "id_ventanilla": user["ID_Ventanilla"],
             "ventanilla": user["Ventanilla"],
             "sector_ventanilla": user["Sector_Ventanilla"]
@@ -97,18 +121,36 @@ async def login(request: Request, credentials: LoginRequest, db: AsyncSession = 
         traceback.print_exc(file=sys.stderr)
         raise HTTPException(status_code=500, detail="Error interno del servidor")
 
-@router.get("/check_session")
+@router.post("/check_session")
 async def check_session(request: Request):
-    if "user_id" in request.session:
-        return {"status": "ok", "user_id": request.session["user_id"]}
+    """Valida que un session_token siga activo."""
+    try:
+        body = await request.json()
+        session_token = body.get("session_token")
+        employee_id = body.get("employee_id")
+    except Exception:
+        raise HTTPException(status_code=400, detail="Body inválido")
+
+    if not session_token or not employee_id:
+        raise HTTPException(status_code=401, detail="No session")
+
+    stored_token = active_sessions.get(employee_id)
+    if stored_token and stored_token == session_token:
+        return {"status": "ok", "user_id": employee_id}
+
     raise HTTPException(status_code=401, detail="No session")
 
 @router.post("/logout")
-async def logout(request: Request):
-    user_id = request.session.get("user_id")
-    if user_id is not None:
-        active_sessions.pop(user_id, None)
-    request.session.clear()
+async def logout(request: Request, body: LogoutRequest):
+    employee_id = body.employee_id
+    session_token = body.session_token
+
+    stored_token = active_sessions.get(employee_id)
+    if stored_token and stored_token == session_token:
+        del active_sessions[employee_id]
+        # Emitir evento WS para notificar que la sesión fue liberada
+        _broadcast_session_event("session_unlocked", employee_id)
+
     return {"message": "Sesión cerrada"}
 
 @router.get("/roles", response_model=List[RolResponse])

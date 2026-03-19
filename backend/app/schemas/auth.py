@@ -11,9 +11,14 @@ class LoginResponse(BaseModel):
     rol: int
     sector: str
     estado: str
+    session_token: str
     id_ventanilla: Optional[int] = None
     ventanilla: Optional[str] = None
     sector_ventanilla: Optional[str] = None
+
+class LogoutRequest(BaseModel):
+    session_token: str
+    employee_id: int
 
 class RolResponse(BaseModel):
     ID_Rol: int

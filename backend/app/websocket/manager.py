@@ -18,6 +18,9 @@ class ConnectionManager:
         self.active_ventanilla_employees: Set[int] = set()
         self.sid_to_employee: Dict[str, int] = {}
         
+        # Tareas pendientes de desconexión (para manejar recargas de página)
+        self.disconnect_tasks: Dict[int, asyncio.Task] = {}
+        
         # Impresoras conectadas
         self.printers: Dict[str, Dict[str, Any]] = {}
 
@@ -43,10 +46,11 @@ class ConnectionManager:
         if emp_id:
             # Solo remover del set si NO hay otras conexiones para este mismo empleado (multi-pestaña)
             if emp_id not in self.sid_to_employee.values():
-                self.active_ventanilla_employees.discard(emp_id)
-                print(f"🔴 Empleado {emp_id} WS desconectado totalmente (SID: {client_id})")
-                # Solo notificar cambio si el empleado realmente se fue del todo
-                await self.broadcast_json({"type": "ventanilla_status_changed"})
+                # En lugar de desconectar inmediatamente, lanzar una tarea con unos segundos de gracia
+                # Esto permite que si el usuario recarga la página (F5), no pierda su sesión.
+                if emp_id in self.disconnect_tasks:
+                    self.disconnect_tasks[emp_id].cancel()
+                self.disconnect_tasks[emp_id] = asyncio.create_task(self._delayed_session_clear(emp_id))
             else:
                 print(f"📉 Una conexión de Empleado {emp_id} cerrada, pero conserva otras activas.")
 
@@ -66,6 +70,40 @@ class ConnectionManager:
             # No desconectar aquí para evitar recursividad infinita en disconnect()
             # el loop principal de routes.py se encargará vía WebSocketDisconnect
             pass
+
+    def cancel_disconnect(self, emp_id: int):
+        """Cancela la tarea de desconexión si el usuario reconecta rápido (ej. F5)"""
+        if emp_id in self.disconnect_tasks:
+            self.disconnect_tasks[emp_id].cancel()
+            del self.disconnect_tasks[emp_id]
+            print(f"🔄 Empleado {emp_id} reconectado. Cancelada limpieza de sesión.")
+
+    async def _delayed_session_clear(self, emp_id: int):
+        """Espera unos segundos antes de limpiar la sesión. Si es cancelada, no limpia nada."""
+        try:
+            # Esperar 5 segundos como periodo de gracia para reload
+            await asyncio.sleep(5)
+            
+            # Si pasa el tiempo sin ser cancelada, procedemos a limpiar
+            self.active_ventanilla_employees.discard(emp_id)
+            print(f"🔴 Empleado {emp_id} sesión expiró tras 5s de gracia")
+            
+            try:
+                from app.routers.auth import active_sessions
+                if emp_id in active_sessions:
+                    del active_sessions[emp_id]
+                    print(f"🔓 Sesión de empleado {emp_id} liberada por expiración del WS")
+                    await self.broadcast_json({"type": "session_unlocked", "employee_id": emp_id})
+            except ImportError:
+                pass
+            
+            await self.broadcast_json({"type": "ventanilla_status_changed"})
+        except asyncio.CancelledError:
+            # La tarea fue cancelada porque el empleado se reconectó
+            pass
+        finally:
+            if emp_id in self.disconnect_tasks:
+                del self.disconnect_tasks[emp_id]
 
     async def broadcast_json(self, data: dict, room: str = None):
         """Envia un mensaje a todos o a una room especifica en paralelo"""

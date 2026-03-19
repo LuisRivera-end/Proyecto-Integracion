@@ -94,6 +94,9 @@ async def websocket_endpoint(websocket: WebSocket):
                 elif event_type == "ventanilla_register":
                     id_empleado = event_data.get('id_empleado')
                     if id_empleado:
+                        # Cancelar cualquier desconexión pendiente (por si fue un reload)
+                        manager.cancel_disconnect(id_empleado)
+                        
                         manager.sid_to_employee[client_id] = id_empleado
                         manager.active_ventanilla_employees.add(id_empleado)
                         print(f"🟢 Empleado {id_empleado} activo en ventanilla (SID: {client_id})")

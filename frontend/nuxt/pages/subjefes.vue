@@ -160,6 +160,7 @@ useHead({ title: 'Gestión de Empleados — Jefe' })
 const { API_BASE_URL } = useConfig()
 const { lanzarAlerta } = useToast()
 const socket = useSocket()
+const { getCurrentUser, logoutWithOverlay } = useAuth()
 
 const currentUser = ref(null)
 const jefeSector = ref('')
@@ -253,8 +254,16 @@ async function guardarEdicion() {
 function cancelarEdicion() { editEmpleado.value = null }
 
 
+function handleForceLogout(payload) {
+  const user = getCurrentUser()
+  if (user && payload?.employee_id === user.id) {
+    lanzarAlerta('Su sesión fue cerrada desde otro lugar', 'error')
+    logoutWithOverlay()
+  }
+}
+
 onMounted(() => {
-  const u = JSON.parse(localStorage.getItem('currentUser') || 'null')
+  const u = getCurrentUser()
   if (!u || u.rol !== 6) { navigateTo('/login'); return }
   currentUser.value = u
   jefeSector.value = u.sector || 'Sin Sector'
@@ -264,8 +273,12 @@ onMounted(() => {
 
   socket.on('connect', () => { if (u.id) socket.emit('ventanilla_register', { id_empleado: u.id }) })
   socket.on('ventanilla_status_changed', () => loadEmployees())
+  socket.on('session_unlocked', handleForceLogout)
 })
-onUnmounted(() => { socket.off('ventanilla_status_changed') })
+onUnmounted(() => {
+  socket.off('ventanilla_status_changed')
+  socket.off('session_unlocked', handleForceLogout)
+})
 </script>
 
 <style scoped>

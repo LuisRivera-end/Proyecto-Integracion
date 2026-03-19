@@ -80,21 +80,43 @@ definePageMeta({ layout: 'default' })
 useHead({ title: 'Inicio de Sesión' })
 
 const { API_BASE_URL } = useConfig()
+const { saveSession, getSessionToken } = useAuth()
+const socket = useSocket()
 
 const username = ref('')
 const password = ref('')
 const loading = ref(false)
 const errorMsg = ref('')
 
-onMounted(() => {
-  // Clear previous session
-  localStorage.removeItem('currentUser')
-})
-
 const showError = (message) => {
   errorMsg.value = message
-  setTimeout(() => { errorMsg.value = '' }, 3000)
+  setTimeout(() => { errorMsg.value = '' }, 5000)
 }
+
+// Al llegar al login, limpiar solo los datos locales de esta pestaña.
+// NO llamar al backend logout porque eso emite session_unlocked
+// y puede interferir con otras sesiones.
+onMounted(() => {
+  const existingToken = getSessionToken()
+  if (existingToken) {
+    // Solo limpiar datos locales de este tab, sin tocar el backend
+    localStorage.removeItem(`session_${existingToken}`)
+    sessionStorage.removeItem('session_token')
+  }
+
+  socket.on('session_locked', (payload) => {
+    console.log('🔒 Sesión bloqueada para empleado:', payload?.employee_id)
+  })
+
+  socket.on('session_unlocked', (payload) => {
+    console.log('🔓 Sesión liberada para empleado:', payload?.employee_id)
+  })
+})
+
+onUnmounted(() => {
+  socket.off('session_locked')
+  socket.off('session_unlocked')
+})
 
 const handleLogin = async () => {
   loading.value = true
@@ -109,7 +131,7 @@ const handleLogin = async () => {
 
     if (!res.ok) {
       const errorData = await res.json()
-      throw new Error(errorData.error || 'Credenciales incorrectas')
+      throw new Error(errorData.detail || errorData.error || 'Credenciales incorrectas')
     }
 
     const data = await res.json()
@@ -121,14 +143,14 @@ const handleLogin = async () => {
     }
 
     if (currentUser.rol === 1) {
-      localStorage.setItem('currentUser', JSON.stringify(currentUser))
-      navigateTo('/admin')
+      saveSession(currentUser, data.session_token)
+      navigateTo('/admin', { replace: true })
       return
     }
 
     if (currentUser.rol === 6) {
-      localStorage.setItem('currentUser', JSON.stringify(currentUser))
-      navigateTo('/subjefes')
+      saveSession(currentUser, data.session_token)
+      navigateTo('/subjefes', { replace: true })
       return
     }
 
@@ -144,8 +166,8 @@ const handleLogin = async () => {
         id: ventanillaActiva.ID_Ventanilla,
         nombre: ventanillaActiva.Ventanilla,
       }
-      localStorage.setItem('currentUser', JSON.stringify(currentUser))
-      navigateTo('/ventanilla')
+      saveSession(currentUser, data.session_token)
+      navigateTo('/ventanilla', { replace: true })
       return
     }
 
