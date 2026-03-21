@@ -90,4 +90,9 @@ def generar_ticket_PDF(numero_ticket, sector, fecha, tipo_caja='normal'):
     # Espacio para corte
     pdf.ln(8)
 
-    return pdf.output(dest='S').encode('latin-1')
+    output = pdf.output(dest='S')
+    if isinstance(output, str):
+        return output.encode('latin-1')
+    if isinstance(output, bytearray):
+        return bytes(output)
+    return output
