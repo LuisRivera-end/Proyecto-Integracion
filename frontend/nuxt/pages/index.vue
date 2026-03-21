@@ -68,6 +68,10 @@
 
             <h2 class="text-2xl font-bold text-slate-800 mb-2">Ticket Generado</h2>
 
+            <div v-if="ticketTipoCaja === 'rapida'" class="mt-2 mb-4 bg-amber-100 border-2 border-amber-300 text-amber-800 font-bold py-2 px-4 rounded-xl inline-block animate-pulse">
+              ⚡ ATENCIÓN EN CAJA RÁPIDA ⚡
+            </div>
+
             <div class="my-6">
               <span class="text-7xl font-black text-emerald-700 drop-shadow-sm">{{ ticketFolio }}</span>
             </div>
@@ -181,6 +185,7 @@ const sectores = ref([])
 const ticketVisible = ref(false)
 const ticketFolio = ref('')
 const ticketSector = ref('')
+const ticketTipoCaja = ref('normal')
 const ticketFecha = ref('')
 const errorMessage = ref('')
 const mostrarModalCaja = ref(false)
@@ -257,10 +262,11 @@ const generarTicket = async (sectorId, sectorNombre, tipoCaja = 'normal') => {
     if (res.ok) {
       ticketFolio.value = data.folio
       ticketSector.value = sectorNombre
+      ticketTipoCaja.value = tipoCaja
       ticketFecha.value = new Date().toLocaleString('es-MX')
       ticketVisible.value = true
       errorMessage.value = ''
-      lastTicketData = { folio: data.folio, sector: sectorNombre, id: data.id }
+      lastTicketData = { folio: data.folio, sector: sectorNombre, id: data.id, tipo_caja: tipoCaja }
 
       Toastify({
         text: `Ticket ${data.folio} generado exitosamente`,
@@ -287,6 +293,7 @@ const imprimir = () => {
       numero_ticket: lastTicketData.folio,
       sector: lastTicketData.sector,
       fecha: ticketFecha.value,
+      tipo_caja: lastTicketData.tipo_caja || 'normal',
     }),
     credentials: 'include',
   })

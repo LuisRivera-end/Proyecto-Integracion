@@ -32,7 +32,7 @@ def _formatear_fecha(fecha_str):
     except Exception:
         return fecha_str, ""
 
-def generar_ticket_PDF(numero_ticket, sector, fecha):
+def generar_ticket_PDF(numero_ticket, sector, fecha, tipo_caja='normal'):
     pdf = TicketPDF("P", "mm", (58, 90))
     pdf.set_auto_page_break(auto=False)
     pdf.set_margins(left=3, top=5, right=3)
@@ -79,6 +79,12 @@ def generar_ticket_PDF(numero_ticket, sector, fecha):
     # --- Mensaje ---
     pdf.cell(0, 3, "Conserve este ticket", ln=True, align="C")
     pdf.cell(0, 3, "para su atencion", ln=True, align="C")
+
+    # --- Leyenda Caja Rapida ---
+    if tipo_caja == 'rapida':
+        pdf.ln(2)
+        pdf.set_font("Arial", "B", 9)
+        pdf.cell(0, 5, ">> ATENCION EN CAJA RAPIDA <<", ln=True, align="C")
     
 
     # Espacio para corte

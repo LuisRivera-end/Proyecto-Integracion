@@ -1,9 +1,10 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 from typing import Optional
 
 class LoginRequest(BaseModel):
-    username: str
-    password: str
+    model_config = ConfigDict(str_strip_whitespace=True)
+    username: str = Field(..., max_length=20, pattern=r"^[a-zA-Z0-9_-]+$")
+    password: str = Field(..., min_length=1, max_length=100)
 
 class LoginResponse(BaseModel):
     id: int

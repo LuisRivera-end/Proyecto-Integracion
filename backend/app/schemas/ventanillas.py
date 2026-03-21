@@ -1,9 +1,10 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 from typing import Optional, List
 from datetime import datetime
 
 class VentanillaBase(BaseModel):
-    Ventanilla: str
+    model_config = ConfigDict(str_strip_whitespace=True)
+    Ventanilla: str = Field(..., max_length=100)
     ID_Sector: int
     Activa: bool = True
 
@@ -26,3 +27,11 @@ class EmpleadoVentanillaResponse(EmpleadoVentanillaBase):
     
     class Config:
         from_attributes = True
+
+class VentanillaUpdateReq(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+    activa: Optional[int] = None
+    nombre: Optional[str] = Field(default=None, max_length=100)
+
+class EmpleadoVentanillaUpdateReq(BaseModel):
+    id_ventanilla: Optional[int] = None

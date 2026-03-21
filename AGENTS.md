@@ -47,74 +47,68 @@ The repository consists of three main components:
 
 ---
 
-## 2. Code Style Guidelines
+## 2. Code Style Guidelines & Security Mandates
 
 ### Backend (Python/FastAPI)
 - **Architecture & Modularity:**
   - Follow the existing structure inside `backend/app/`:
-    - `models/`: SQLAlchemy ORM definitions.
+    - `models/`: SQLAlchemy ORM definitions. **Must be perfectly synchronized with `mariadb/init.sql`.**
     - `schemas/`: Pydantic models for request validation and response serialization.
-    - `routers/`: FastAPI endpoint definitions (grouped by resource).
+    - `routers/`: FastAPI endpoint definitions.
     - `utils/`: Shared helper functions and business logic.
     - `websocket/`: Socket.IO or FastAPI WebSockets handling.
+- **Strict Input Validation (Pydantic):**
+  - **Never use raw `dict` for inputs.** Always use defined Pydantic schemas.
+  - Apply `model_config = ConfigDict(str_strip_whitespace=True)` to all schemas to auto-strip whitespace.
+  - Use `Field(..., max_length=X, pattern=r"^[...]+$")` to enforce strict length limits and regex constraints (especially for fields like Usernames, Folios) to prevent Stored XSS and limit payload size.
+- **Database & Queries (SQLAlchemy):**
+  - **Avoid raw SQL (`text()`).** Always use SQLAlchemy 2.0 ORM constructs (`select`, `insert`, `update`, `delete`, `and_`, `or_`).
+  - This prevents SQL Injection and enforces type safety.
+  - Use `async def` and `AsyncSession` for all database operations.
+- **Security Specifics:**
+  - **Path Traversal Prevention:** When dealing with file inputs from users (e.g., audio files, downloads), always sanitize the filename using `os.path.basename(filename)`.
 - **Typing:** Type hints are **strictly mandatory**.
   - All FastAPI endpoints must specify `response_model` using Pydantic schemas.
   - Use Python 3.10+ typing syntax (e.g., `list[str]` instead of `typing.List[str]`, `str | None` instead of `typing.Optional[str]`).
-- **Asynchronous Code:**
-  - Use `async def` for endpoint handlers, database queries, and I/O operations.
-  - The project uses `sqlalchemy[asyncio]` and `asyncmy`. Always use the `AsyncSession` context manager for database operations.
-  - Do not use blocking operations (`time.sleep`, synchronous requests) inside `async` functions.
 - **Naming Conventions:**
   - Variables, functions, and modules/files: `snake_case` (e.g., `get_user_by_id`, `user_schema.py`).
   - Classes and Pydantic models: `PascalCase` (e.g., `UserResponse`, `DatabaseModel`).
   - Constants: `UPPER_SNAKE_CASE` (e.g., `MAX_RETRIES`, `DEFAULT_TIMEOUT`).
-- **Imports:**
-  - Order: standard library, third-party libraries (FastAPI, SQLAlchemy), local imports.
-  - Use absolute imports from the `app` module (e.g., `from app.models.user import User`).
 - **Error Handling:**
   - Use FastAPI's `HTTPException` for expected HTTP client errors (400, 401, 403, 404).
   - Do not leak raw database exceptions (like `IntegrityError`) to the client. Catch them and return a sanitized 400 or 500 status.
 
 ### Frontend (Vue 3 / Nuxt 3)
-- **Composition API:**
-  - Exclusively use the Vue 3 Composition API with `<script setup lang="ts">`.
-  - Avoid the legacy Options API (`export default { data(), methods: {} }`).
+- **Composition API:** Exclusively use the Vue 3 Composition API with `<script setup lang="ts">`. Avoid Options API.
 - **Reactivity & State:**
-  - Use `ref()` for primitive values (strings, numbers, booleans) and arrays.
-  - Use `reactive()` for grouping related state objects.
+  - Use `ref()` for primitive values and arrays, `reactive()` for objects.
   - Use `computed()` for derived state. Avoid complex logic directly in templates.
-- **Typing:**
-  - TypeScript is required (`lang="ts"`).
-  - Define explicit `interface` or `type` definitions for component props, emits, and API responses.
+- **Validation & Sanitization:**
+  - The project avoids heavy 3rd-party validation libraries. Use HTML5 native validation (`required`, `type`, `maxlength`, `min`, `max`) and custom JS checks in the `<script setup>` before calling the backend.
+  - **Safe Rendering:** Rely on Vue's standard interpolation `{{ }}` to prevent XSS. Avoid `v-html` unless absolutely necessary with strictly hardcoded, trusted content (like SVG icons).
+- **Typing:** TypeScript is required (`lang="ts"`). Define strict `interface` or `type` definitions for API payloads, component props, and emits.
+- **Styling:** Use Tailwind CSS utility classes directly in the template. Avoid custom CSS unless using `<style scoped>`.
 - **Naming Conventions:**
-  - Components: `PascalCase.vue` (e.g., `UserProfile.vue`, `PrintButton.vue`).
-  - Composables: `camelCase` starting with `use` (e.g., `useAuth.ts`, `usePrinter.ts`).
+  - Components: `PascalCase.vue` (e.g., `UserProfile.vue`).
+  - Composables: `camelCase` starting with `use` (e.g., `useAuth.ts`).
   - Variables and functions: `camelCase`.
-- **Auto-Imports:**
-  - Nuxt 3 auto-imports components, composables (`useRoute`, `useState`), and Vue APIs (`ref`, `computed`, `onMounted`).
-  - Do not add explicit imports for these unless your IDE or linting setup requires it, to keep the `<script setup>` clean.
-- **Styling:**
-  - Use Tailwind CSS utility classes directly in the template.
-  - Avoid writing custom CSS. If custom CSS is absolutely necessary, use `<style scoped>` within the component.
-- **Routing:**
-  - Nuxt uses file-based routing. Pages should go in `frontend/nuxt/pages/`.
-  - Nested routes follow folder structure.
+- **Auto-Imports:** Nuxt 3 auto-imports components, composables, and Vue APIs. Do not add explicit imports for these.
+- **Routing:** Nuxt uses file-based routing. Pages go in `frontend/nuxt/pages/`.
 - **Error Handling & Notifications:**
   - Wrap `await` API calls in `try/catch` blocks.
-  - For user feedback, use the `toastify-js` library (configured in `nuxt.config.ts` and `package.json`) to display toast notifications for success and error states.
+  - Use `toastify-js` to display toast notifications for success and error states.
 
 ### Print Service (Node.js Client)
-- **Purpose:** This service connects via sockets to print documents received from the backend locally on the client's machine.
+- **Purpose:** Connects via sockets to print documents received from the backend locally on the client's machine.
 - **Style:** Standard Node.js conventions. Ensure compatibility with the `pkg` bundler.
-- **Error Handling:** Socket disconnections must be handled gracefully. Reconnection logic should be implemented. File system errors (e.g., missing print files) should log locally and not crash the main process.
+- **Error Handling:** Handle socket disconnections gracefully with reconnection logic. File system errors should log locally and not crash the main process.
 
 ---
 
 ## 3. General Agent Directives
 - **Verify Context Before Editing:** Always use `read` or `glob` to verify the state and structure of the code before attempting to modify files. Do not hallucinate file contents.
 - **Absolute Paths:** Always use absolute file paths in your tools. Ensure paths are constructed correctly using the workspace root.
-- **Self-Correction & Testing First:**
-  - When implementing bug fixes, if a test framework is set up, write a failing test first to reproduce the bug.
-  - Once the fix is applied, run the test (e.g., `npx vitest run path/to/test` or `pytest path/to/test`) to verify.
+- **Test-Driven Corrections:** When implementing bug fixes, write a failing test first if the test framework is available. Once the fix is applied, run the test to verify.
 - **Focused Changes:** Keep changes minimal and isolated. Use the `edit` tool with exact `oldString` and `newString` matches to modify specific blocks rather than completely rewriting large files.
-- **No Unsolicited Refactoring:** Only refactor code if explicitly requested by the user. Follow the existing patterns, even if they deviate from typical best practices, to maintain consistency unless instructed otherwise.
+- **ORM Synchronization:** Whenever modifying database tables in `init.sql`, ensure that `backend/app/models/models.py` is immediately updated to exactly reflect the schema (tables, constraints, primary/foreign keys).
+- **No Unsolicited Refactoring:** Only refactor code if explicitly requested by the user. Follow existing patterns to maintain consistency unless instructed otherwise.

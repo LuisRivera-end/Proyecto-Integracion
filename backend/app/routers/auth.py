@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import text
+from sqlalchemy import select, update, insert, and_
 from hashlib import sha256
 from typing import List
 import uuid
@@ -8,6 +8,8 @@ import asyncio
 from datetime import datetime, timedelta
 
 from app.models.database import get_db
+from app.models.models import Rol, EstadoEmpleado, SesionActiva, Empleado, EmpleadoVentanilla, Ventanilla, Sector, RolVentanilla
+from sqlalchemy.orm import aliased
 from app.schemas.auth import LoginRequest, LoginResponse, LogoutRequest, RolResponse, EstadoEmpleadoResponse
 
 router = APIRouter(prefix="/api", tags=["Autenticación"])
@@ -38,104 +40,124 @@ def _broadcast_session_event(event_type: str, employee_id: int):
 async def login(request: Request, credentials: LoginRequest, db: AsyncSession = Depends(get_db)):
     try:
         # ── 1. Buscar usuario ──
-        query = text("""
-            SELECT 
-                e.*, 
-                e.Passwd,
-                r.Rol, 
-                ee.Nombre as Estado_Empleado,
-                ev.ID_Ventanilla,
-                v.Ventanilla,
-                s.Sector as Sector_Ventanilla,
-                sj.Sector as Sector_Jefe
-            FROM Empleado e 
-            LEFT JOIN Rol r ON e.ID_ROL = r.ID_Rol 
-            LEFT JOIN Estado_Empleado ee ON e.ID_Estado = ee.ID_Estado
-            LEFT JOIN Empleado_Ventanilla ev ON e.ID_Empleado = ev.ID_Empleado 
-                AND ev.ID_Estado = 1 
-                AND ev.Fecha_Termino IS NULL
-            LEFT JOIN Ventanillas v ON ev.ID_Ventanilla = v.ID_Ventanilla
-            LEFT JOIN Sectores s ON v.ID_Sector = s.ID_Sector
-            LEFT JOIN Sectores sj ON e.ID_Sector = sj.ID_Sector
-            WHERE e.Usuario = :username
-        """)
+        SectorJefe = aliased(Sector)
+        query = (
+            select(
+                Empleado,
+                Rol.Rol.label("Rol"),
+                EstadoEmpleado.Nombre.label("Estado_Empleado"),
+                EmpleadoVentanilla.ID_Ventanilla,
+                Ventanilla.Ventanilla.label("Ventanilla"),
+                Sector.Sector.label("Sector_Ventanilla"),
+                SectorJefe.Sector.label("Sector_Jefe")
+            )
+            .outerjoin(Rol, Empleado.ID_ROL == Rol.ID_Rol)
+            .outerjoin(EstadoEmpleado, Empleado.ID_Estado == EstadoEmpleado.ID_Estado)
+            .outerjoin(
+                EmpleadoVentanilla, 
+                and_(
+                    Empleado.ID_Empleado == EmpleadoVentanilla.ID_Empleado,
+                    EmpleadoVentanilla.ID_Estado == 1,
+                    EmpleadoVentanilla.Fecha_Termino.is_(None)
+                )
+            )
+            .outerjoin(Ventanilla, EmpleadoVentanilla.ID_Ventanilla == Ventanilla.ID_Ventanilla)
+            .outerjoin(Sector, Ventanilla.ID_Sector == Sector.ID_Sector)
+            .outerjoin(SectorJefe, Empleado.ID_Sector == SectorJefe.ID_Sector)
+            .where(Empleado.Usuario == credentials.username)
+        )
         
-        result = await db.execute(query, {"username": credentials.username})
-        user = result.mappings().fetchone()
+        result = await db.execute(query)
+        user_row = result.mappings().fetchone()
 
-        if not user:
+        if not user_row:
             raise HTTPException(status_code=404, detail="Usuario no existe")
 
-        if user["ID_Estado"] != 1:
-            estado_empleado = user["Estado_Empleado"] or "Inactivo"
+        user = user_row["Empleado"]
+        if user.ID_Estado != 1:
+            estado_empleado = user_row["Estado_Empleado"] or "Inactivo"
             raise HTTPException(status_code=403, detail=f"Usuario no activo. Estado actual: {estado_empleado}")
 
         hashed_pw = sha256(credentials.password.encode()).hexdigest()
-        if user["Passwd"] != hashed_pw:
+        if user.Passwd != hashed_pw:
             raise HTTPException(status_code=401, detail="Contraseña incorrecta")
 
         # ── 2. Verificar si ya tiene sesión activa en DB ──
-        active_check = await db.execute(text("""
-            SELECT Token FROM Sesion_Activa
-            WHERE ID_Empleado = :emp_id AND Activa = 1 AND Expira > NOW()
-        """), {"emp_id": user["ID_Empleado"]})
+        active_check = await db.execute(
+            select(SesionActiva.Token)
+            .where(
+                and_(
+                    SesionActiva.ID_Empleado == user.ID_Empleado,
+                    SesionActiva.Activa == True,
+                    SesionActiva.Expira > datetime.utcnow()
+                )
+            )
+        )
         existing_session = active_check.mappings().fetchone()
 
         if existing_session:
             # Rechazar login — ya tiene sesión activa
-            _broadcast_session_event("session_already_active", user["ID_Empleado"])
+            _broadcast_session_event("session_already_active", user.ID_Empleado)
             raise HTTPException(
                 status_code=403,
                 detail="Este usuario ya tiene una sesión activa. Cierre la sesión antes de volver a iniciar."
             )
 
         # ── 3. Limpiar sesiones expiradas del usuario ──
-        await db.execute(text("""
-            UPDATE Sesion_Activa SET Activa = 0
-            WHERE ID_Empleado = :emp_id AND (Activa = 1 AND Expira <= NOW())
-        """), {"emp_id": user["ID_Empleado"]})
+        await db.execute(
+            update(SesionActiva)
+            .where(
+                and_(
+                    SesionActiva.ID_Empleado == user.ID_Empleado,
+                    SesionActiva.Activa == True,
+                    SesionActiva.Expira <= datetime.utcnow()
+                )
+            )
+            .values(Activa=False)
+        )
 
         # ── 4. Determinar sector ──
-        if user["ID_ROL"] == 6:
-            sector = user["Sector_Jefe"] or "Sin Sector"
-        elif user["ID_ROL"] == 1:
+        if user.ID_ROL == 6:
+            sector = user_row["Sector_Jefe"] or "Sin Sector"
+        elif user.ID_ROL == 1:
             sector = "Admin"
         else:
-            sector_query = text("""
-                SELECT DISTINCT s.Sector
-                FROM Rol_Ventanilla rv
-                JOIN Ventanillas v ON rv.ID_Ventanilla = v.ID_Ventanilla
-                JOIN Sectores s ON v.ID_Sector = s.ID_Sector
-                WHERE rv.ID_Rol = :id_rol
-                LIMIT 1
-            """)
-            sector_res = await db.execute(sector_query, {"id_rol": user["ID_ROL"]})
-            sector_row = sector_res.mappings().fetchone()
-            sector = sector_row["Sector"] if sector_row else "Desconocido"
+            sector_query = (
+                select(Sector.Sector)
+                .select_from(RolVentanilla)
+                .join(Ventanilla, RolVentanilla.ID_Ventanilla == Ventanilla.ID_Ventanilla)
+                .join(Sector, Ventanilla.ID_Sector == Sector.ID_Sector)
+                .where(RolVentanilla.ID_Rol == user.ID_ROL)
+                .distinct()
+                .limit(1)
+            )
+            sector_res = await db.execute(sector_query)
+            sector_row_val = sector_res.mappings().fetchone()
+            sector = sector_row_val["Sector"] if sector_row_val else "Desconocido"
 
         # ── 5. Crear nueva sesión ──
         session_token = str(uuid.uuid4())
         expira = datetime.utcnow() + timedelta(hours=SESSION_DURATION_HOURS)
 
-        await db.execute(text("""
-            INSERT INTO Sesion_Activa (Token, ID_Empleado, Activa, Expira)
-            VALUES (:token, :emp_id, 1, :expira)
-        """), {"token": session_token, "emp_id": user["ID_Empleado"], "expira": expira})
+        await db.execute(
+            insert(SesionActiva)
+            .values(Token=session_token, ID_Empleado=user.ID_Empleado, Activa=True, Expira=expira)
+        )
         await db.commit()
 
         # ── 6. Emitir evento WS ──
-        _broadcast_session_event("session_started", user["ID_Empleado"])
+        _broadcast_session_event("session_started", user.ID_Empleado)
 
         return {
-            "id": user["ID_Empleado"],
-            "nombre": f"{user['nombre1']} {user['Apellido1']}",
-            "rol": user["ID_ROL"],
+            "id": user.ID_Empleado,
+            "nombre": f"{user.nombre1} {user.Apellido1}",
+            "rol": user.ID_ROL,
             "sector": sector,
-            "estado": user["Estado_Empleado"],
+            "estado": user_row["Estado_Empleado"],
             "session_token": session_token,
-            "id_ventanilla": user["ID_Ventanilla"],
-            "ventanilla": user["Ventanilla"],
-            "sector_ventanilla": user["Sector_Ventanilla"]
+            "id_ventanilla": user_row["ID_Ventanilla"],
+            "ventanilla": user_row["Ventanilla"],
+            "sector_ventanilla": user_row["Sector_Ventanilla"]
         }
 
     except HTTPException:
@@ -158,12 +180,12 @@ async def check_session(request: Request, db: AsyncSession = Depends(get_db)):
     if not session_token:
         raise HTTPException(status_code=401, detail="No session")
 
-    result = await db.execute(text("""
-        SELECT sa.ID_Empleado, sa.Expira, e.ID_ROL
-        FROM Sesion_Activa sa
-        JOIN Empleado e ON sa.ID_Empleado = e.ID_Empleado
-        WHERE sa.Token = :token AND sa.Activa = 1
-    """), {"token": session_token})
+    query = (
+        select(SesionActiva.ID_Empleado, SesionActiva.Expira, Empleado.ID_ROL)
+        .join(Empleado, SesionActiva.ID_Empleado == Empleado.ID_Empleado)
+        .where(and_(SesionActiva.Token == session_token, SesionActiva.Activa == True))
+    )
+    result = await db.execute(query)
     row = result.mappings().fetchone()
 
     if not row:
@@ -171,9 +193,11 @@ async def check_session(request: Request, db: AsyncSession = Depends(get_db)):
 
     # Verificar expiración
     if row["Expira"] < datetime.utcnow():
-        await db.execute(text("""
-            UPDATE Sesion_Activa SET Activa = 0 WHERE Token = :token
-        """), {"token": session_token})
+        await db.execute(
+            update(SesionActiva)
+            .where(SesionActiva.Token == session_token)
+            .values(Activa=False)
+        )
         await db.commit()
         raise HTTPException(status_code=401, detail="Session expired")
 
@@ -184,16 +208,17 @@ async def check_session(request: Request, db: AsyncSession = Depends(get_db)):
 async def logout(request: Request, body: LogoutRequest, db: AsyncSession = Depends(get_db)):
     # Buscar el empleado asociado al token antes de desactivarlo
     result = await db.execute(
-        text("SELECT ID_Empleado FROM Sesion_Activa WHERE Token = :token AND Activa = 1"),
-        {"token": body.session_token}
+        select(SesionActiva.ID_Empleado)
+        .where(and_(SesionActiva.Token == body.session_token, SesionActiva.Activa == True))
     )
     row = result.mappings().fetchone()
     employee_id = row["ID_Empleado"] if row else None
 
     # Marcar sesión como inactiva
     await db.execute(
-        text("UPDATE Sesion_Activa SET Activa = 0 WHERE Token = :token"),
-        {"token": body.session_token}
+        update(SesionActiva)
+        .where(SesionActiva.Token == body.session_token)
+        .values(Activa=False)
     )
     await db.commit()
 
@@ -206,10 +231,10 @@ async def logout(request: Request, body: LogoutRequest, db: AsyncSession = Depen
 
 @router.get("/roles", response_model=List[RolResponse])
 async def get_roles(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(text("SELECT ID_Rol, Rol FROM Rol ORDER BY ID_Rol"))
+    result = await db.execute(select(Rol.ID_Rol, Rol.Rol).order_by(Rol.ID_Rol))
     return result.mappings().fetchall()
 
 @router.get("/estados_empleado", response_model=List[EstadoEmpleadoResponse])
 async def get_estados_empleado(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(text("SELECT ID_Estado, Nombre FROM Estado_Empleado"))
+    result = await db.execute(select(EstadoEmpleado.ID_Estado, EstadoEmpleado.Nombre))
     return result.mappings().fetchall()

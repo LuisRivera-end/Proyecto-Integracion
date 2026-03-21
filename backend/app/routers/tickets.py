@@ -2,13 +2,14 @@ import asyncio
 import base64
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import text
+from sqlalchemy import select, update, insert, func, and_
 from typing import Optional
 from datetime import datetime
 import pytz
 import app.utils.helpers as helpers
 from app.models.database import get_db
-from app.schemas.tickets import TicketCreate
+from app.models.models import Sector, Ventanilla, Turno, EstadoTurno, Empleado, RolVentanilla
+from app.schemas.tickets import TicketCreate, TicketGenerateReq, TicketAttendReq, TicketNextReq, TurnoStatusReq
 from app.utils.helpers import generar_folio_unico, obtener_fecha_actual, obtener_fecha_publico
 from app.models.pdf_generator import generar_ticket_PDF
 
@@ -22,34 +23,29 @@ router = APIRouter(prefix="/api", tags=["Tickets"])
 @router.get("/sectores")
 async def obtener_sectores(db: AsyncSession = Depends(get_db)):
     try:
-        query = text("""
-            SELECT s.ID_Sector, s.Sector,
-                   COUNT(v.ID_Ventanilla) AS Ventanillas
-            FROM Sectores s
-            LEFT JOIN Ventanillas v ON s.ID_Sector = v.ID_Sector
-            GROUP BY s.ID_Sector, s.Sector
-            ORDER BY s.Sector
-        """)
+        query = (
+            select(Sector.ID_Sector, Sector.Sector, func.count(Ventanilla.ID_Ventanilla).label("Ventanillas"))
+            .outerjoin(Ventanilla, Sector.ID_Sector == Ventanilla.ID_Sector)
+            .group_by(Sector.ID_Sector, Sector.Sector)
+            .order_by(Sector.Sector)
+        )
         result = await db.execute(query)
         return result.mappings().fetchall()
     except Exception as e:
         raise HTTPException(status_code=500, detail="Error interno al obtener sectores")
 
 @router.post("/ticket", status_code=201)
-async def generar_ticket(req: dict, db: AsyncSession = Depends(get_db)):
-    sector_nombre = req.get("sector")
-    tipo_caja = req.get("tipo_caja", "normal")
-
-    if not sector_nombre:
-        raise HTTPException(status_code=400, detail="sector es requerido")
+async def generar_ticket(req: TicketGenerateReq, db: AsyncSession = Depends(get_db)):
+    sector_nombre = req.sector
+    tipo_caja = req.tipo_caja or "normal"
 
     if tipo_caja not in ('normal', 'rapida'):
         tipo_caja = 'normal'
 
     try:
         # Check if sector exists
-        q_sec = text("SELECT ID_Sector FROM Sectores WHERE Sector = :sector")
-        res_sec = await db.execute(q_sec, {"sector": sector_nombre})
+        q_sec = select(Sector.ID_Sector).where(Sector.Sector == sector_nombre)
+        res_sec = await db.execute(q_sec)
         row_sec = res_sec.fetchone()
         
         if not row_sec:
@@ -64,16 +60,16 @@ async def generar_ticket(req: dict, db: AsyncSession = Depends(get_db)):
         Fecha_Ticket = helpers.obtener_fecha_actual()
         Fecha_Ticket_publico = helpers.obtener_fecha_publico()
 
-        q_ins = text("""
-            INSERT INTO Turno (ID_Sector, ID_Ventanilla, Fecha_Ticket, Folio, ID_Estados, Fecha_Ultimo_Estado, Tipo_Caja)
-            VALUES (:id_sec, NULL, :f_tkt, :folio, 1, :f_tkt, :tipo_caja)
-        """)
-        await db.execute(q_ins, {
-            "id_sec": ID_Sector, 
-            "f_tkt": Fecha_Ticket, 
-            "folio": Folio, 
-            "tipo_caja": tipo_caja
-        })
+        q_ins = insert(Turno).values(
+            ID_Sector=ID_Sector, 
+            ID_Ventanilla=None, 
+            Fecha_Ticket=Fecha_Ticket, 
+            Folio=Folio, 
+            ID_Estados=1, 
+            Fecha_Ultimo_Estado=Fecha_Ticket, 
+            Tipo_Caja=tipo_caja
+        )
+        await db.execute(q_ins)
 
         await db.commit()
 
@@ -111,7 +107,8 @@ async def request_ticket_print(req: Request):
             generar_ticket_PDF,
             data['numero_ticket'], 
             data['sector'],
-            data['fecha']
+            data['fecha'],
+            data.get('tipo_caja', 'normal')
         )
         pdf_base64 = base64.b64encode(pdf_bytes).decode('utf-8')
         
@@ -155,44 +152,43 @@ async def get_tickets(
 ):
     try:
         if id_empleado:
-            q_emp = text("""
-                SELECT DISTINCT s.Sector 
-                FROM Empleado e
-                JOIN Rol_Ventanilla rv ON e.ID_ROL = rv.ID_Rol
-                JOIN Ventanillas v ON rv.ID_Ventanilla = v.ID_Ventanilla
-                JOIN Sectores s ON v.ID_Sector = s.ID_Sector
-                WHERE e.ID_Empleado = :id_empleado
-            """)
-            res_emp = await db.execute(q_emp, {"id_empleado": id_empleado})
+            q_emp = (
+                select(Sector.Sector)
+                .select_from(Empleado)
+                .join(RolVentanilla, Empleado.ID_ROL == RolVentanilla.ID_Rol)
+                .join(Ventanilla, RolVentanilla.ID_Ventanilla == Ventanilla.ID_Ventanilla)
+                .join(Sector, Ventanilla.ID_Sector == Sector.ID_Sector)
+                .where(Empleado.ID_Empleado == id_empleado)
+                .distinct()
+            )
+            res_emp = await db.execute(q_emp)
             sector_empleado = res_emp.fetchone()
             if sector_empleado:
                 sector = sector_empleado[0]
 
-        base_query = """
-            SELECT 
-                t.Folio AS folio,
-                t.ID_Turno AS id_turno,
-                s.Sector AS sector,
-                et.Nombre AS estado,
-                t.Fecha_Ticket AS fecha_ticket,
-                t.Tipo_Caja AS tipo_caja,
-                'normal' AS tipo
-            FROM Turno t
-            JOIN Sectores s ON t.ID_Sector = s.ID_Sector
-            JOIN Estados_Turno et ON t.ID_Estados = et.ID_Estado
-            WHERE t.ID_Estados = 1
-        """
-        params = {}
+        from sqlalchemy import literal_column
+        base_query = (
+            select(
+                Turno.Folio.label("folio"),
+                Turno.ID_Turno.label("id_turno"),
+                Sector.Sector.label("sector"),
+                EstadoTurno.Nombre.label("estado"),
+                Turno.Fecha_Ticket.label("fecha_ticket"),
+                Turno.Tipo_Caja.label("tipo_caja"),
+                literal_column("'normal'").label("tipo")
+            )
+            .join(Sector, Turno.ID_Sector == Sector.ID_Sector)
+            .join(EstadoTurno, Turno.ID_Estados == EstadoTurno.ID_Estado)
+            .where(Turno.ID_Estados == 1)
+        )
 
         if sector:
-            base_query += " AND s.Sector = :sector"
-            params["sector"] = sector
+            base_query = base_query.where(Sector.Sector == sector)
 
         if tipo_caja and tipo_caja in ('normal', 'rapida'):
-            base_query += " AND t.Tipo_Caja = :tipo_caja"
-            params["tipo_caja"] = tipo_caja
+            base_query = base_query.where(Turno.Tipo_Caja == tipo_caja)
 
-        res = await db.execute(text(base_query), params)
+        res = await db.execute(base_query)
         tickets = res.mappings().fetchall()
         
         # Sort manually using mappings to dict conversion
@@ -205,27 +201,23 @@ async def get_tickets(
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.put("/tickets/{folio}/attend")
-async def attend_ticket(folio: str, req: dict, db: AsyncSession = Depends(get_db)):
-    id_ventanilla = req.get("id_ventanilla")
-    if not id_ventanilla:
-        raise HTTPException(status_code=400, detail="ID de ventanilla requerido")
+async def attend_ticket(folio: str, req: TicketAttendReq, db: AsyncSession = Depends(get_db)):
+    id_ventanilla = req.id_ventanilla
 
     import app.utils.helpers as sync_helpers
     nueva_fecha = sync_helpers.obtener_fecha_actual()
     
     try:
-        q_upd = text("""
-            UPDATE Turno
-            SET ID_Estados = 3, 
-                Fecha_Ultimo_Estado = :nueva_fecha, 
-                ID_Ventanilla = :id_ventanilla
-            WHERE Folio = :folio AND ID_Estados = 1
-        """)
-        res = await db.execute(q_upd, {
-            "nueva_fecha": nueva_fecha,
-            "id_ventanilla": id_ventanilla,
-            "folio": folio
-        })
+        q_upd = (
+            update(Turno)
+            .where(and_(Turno.Folio == folio, Turno.ID_Estados == 1))
+            .values(
+                ID_Estados=3,
+                Fecha_Ultimo_Estado=nueva_fecha,
+                ID_Ventanilla=id_ventanilla
+            )
+        )
+        res = await db.execute(q_upd)
 
         if res.rowcount == 0:
             raise HTTPException(status_code=404, detail="Ticket no encontrado o ya atendido")
@@ -247,12 +239,12 @@ async def complete_ticket(folio: str, db: AsyncSession = Depends(get_db)):
     import app.utils.helpers as sync_helpers
     nueva_fecha = sync_helpers.obtener_fecha_actual()
     try:
-        q_upd = text("""
-            UPDATE Turno
-            SET ID_Estados = 4, Fecha_Ultimo_Estado = :nueva_fecha
-            WHERE Folio = :folio
-        """)
-        await db.execute(q_upd, {"nueva_fecha": nueva_fecha, "folio": folio})
+        q_upd = (
+            update(Turno)
+            .where(Turno.Folio == folio)
+            .values(ID_Estados=4, Fecha_Ultimo_Estado=nueva_fecha)
+        )
+        await db.execute(q_upd)
         await db.commit()
         await emit_tickets_update()
         
@@ -266,12 +258,12 @@ async def cancel_ticket(folio: str, db: AsyncSession = Depends(get_db)):
     import app.utils.helpers as sync_helpers
     nueva_fecha = sync_helpers.obtener_fecha_actual()
     try:
-        q_upd = text("""
-            UPDATE Turno
-            SET ID_Estados = 2, Fecha_Ultimo_Estado = :nueva_fecha
-            WHERE Folio = :folio AND ID_Estados = 3
-        """)
-        res = await db.execute(q_upd, {"nueva_fecha": nueva_fecha, "folio": folio})
+        q_upd = (
+            update(Turno)
+            .where(and_(Turno.Folio == folio, Turno.ID_Estados == 3))
+            .values(ID_Estados=2, Fecha_Ultimo_Estado=nueva_fecha)
+        )
+        res = await db.execute(q_upd)
         
         if res.rowcount == 0:
             raise HTTPException(status_code=404, detail="Ticket no encontrado o no está siendo atendido")
@@ -290,15 +282,12 @@ async def cancel_ticket(folio: str, db: AsyncSession = Depends(get_db)):
 @router.get("/tickets_count")
 async def get_tickets_count(db: AsyncSession = Depends(get_db)):
     try:
-        q = text("""
-            SELECT 
-                s.Sector AS nombre_sector,
-                COUNT(t.ID_Turno) AS cantidad
-            FROM Turno t
-            JOIN Sectores s ON t.ID_Sector = s.ID_Sector
-            WHERE t.ID_Estados = 1
-            GROUP BY s.Sector
-        """)
+        q = (
+            select(Sector.Sector.label("nombre_sector"), func.count(Turno.ID_Turno).label("cantidad"))
+            .join(Sector, Turno.ID_Sector == Sector.ID_Sector)
+            .where(Turno.ID_Estados == 1)
+            .group_by(Sector.Sector)
+        )
         res = await db.execute(q)
         rows = res.mappings().fetchall()
         
@@ -312,8 +301,11 @@ async def total_tickets(db: AsyncSession = Depends(get_db)):
         tz = pytz.timezone('America/Mexico_City')
         hoy_local = datetime.now(tz).strftime('%Y-%m-%d')
 
-        q = text("SELECT COUNT(ID_Turno) AS cantidad FROM Turno WHERE DATE(Fecha_Ticket) = :hoy")
-        res = await db.execute(q, {"hoy": hoy_local})
+        q = (
+            select(func.count(Turno.ID_Turno).label("cantidad"))
+            .where(func.date(Turno.Fecha_Ticket) == hoy_local)
+        )
+        res = await db.execute(q)
         
         row = res.fetchone()
         return {"cantidad": row[0] if row else 0}
@@ -323,14 +315,13 @@ async def total_tickets(db: AsyncSession = Depends(get_db)):
 @router.get("/tickets/activo/{id_ventanilla}")
 async def get_ticket_activo(id_ventanilla: int, db: AsyncSession = Depends(get_db)):
     try:
-        q = text("""
-            SELECT t.Folio AS folio
-            FROM Turno t
-            WHERE t.ID_Ventanilla = :id_ventanilla AND t.ID_Estados = 3
-            ORDER BY t.Fecha_Ultimo_Estado DESC
-            LIMIT 1
-        """)
-        res = await db.execute(q, {"id_ventanilla": id_ventanilla})
+        q = (
+            select(Turno.Folio.label("folio"))
+            .where(and_(Turno.ID_Ventanilla == id_ventanilla, Turno.ID_Estados == 3))
+            .order_by(Turno.Fecha_Ultimo_Estado.desc())
+            .limit(1)
+        )
+        res = await db.execute(q)
         ticket = res.fetchone()
         
         if not ticket:
@@ -341,24 +332,22 @@ async def get_ticket_activo(id_ventanilla: int, db: AsyncSession = Depends(get_d
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/tickets/llamar-siguiente")
-async def llamar_siguiente_ticket(req: dict, db: AsyncSession = Depends(get_db)):
-    id_ventanilla = req.get("id_ventanilla")
-    id_empleado = req.get("id_empleado")
-    tipo_caja = req.get("tipo_caja") 
-
-    if not id_ventanilla or not id_empleado:
-        raise HTTPException(status_code=400, detail="Ventanilla y empleado requeridos")
+async def llamar_siguiente_ticket(req: TicketNextReq, db: AsyncSession = Depends(get_db)):
+    id_ventanilla = req.id_ventanilla
+    id_empleado = req.id_empleado
+    tipo_caja = req.tipo_caja 
 
     try:
-        q_emp = text("""
-            SELECT DISTINCT s.ID_Sector, s.Sector
-            FROM Empleado e
-            JOIN Rol_Ventanilla rv ON e.ID_ROL = rv.ID_Rol
-            JOIN Ventanillas v ON rv.ID_Ventanilla = v.ID_Ventanilla
-            JOIN Sectores s ON v.ID_Sector = s.ID_Sector
-            WHERE e.ID_Empleado = :id_empleado
-        """)
-        res_emp = await db.execute(q_emp, {"id_empleado": id_empleado})
+        q_emp = (
+            select(Sector.ID_Sector, Sector.Sector)
+            .select_from(Empleado)
+            .join(RolVentanilla, Empleado.ID_ROL == RolVentanilla.ID_Rol)
+            .join(Ventanilla, RolVentanilla.ID_Ventanilla == Ventanilla.ID_Ventanilla)
+            .join(Sector, Ventanilla.ID_Sector == Sector.ID_Sector)
+            .where(Empleado.ID_Empleado == id_empleado)
+            .distinct()
+        )
+        res_emp = await db.execute(q_emp)
         sector_emp = res_emp.mappings().fetchone()
         
         if not sector_emp:
@@ -366,19 +355,17 @@ async def llamar_siguiente_ticket(req: dict, db: AsyncSession = Depends(get_db))
             
         id_sector = sector_emp["ID_Sector"]
 
-        q_next = """
-            SELECT t.Folio, t.ID_Turno as id, t.Fecha_Ticket
-            FROM Turno t
-            WHERE t.ID_Estados = 1 AND t.ID_Sector = :id_sector
-        """
-        params = {"id_sector": id_sector}
+        q_next = (
+            select(Turno.Folio, Turno.ID_Turno.label("id"), Turno.Fecha_Ticket)
+            .where(and_(Turno.ID_Estados == 1, Turno.ID_Sector == id_sector))
+        )
+        
         if tipo_caja and tipo_caja in ('normal', 'rapida'):
-            q_next += " AND t.Tipo_Caja = :tipo_caja"
-            params["tipo_caja"] = tipo_caja
+            q_next = q_next.where(Turno.Tipo_Caja == tipo_caja)
 
-        q_next += " ORDER BY t.Fecha_Ticket ASC LIMIT 1"
+        q_next = q_next.order_by(Turno.Fecha_Ticket.asc()).limit(1)
 
-        res_next = await db.execute(text(q_next), params)
+        res_next = await db.execute(q_next)
         siguiente = res_next.mappings().fetchone()
         
         if not siguiente:
@@ -388,18 +375,16 @@ async def llamar_siguiente_ticket(req: dict, db: AsyncSession = Depends(get_db))
         import app.utils.helpers as sync_helpers
         nueva_fecha = sync_helpers.obtener_fecha_actual()
 
-        q_upd = text("""
-            UPDATE Turno
-            SET ID_Estados = 3, 
-                Fecha_Ultimo_Estado = :nueva_fecha, 
-                ID_Ventanilla = :id_ventanilla
-            WHERE Folio = :folio AND ID_Estados = 1
-        """)
-        res_upd = await db.execute(q_upd, {
-            "nueva_fecha": nueva_fecha,
-            "id_ventanilla": id_ventanilla,
-            "folio": folio
-        })
+        q_upd = (
+            update(Turno)
+            .where(and_(Turno.Folio == folio, Turno.ID_Estados == 1))
+            .values(
+                ID_Estados=3,
+                Fecha_Ultimo_Estado=nueva_fecha,
+                ID_Ventanilla=id_ventanilla
+            )
+        )
+        res_upd = await db.execute(q_upd)
         
         if res_upd.rowcount == 0:
             raise HTTPException(status_code=409, detail="El ticket ya fue tomado por otro operador")
@@ -420,24 +405,18 @@ async def llamar_siguiente_ticket(req: dict, db: AsyncSession = Depends(get_db))
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.put("/turno/{id_turno}/estado")
-async def actualizar_estado_turno(id_turno: int, req: dict, db: AsyncSession = Depends(get_db)):
-    nuevo_estado = req.get("estado")
-    if not nuevo_estado:
-        raise HTTPException(status_code=400, detail="Estado requerido")
+async def actualizar_estado_turno(id_turno: int, req: TurnoStatusReq, db: AsyncSession = Depends(get_db)):
+    nuevo_estado = req.estado
 
     import app.utils.helpers as sync_helpers
     nueva_fecha = sync_helpers.obtener_fecha_actual()
     try:
-        q_upd = text("""
-            UPDATE Turno
-            SET ID_Estados = :nuevo_estado, Fecha_Ultimo_Estado = :nueva_fecha
-            WHERE ID_Turno = :id_turno
-        """)
-        res = await db.execute(q_upd, {
-            "nuevo_estado": nuevo_estado,
-            "nueva_fecha": nueva_fecha,
-            "id_turno": id_turno
-        })
+        q_upd = (
+            update(Turno)
+            .where(Turno.ID_Turno == id_turno)
+            .values(ID_Estados=nuevo_estado, Fecha_Ultimo_Estado=nueva_fecha)
+        )
+        res = await db.execute(q_upd)
         
         if res.rowcount == 0:
             raise HTTPException(status_code=404, detail="Turno no encontrado")
@@ -456,21 +435,22 @@ async def actualizar_estado_turno(id_turno: int, req: dict, db: AsyncSession = D
 @router.get("/tickets/historial")
 async def get_historial_tickets(db: AsyncSession = Depends(get_db)):
     try:
-        q = text("""
-            SELECT 
-                t.Folio AS folio,
-                t.ID_Turno AS id_turno,
-                s.Sector AS sector,
-                et.Nombre AS estado,
-                t.Fecha_Ticket AS fecha_ticket,
-                t.Fecha_Ultimo_Estado AS fecha_ultimo_estado,
-                'normal' AS tipo
-            FROM Turno t
-            JOIN Sectores s ON t.ID_Sector = s.ID_Sector
-            JOIN Estados_Turno et ON t.ID_Estados = et.ID_Estado
-            ORDER BY t.Fecha_Ticket DESC
-            LIMIT 100
-        """)
+        from sqlalchemy import literal_column
+        q = (
+            select(
+                Turno.Folio.label("folio"),
+                Turno.ID_Turno.label("id_turno"),
+                Sector.Sector.label("sector"),
+                EstadoTurno.Nombre.label("estado"),
+                Turno.Fecha_Ticket.label("fecha_ticket"),
+                Turno.Fecha_Ultimo_Estado.label("fecha_ultimo_estado"),
+                literal_column("'normal'").label("tipo")
+            )
+            .join(Sector, Turno.ID_Sector == Sector.ID_Sector)
+            .join(EstadoTurno, Turno.ID_Estados == EstadoTurno.ID_Estado)
+            .order_by(Turno.Fecha_Ticket.desc())
+            .limit(100)
+        )
         res = await db.execute(q)
         return res.mappings().fetchall()
     except Exception as e:
@@ -479,23 +459,24 @@ async def get_historial_tickets(db: AsyncSession = Depends(get_db)):
 @router.get("/tickets/publico")
 async def get_tickets_publico(db: AsyncSession = Depends(get_db)):
     try:
-        q = text("""
-            SELECT 
-                t.Folio AS folio,
-                t.ID_Turno AS id_turno,
-                t.ID_Ventanilla AS id_ventanilla,
-                v.Ventanilla AS ventanilla,
-                s.Sector AS sector,
-                et.Nombre AS estado,
-                et.ID_Estado AS estado_id,
-                t.Fecha_Ticket AS fecha_ticket,
-                'normal' AS tipo
-            FROM Turno t
-            JOIN Sectores s ON t.ID_Sector = s.ID_Sector
-            JOIN Estados_Turno et ON t.ID_Estados = et.ID_Estado
-            LEFT JOIN Ventanillas v ON t.ID_Ventanilla = v.ID_Ventanilla
-            WHERE t.ID_Estados IN (1, 3)
-        """)
+        from sqlalchemy import literal_column
+        q = (
+            select(
+                Turno.Folio.label("folio"),
+                Turno.ID_Turno.label("id_turno"),
+                Turno.ID_Ventanilla.label("id_ventanilla"),
+                Ventanilla.Ventanilla.label("ventanilla"),
+                Sector.Sector.label("sector"),
+                EstadoTurno.Nombre.label("estado"),
+                EstadoTurno.ID_Estado.label("estado_id"),
+                Turno.Fecha_Ticket.label("fecha_ticket"),
+                literal_column("'normal'").label("tipo")
+            )
+            .join(Sector, Turno.ID_Sector == Sector.ID_Sector)
+            .join(EstadoTurno, Turno.ID_Estados == EstadoTurno.ID_Estado)
+            .outerjoin(Ventanilla, Turno.ID_Ventanilla == Ventanilla.ID_Ventanilla)
+            .where(Turno.ID_Estados.in_([1, 3]))
+        )
         res = await db.execute(q)
         tickets = [dict(r) for r in res.mappings().fetchall()]
         
