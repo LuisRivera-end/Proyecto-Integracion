@@ -20,14 +20,14 @@ export default defineNuxtRouteMiddleware(async (to) => {
   const path = to.path
 
   if (user.rol === 1) {
-    // Admin: puede ir a /admin, /empleados, /historial, /pantalla
-    if (!['/admin', '/empleados', '/historial', '/pantalla'].includes(path)) {
+    // Admin: puede ir a /admin, /empleados, /historial, /pantalla, /dashboard
+    if (!['/admin', '/empleados', '/historial', '/pantalla', '/dashboard'].includes(path)) {
       await logout()
       return navigateTo('/login', { replace: true })
     }
   } else if (user.rol === 6) {
-    // Subjefe: puede ir a /subjefes, /historial
-    if (!['/subjefes', '/historial'].includes(path)) {
+    // Subjefe: puede ir a /subjefes, /historial, /dashboard
+    if (!['/subjefes', '/historial', '/dashboard'].includes(path)) {
       await logout()
       return navigateTo('/login', { replace: true })
     }

@@ -1,11 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update, insert, func, and_, or_
+from sqlalchemy import select, update, insert, func, and_, or_, null
 from typing import Optional, List
 from hashlib import sha256
 
 from app.models.database import get_db
-from app.models.models import Empleado, Rol, EstadoEmpleado, EmpleadoVentanilla, Ventanilla, Sector, RolVentanilla, EstadoEmpleadoVentanilla
+from app.models.models import Empleado, Rol, EstadoEmpleado, EmpleadoVentanilla, Ventanilla, Sector, RolVentanilla, EstadoEmpleadoVentanilla, SesionActiva
 from sqlalchemy.orm import aliased
 from app.schemas.empleados import EmpleadoCreateReq, EmpleadoUpdateReq, EmpleadoStatusReq, EmpleadoSectorReq
 
