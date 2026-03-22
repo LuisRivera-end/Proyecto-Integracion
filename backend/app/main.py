@@ -3,8 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import Depends
 from app.routers import (
-    auth, ventanillas, tickets, empleados, 
-    caja_rapida, reporte, health
+    auth, ventanillas, tickets, empleados,
+    caja_rapida, reporte, health, dashboard
 )
 from app.websocket.routes import router as websocket_router
 
@@ -49,5 +49,6 @@ app.include_router(empleados.router)
 app.include_router(caja_rapida.router)
 app.include_router(reporte.router)
 app.include_router(health.router)
+app.include_router(dashboard.router)
 app.include_router(websocket_router)
 

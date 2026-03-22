@@ -23,10 +23,28 @@
       </div>
     </div>
 
-    <!-- Navigation -->
-    <nav class="flex-1 overflow-y-auto py-6 px-4 space-y-2 custom-scrollbar bg-white">
-      <NuxtLink
-        to="/pantalla"
+  <!-- Navigation -->
+  <nav class="flex-1 overflow-y-auto py-6 px-4 space-y-2 custom-scrollbar bg-white">
+    <NuxtLink
+      to="/dashboard"
+      class="flex items-center gap-4 px-5 py-3.5 rounded-xl transition-all duration-200 group relative overflow-hidden"
+      :class="activePage === 'dashboard'
+        ? 'bg-emerald-50 text-emerald-800 shadow-sm border border-emerald-100'
+        : 'text-slate-600 hover:text-emerald-700 hover:bg-emerald-50/80'"
+    >
+      <svg
+        class="w-6 h-6 transition-colors duration-300"
+        :class="activePage === 'dashboard' ? 'text-emerald-600' : 'text-slate-400 group-hover:text-emerald-500'"
+        fill="none" stroke="currentColor" viewBox="0 0 24 24"
+      >
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+      </svg>
+      <span class="font-bold tracking-wide text-sm relative z-10">Dashboard</span>
+      <div v-if="activePage === 'dashboard'" class="absolute right-4 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
+    </NuxtLink>
+
+    <NuxtLink
+      to="/pantalla"
         class="flex items-center gap-4 px-5 py-3.5 rounded-xl transition-all duration-200 group relative overflow-hidden"
         :class="activePage === 'pantalla'
           ? 'bg-emerald-50 text-emerald-800 shadow-sm border border-emerald-100'
