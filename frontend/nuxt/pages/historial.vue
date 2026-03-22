@@ -382,7 +382,7 @@ async function generarReporte() {
   try {
     let url = `${API_BASE_URL}/api/reporte/generar?desde=${reporteDesde.value}&hasta=${reporteHasta.value}`
     if (esSubjefe.value && sectorSubjefe.value) url += `&sector=${encodeURIComponent(sectorSubjefe.value)}`
-    const res = await fetch(url); if (!res.ok) { const e = await res.json(); throw new Error(e.error) }
+    const res = await fetch(url); if (!res.ok) { const e = await res.json(); throw new Error(e.detail || e.error || 'Error') }
     const blob = await res.blob(); const u = window.URL.createObjectURL(blob)
     const a = document.createElement('a'); a.href = u; a.download = `reporte_${reporteDesde.value}_${reporteHasta.value}.pdf`
     document.body.appendChild(a); a.click(); document.body.removeChild(a); window.URL.revokeObjectURL(u)

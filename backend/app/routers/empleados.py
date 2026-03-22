@@ -101,7 +101,9 @@ async def get_employees_full(req: Request, db: AsyncSession = Depends(get_db)):
                 EmpleadoVentanilla.ID_Estado.label("Estado_Ventanilla"),
                 EstadoEmpleadoVentanilla.Nombre.label("Nombre_Estado_Ventanilla"),
                 Empleado.ID_Sector.label("ID_Sector_Jefe"),
-                SectorJefe.Sector.label("Nombre_Sector_Jefe")
+                SectorJefe.Sector.label("Nombre_Sector_Jefe"),
+                SesionActiva.Token.label("session_token"),
+                (SesionActiva.ID_Empleado.isnot(null)).label("sesion_activa")
             )
             .outerjoin(Rol, Empleado.ID_ROL == Rol.ID_Rol)
             .outerjoin(EstadoEmpleado, Empleado.ID_Estado == EstadoEmpleado.ID_Estado)
@@ -116,6 +118,10 @@ async def get_employees_full(req: Request, db: AsyncSession = Depends(get_db)):
             .outerjoin(Sector, Ventanilla.ID_Sector == Sector.ID_Sector)
             .outerjoin(SectorJefe, Empleado.ID_Sector == SectorJefe.ID_Sector)
             .outerjoin(EstadoEmpleadoVentanilla, EmpleadoVentanilla.ID_Estado == EstadoEmpleadoVentanilla.ID_Estado)
+            .outerjoin(SesionActiva, and_(
+                Empleado.ID_Empleado == SesionActiva.ID_Empleado,
+                SesionActiva.Activa == True
+            ))
         )
 
         if jefe_sector_id is not None:

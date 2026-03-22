@@ -201,7 +201,7 @@ async function llamarSiguiente() {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(bodyData)
     })
-    if (!res.ok) { const e = await res.json(); throw new Error(e.error) }
+    if (!res.ok) { const e = await res.json(); throw new Error(e.detail || e.error || 'Error') }
     const data = await res.json()
     currentTicket.value = { folio: data.folio }
     await fetchTickets()
@@ -212,7 +212,7 @@ async function completarTicket() {
   if (!currentTicket.value) return
   try {
     const res = await fetch(`${API_BASE_URL}/api/tickets/${currentTicket.value.folio}/complete`, { method: 'PUT', headers: { 'Content-Type': 'application/json' } })
-    if (!res.ok) { const e = await res.json(); throw new Error(e.error) }
+    if (!res.ok) { const e = await res.json(); throw new Error(e.detail || e.error || 'Error') }
     const f = currentTicket.value.folio
     currentTicket.value = null
     await fetchTickets()
@@ -230,7 +230,7 @@ async function cancelarTicket() {
   if (!ok) return
   try {
     const res = await fetch(`${API_BASE_URL}/api/tickets/${currentTicket.value.folio}/cancel`, { method: 'PUT', headers: { 'Content-Type': 'application/json' } })
-    if (!res.ok) { const e = await res.json(); throw new Error(e.error) }
+    if (!res.ok) { const e = await res.json(); throw new Error(e.detail || e.error || 'Error') }
     const f = currentTicket.value.folio
     currentTicket.value = null
     await fetchTickets()

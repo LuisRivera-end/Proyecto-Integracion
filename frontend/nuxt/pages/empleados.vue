@@ -95,10 +95,21 @@
                   <td class="px-6 py-3.5 text-center">
                     <span v-if="emp.ID_ROL === 1" class="text-slate-300 text-xs italic">Sin acciones</span>
                     <div v-else class="flex flex-col items-center gap-1">
-                      <span v-if="activosSet.has(emp.ID_Empleado)" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-green-100 text-green-700 border border-green-200 mb-1">
-                        <span class="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span> En ventanilla
-                      </span>
-                      <button v-if="!activosSet.has(emp.ID_Empleado)" class="edit-btn" @click="abrirEdicion(emp.ID_Empleado)">Editar</button>
+                      <!-- Session status -->
+                      <div v-if="emp.sesion_activa" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-800 border border-blue-200 mb-1">
+                        <span class="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span> Sesión activa
+                      </div>
+                      <div v-else class="text-xs text-slate-500">Sin sesión</div>
+                      <!-- Forzar Desconexión button (only for admins) -->
+                      <button v-if="isAdmin && emp.sesion_activa && emp.ID_Empleado !== currentUser.value?.id"
+                              class="forzar-btn px-2 py-1 bg-red-500 hover:bg-red-600 text-white font-bold text-xs rounded transition-colors"
+                              @click="forzarDesconexion(emp.ID_Empleado)"
+                              :loading="forzarLoading[emp.ID_Empleado]"
+                              :disabled="forzarLoading[emp.ID_Empleado]">
+                        {{ forzarLoading[emp.ID_Empleado] ? 'Procesando...' : 'Forzar Desconexión' }}
+                      </button>
+                      <!-- Edit button (only if not in ventanilla) -->
+                      <button v-if="!activosSet.has(emp.ID_Empleado)" class="edit-btn mt-1" @click="abrirEdicion(emp.ID_Empleado)">Editar</button>
                     </div>
                   </td>
                 </tr>
@@ -198,6 +209,10 @@ const activosSet = ref(new Set())
 const roles = ref([])
 const sectoresForm = ref([])
 const editAccordion = ref(null)
+const forzarLoading = reactive({})
+const isAdmin = computed(() => {
+  return currentUser.value?.rol === 1
+})
 
 
 // Add form
@@ -264,7 +279,7 @@ async function agregarEmpleado() {
 
     const body = { ...form, id_sector: form.id_rol === 6 ? (form.id_sector || null) : null }
     const res = await fetch(`${API_BASE_URL}/api/employees/add`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
-    if (!res.ok) { const e = await res.json(); throw new Error(e.error) }
+    if (!res.ok) { const e = await res.json(); throw new Error(e.detail || e.error || 'Error') }
     lanzarAlerta('Empleado agregado exitosamente', 'success')
     Object.assign(form, { nombre1: '', nombre2: '', apellido1: '', apellido2: '', usuario: '', passwd: '', id_rol: '', id_sector: 0 })
     loadEmployees()
@@ -309,7 +324,7 @@ async function guardarEdicion() {
     const body = { nombre1: editForm.nombre1, nombre2: editForm.nombre2, apellido1: editForm.apellido1, apellido2: editForm.apellido2, usuario: editForm.usuario }
     if (editForm.password) body.passwd = editForm.password
     let res = await fetch(`${API_BASE_URL}/api/employees/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
-    if (!res.ok) { const e = await res.json(); throw new Error(e.error) }
+    if (!res.ok) { const e = await res.json(); throw new Error(e.detail || e.error || 'Error') }
 
     if (editEmpleado.value.ID_ROL === 6) {
       await fetch(`${API_BASE_URL}/api/employees/${id}/sector`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id_sector: editForm.sector === 0 ? null : editForm.sector }) })
@@ -331,6 +346,7 @@ function cancelarEdicion() { editEmpleado.value = null }
 
   onMounted(() => {
     currentUser.value = getCurrentUser()
+    cargarRoles()
 
     onConnect = () => {
       const token = getSessionToken()
@@ -356,6 +372,28 @@ function cancelarEdicion() { editEmpleado.value = null }
     socket.off('connect', onConnect)
     socket.off('ventanilla_status_changed', onStatusChanged)
   })
+
+  async function forzarDesconexion(id_empleado) {
+    try {
+      forzarLoading[id_empleado] = true
+      const res = await fetch(`${API_BASE_URL}/api/employees/${id_empleado}/forzar-cierre`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ session_token: getSessionToken() })
+      })
+      if (!res.ok) { 
+        const e = await res.json()
+        throw new Error(e.detail || e.error || 'Error al forzar desconexión') 
+      }
+      lanzarAlerta('Sesión forzada a cerrar correctamente', 'success')
+      // Refresh the employee list to update session status
+      await loadEmployees()
+    } catch (err) {
+      lanzarAlerta(err.message || 'Error', 'error')
+    } finally {
+      forzarLoading[id_empleado] = false
+    }
+  }
 </script>
 
 <style scoped>

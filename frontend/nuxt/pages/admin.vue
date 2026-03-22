@@ -139,13 +139,13 @@
                       <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Selecciona las ventanillas *</label>
                       <div class="space-y-2 max-h-40 overflow-y-auto">
                         <div v-for="v in editVentanillas" :key="v.ID_Ventanilla" 
-                          :class="['flex items-center gap-2 rounded-lg px-3 py-2 border transition-colors', v.Activa === 1 ? 'bg-white border-slate-200' : 'bg-slate-100 border-slate-200 opacity-60']">
+                          :class="['flex items-center gap-2 rounded-lg px-3 py-2 border transition-colors', (v.Activa === 1 || v.Activa === true) ? 'bg-white border-slate-200' : 'bg-slate-100 border-slate-200 opacity-60']">
                           <input type="checkbox" :id="'cr-v-'+v.ID_Ventanilla" :value="v.ID_Ventanilla" v-model="cajaRapidaVentanillasSeleccionadas"
                             class="w-4 h-4 text-amber-500 border-gray-300 rounded focus:ring-amber-400"
-                            :disabled="v.Activa !== 1">
+                            :disabled="(v.Activa !== 1 && v.Activa !== true)">
                           <label :for="'cr-v-'+v.ID_Ventanilla" 
-                            :class="['text-sm font-medium cursor-pointer flex-1', v.Activa === 1 ? 'text-slate-700' : 'text-slate-400 cursor-not-allowed']">
-                            {{ v.Ventanilla }} {{ v.Activa !== 1 ? '(Inactiva)' : '' }}
+                            :class="['text-sm font-medium cursor-pointer flex-1', (v.Activa === 1 || v.Activa === true) ? 'text-slate-700' : 'text-slate-400 cursor-not-allowed']">
+                            {{ v.Ventanilla }} {{ (v.Activa !== 1 && v.Activa !== true) ? '(Inactiva)' : '' }}
                           </label>
                         </div>
                       </div>
@@ -175,40 +175,40 @@
                     </thead>
                     <tbody class="divide-y divide-slate-100">
                       <tr v-for="v in editVentanillas" :key="v.ID_Ventanilla"
-                        :class="['transition-colors', v.Activa === 1 ? 'hover:bg-slate-50' : 'bg-slate-100/60']">
+                        :class="['transition-colors', (v.Activa === 1 || v.Activa === true) ? 'hover:bg-slate-50' : 'bg-slate-100/60']">
                         <td class="px-4 py-3">
                           <input v-model="v.nuevoNombre" type="text"
                             :disabled="!!v.nombre_empleado"
                             :title="v.nombre_empleado ? 'En uso por un empleado: ' + v.nombre_empleado : ''"
                             :class="[
                               'w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-800 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all',
-                              v.Activa !== 1 ? 'opacity-50' : '',
+                              (v.Activa !== 1 && v.Activa !== true) ? 'opacity-50' : '',
                               v.nombre_empleado ? 'opacity-50 cursor-not-allowed bg-slate-50' : ''
                             ]" />
                         </td>
                         <td class="px-4 py-3 text-center">
                           <span :class="[
                             'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold',
-                            v.Activa === 1 ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' : 'bg-red-100 text-red-700 border border-red-200'
+                            (v.Activa === 1 || v.Activa === true) ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' : 'bg-red-100 text-red-700 border border-red-200'
                           ]">
-                            <span :class="['w-1.5 h-1.5 rounded-full', v.Activa === 1 ? 'bg-emerald-500' : 'bg-red-500']"></span>
-                            {{ v.Activa === 1 ? 'Activa' : 'Inactiva' }}
+                            <span :class="['w-1.5 h-1.5 rounded-full', (v.Activa === 1 || v.Activa === true) ? 'bg-emerald-500' : 'bg-red-500']"></span>
+                            {{ (v.Activa === 1 || v.Activa === true) ? 'Activa' : 'Inactiva' }}
                           </span>
                           <p v-if="v.nombre_empleado" class="text-[11px] text-slate-400 mt-1 font-medium">{{ v.nombre_empleado }}</p>
                         </td>
                         <td class="px-4 py-3 text-center">
                           <button type="button"
-                            :disabled="v.nombre_empleado && v.Activa === 1"
+                            :disabled="v.nombre_empleado && (v.Activa === 1 || v.Activa === true)"
                             @click="toggleVentanilla(v)"
                             :class="[
                               'px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-200',
-                              v.Activa === 1
+                              (v.Activa === 1 || v.Activa === true)
                                 ? (v.nombre_empleado
                                     ? 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200'
                                     : 'bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 hover:border-red-300 active:scale-95')
                                 : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border border-emerald-200 hover:border-emerald-300 active:scale-95'
                             ]">
-                            {{ v.Activa === 1 ? 'Deshabilitar' : 'Habilitar' }}
+                            {{ (v.Activa === 1 || v.Activa === true) ? 'Deshabilitar' : 'Habilitar' }}
                           </button>
                         </td>
                       </tr>
@@ -335,7 +335,7 @@ async function agregarSector() {
       body: JSON.stringify({ sector: nuevoNombre.value.trim(), ventanillas: nuevaVentanillas.value || 1 }),
     })
     const data = await res.json()
-    if (!res.ok) throw new Error(data.error || 'No se pudo agregar')
+    if (!res.ok) throw new Error(data.detail || data.error || 'No se pudo agregar')
     lanzarAlerta('Departamento agregado exitosamente', 'success')
     nuevoNombre.value = ''
     nuevaVentanillas.value = 1
@@ -386,10 +386,10 @@ async function toggleVentanilla(v) {
     const res = await fetch(`${API_BASE_URL}/api/ventanillas/${v.ID_Ventanilla}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ activa: v.Activa === 1 ? 0 : 1 }),
+      body: JSON.stringify({ activa: (v.Activa === 1 || v.Activa === true) ? 0 : 1 }),
     })
     const data = await res.json()
-    if (!res.ok) throw new Error(data.error || 'Error')
+    if (!res.ok) throw new Error(data.detail || data.error || 'Error')
     lanzarAlerta(data.message, 'success')
     // Se deja que el socket recargue las ventanillas
   } catch (err) {
@@ -464,7 +464,7 @@ async function guardarAccionCajaRapida() {
         await cargarEstadoCajaRapida()
       } else {
         const data = await res.json()
-        lanzarAlerta(data.error || 'Error al activar', 'error')
+        lanzarAlerta(data.detail || data.error || 'Error al activar', 'error')
       }
     }
   } catch (err) {
@@ -486,7 +486,7 @@ async function guardarEdicion() {
       body: JSON.stringify({ sector: editNombre.value.trim() }),
     })
     const data = await res.json()
-    if (!res.ok) throw new Error(data.error || 'No se pudo actualizar')
+    if (!res.ok) throw new Error(data.detail || data.error || 'No se pudo actualizar')
 
     // Save ventanilla name changes
     const renameErrors = []
@@ -499,7 +499,7 @@ async function guardarEdicion() {
             body: JSON.stringify({ nombre: v.nuevoNombre }),
           })
           const dataV = await resV.json()
-          if (!resV.ok) renameErrors.push(`${v.Ventanilla}: ${dataV.error}`)
+          if (!resV.ok) renameErrors.push(`${v.Ventanilla}: ${dataV.detail || dataV.error}`)
         } catch (err) {
           renameErrors.push(`${v.Ventanilla}: ${err.message}`)
         }

@@ -55,3 +55,12 @@ class EmpleadoStatusReq(BaseModel):
 
 class EmpleadoSectorReq(BaseModel):
     id_sector: Optional[int] = None
+
+class SectorCreateReq(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+    sector: str = Field(..., max_length=20)
+    ventanillas: int
+
+class SectorUpdateReq(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+    sector: str = Field(..., max_length=20)

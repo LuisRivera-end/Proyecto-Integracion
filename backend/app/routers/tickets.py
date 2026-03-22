@@ -10,6 +10,7 @@ import app.utils.helpers as helpers
 from app.models.database import get_db
 from app.models.models import Sector, Ventanilla, Turno, EstadoTurno, Empleado, RolVentanilla
 from app.schemas.tickets import TicketCreate, TicketGenerateReq, TicketAttendReq, TicketNextReq, TurnoStatusReq
+from app.schemas.empleados import SectorCreateReq, SectorUpdateReq
 from app.utils.helpers import generar_folio_unico, obtener_fecha_actual, obtener_fecha_publico
 from app.models.pdf_generator import generar_ticket_PDF
 
@@ -33,6 +34,40 @@ async def obtener_sectores(db: AsyncSession = Depends(get_db)):
         return result.mappings().fetchall()
     except Exception as e:
         raise HTTPException(status_code=500, detail="Error interno al obtener sectores")
+
+@router.post("/sectores", status_code=201)
+async def crear_sector(req: SectorCreateReq, db: AsyncSession = Depends(get_db)):
+    try:
+        q_ins = insert(Sector).values(Sector=req.sector)
+        res = await db.execute(q_ins)
+        id_sector = res.inserted_primary_key[0]
+        
+        if req.ventanillas > 0:
+            ventanillas_data = [{"ID_Sector": id_sector, "Ventanilla": f"Ventanilla {i+1}"} for i in range(req.ventanillas)]
+            await db.execute(insert(Ventanilla).values(ventanillas_data))
+            
+        await db.commit()
+        return {"mensaje": "Sector creado exitosamente", "id_sector": id_sector}
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.put("/sectores/{id_sector}")
+async def actualizar_sector(id_sector: int, req: SectorUpdateReq, db: AsyncSession = Depends(get_db)):
+    try:
+        q_upd = update(Sector).where(Sector.ID_Sector == id_sector).values(Sector=req.sector)
+        res = await db.execute(q_upd)
+        if res.rowcount == 0:
+            raise HTTPException(status_code=404, detail="Sector no encontrado")
+            
+        await db.commit()
+        return {"mensaje": "Sector actualizado exitosamente"}
+    except HTTPException:
+        await db.rollback()
+        raise
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/ticket", status_code=201)
 async def generar_ticket(req: TicketGenerateReq, db: AsyncSession = Depends(get_db)):

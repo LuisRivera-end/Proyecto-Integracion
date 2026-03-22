@@ -135,9 +135,12 @@ async def login(request: Request, credentials: LoginRequest, db: AsyncSession = 
             sector_row_val = sector_res.mappings().fetchone()
             sector = sector_row_val["Sector"] if sector_row_val else "Desconocido"
 
-        # ── 5. Crear nueva sesión ──
+        # ── 5. Crear nueva sesión con expiración basada en el rol ──
         session_token = str(uuid.uuid4())
-        expira = datetime.utcnow() + timedelta(hours=SESSION_DURATION_HOURS)
+        if user.ID_ROL in (1, 6):  # Admin o Jefe de Departamento
+            expira = datetime.utcnow() + timedelta(seconds=30)  # Token corto que se renueva con actividad
+        else:
+            expira = datetime.utcnow() + timedelta(hours=SESSION_DURATION_HOURS)  # 8 horas fijo para otros roles
 
         await db.execute(
             insert(SesionActiva)
@@ -201,6 +204,16 @@ async def check_session(request: Request, db: AsyncSession = Depends(get_db)):
         await db.commit()
         raise HTTPException(status_code=401, detail="Session expired")
 
+    # Extender sesión para administradores y jefes de departamento (ventana deslizante)
+    if row["ID_ROL"] in (1, 6):
+        new_expira = datetime.utcnow() + timedelta(seconds=30)
+        await db.execute(
+            update(SesionActiva)
+            .where(SesionActiva.Token == session_token)
+            .values(Expira=new_expira)
+        )
+        await db.commit()
+
     return {"status": "ok", "user_id": row["ID_Empleado"], "rol": row["ID_ROL"]}
 
 
@@ -227,6 +240,68 @@ async def logout(request: Request, body: LogoutRequest, db: AsyncSession = Depen
         _broadcast_session_event("session_ended", employee_id)
 
     return {"message": "Sesión cerrada"}
+
+
+@router.post("/employees/{id_empleado}/forzar-cierre", status_code=200)
+async def force_close_session(id_empleado: int, request: Request, db: AsyncSession = Depends(get_db)):
+    # Only allow administrators (Rol=1) to force close sessions
+    # Get the requester's employee ID from the session token
+    try:
+        body = await request.json()
+        session_token = body.get("session_token")
+    except Exception:
+        raise HTTPException(status_code=400, detail="Body inválido")
+
+    if not session_token:
+        raise HTTPException(status_code=401, detail="No session")
+
+    # Verify the session token and get the requester's employee ID and role
+    token_query = (
+        select(SesionActiva.ID_Empleado, SesionActiva.Expira)
+        .where(and_(SesionActiva.Token == session_token, SesionActiva.Activa == True))
+    )
+    token_result = await db.execute(token_query)
+    token_row = token_result.mappings().fetchone()
+
+    if not token_row:
+        raise HTTPException(status_code=401, detail="Session expired or invalid")
+
+    requester_id = token_row["ID_Empleado"]
+    # Check if the requester's session is expired
+    if token_row["Expira"] < datetime.utcnow():
+        await db.execute(
+            update(SesionActiva)
+            .where(SesionActiva.Token == session_token)
+            .values(Activa=False)
+        )
+        await db.commit()
+        raise HTTPException(status_code=401, detail="Session expired")
+
+    # Get the requester's role
+    requester_role_query = select(Empleado.ID_ROL).where(Empleado.ID_Empleado == requester_id)
+    requester_role_result = await db.execute(requester_role_query)
+    requester_role_row = requester_role_result.fetchone()
+    if not requester_role_row:
+        raise HTTPException(status_code=500, detail="Requester employee not found")
+    requester_role = requester_role_row[0]
+
+    # Only allow Rol=1 (Admin)
+    if requester_role != 1:
+        raise HTTPException(status_code=403, detail="Solo los administradores pueden forzar el cierre de sesiones")
+
+    # Proceed to force close the target employee's session(s)
+    # Set Activa=0 for any active session of the target employee
+    await db.execute(
+        update(SesionActiva)
+        .where(and_(SesionActiva.ID_Empleado == id_empleado, SesionActiva.Activa == True))
+        .values(Activa=False)
+    )
+    await db.commit()
+
+    # Emit WS event to notify that the session was forced closed (so the client can react if still connected)
+    _broadcast_session_event("session_force_closed", id_empleado)
+
+    return {"message": f"Sesión forzada a cerrar para el empleado {id_empleado}"}
 
 
 @router.get("/roles", response_model=List[RolResponse])

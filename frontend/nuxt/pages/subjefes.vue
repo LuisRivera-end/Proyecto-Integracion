@@ -201,7 +201,7 @@ async function agregarEmpleado() {
     const ex = await fetch(`${API_BASE_URL}/api/employees/exists/${encodeURIComponent(form.usuario)}`).then(r => r.json())
     if (ex.exists) { lanzarAlerta('El usuario ya existe', 'error'); return }
     const res = await fetch(`${API_BASE_URL}/api/employees/add`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...form, id_sector: null }) })
-    if (!res.ok) { const e = await res.json(); throw new Error(e.error) }
+    if (!res.ok) { const e = await res.json(); throw new Error(e.detail || e.error || 'Error') }
     lanzarAlerta('Empleado agregado exitosamente', 'success')
     Object.assign(form, { nombre1: '', nombre2: '', apellido1: '', apellido2: '', usuario: '', passwd: '', id_rol: '' })
     loadEmployees()
@@ -238,7 +238,7 @@ async function guardarEdicion() {
     const body = { nombre1: editF.nombre1, nombre2: editF.nombre2, apellido1: editF.apellido1, apellido2: editF.apellido2, usuario: editF.usuario }
     if (editF.password) body.passwd = editF.password
     let res = await fetch(`${API_BASE_URL}/api/employees/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
-    if (!res.ok) { const e = await res.json(); throw new Error(e.error) }
+    if (!res.ok) { const e = await res.json(); throw new Error(e.detail || e.error || 'Error') }
 
     if (editEmpleado.value.ID_ROL !== 6) {
       await fetch(`${API_BASE_URL}/api/employees/${id}/ventanilla`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id_ventanilla: editF.ventanilla === 0 ? null : editF.ventanilla }) })
