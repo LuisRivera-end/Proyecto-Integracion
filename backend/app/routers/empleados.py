@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update, insert, func, and_, or_
 from typing import Optional, List
@@ -11,28 +12,35 @@ from app.schemas.empleados import EmpleadoCreateReq, EmpleadoUpdateReq, Empleado
 
 router = APIRouter(prefix="/api", tags=["Empleados"])
 
-async def _get_jefe_sector_filter(req: Request, db: AsyncSession):
-    """Refactorización de permisos con dependencias JWT/Session"""
-    # NOTE: As of Flask to FastAPI migration, we need to adapt Session logic.
-    # Currently assuming middleware sets req.state.rol and req.state.user_id
-    # Alternatively this can be passed from a JWT Dependency in `deps.py`
-    
-    rol = getattr(req.state, "rol", None)
-    user_id = getattr(req.state, "user_id", None)
-    
-    if rol != 6 or not user_id:
+async def _get_jefe_sector_filter(session_token: str | None, db: AsyncSession):
+    """Resuelve el sector del jefe desde el session_token.
+    Retorna ID_Sector si el usuario es Jefe de Departamento (rol 6), None en otro caso."""
+    if not session_token:
         return None
 
-    q = select(Empleado.ID_Sector).where(Empleado.ID_Empleado == user_id)
+    q = (
+        select(Empleado.ID_ROL, Empleado.ID_Sector)
+        .join(SesionActiva, SesionActiva.ID_Empleado == Empleado.ID_Empleado)
+        .where(
+            and_(
+                SesionActiva.Token == session_token,
+                SesionActiva.Activa == True,
+                SesionActiva.Expira > datetime.utcnow()
+            )
+        )
+    )
     res = await db.execute(q)
-    jefe = res.fetchone()
-    
-    return jefe[0] if jefe and jefe[0] else None
+    row = res.fetchone()
+
+    if not row or row[0] != 6:
+        return None
+
+    return row[1] if row[1] else None
 
 @router.get("/employees")
-async def get_employees(req: Request, db: AsyncSession = Depends(get_db)):
+async def get_employees(req: Request, db: AsyncSession = Depends(get_db), session_token: str | None = Query(None)):
     try:
-        jefe_sector_id = await _get_jefe_sector_filter(req, db)
+        jefe_sector_id = await _get_jefe_sector_filter(session_token, db)
 
         query = (
             select(
@@ -78,9 +86,9 @@ async def get_employees(req: Request, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/employees/full")
-async def get_employees_full(req: Request, db: AsyncSession = Depends(get_db)):
+async def get_employees_full(req: Request, db: AsyncSession = Depends(get_db), session_token: str | None = Query(None)):
     try:
-        jefe_sector_id = await _get_jefe_sector_filter(req, db)
+        jefe_sector_id = await _get_jefe_sector_filter(session_token, db)
 
         SectorJefe = aliased(Sector)
         query = (
@@ -221,16 +229,11 @@ async def add_employee(req_data: EmpleadoCreateReq, req: Request, db: AsyncSessi
 
         id_sector = req_data.id_sector
         
-        rol_sesion = getattr(req.state, "rol", None)
-        user_id_sesion = getattr(req.state, "user_id", None)
-        
-        if rol_sesion == 6:
-            if user_id_sesion:
-                q_jefe = select(Empleado.ID_Sector).where(Empleado.ID_Empleado == user_id_sesion)
-                r_jefe = await db.execute(q_jefe)
-                jefe_row = r_jefe.fetchone()
-                if jefe_row:
-                    id_sector = jefe_row[0]
+        # Si el usuario es Jefe de Departamento, inyectar su sector
+        session_token_header = req.headers.get("X-Session-Token")
+        jefe_sector = await _get_jefe_sector_filter(session_token_header, db)
+        if jefe_sector is not None:
+            id_sector = jefe_sector
 
         if req_data.id_rol == 6 and id_sector:
             q_chk = (
@@ -288,10 +291,19 @@ async def update_employee(id_empleado: int, req_data: EmpleadoUpdateReq, req: Re
         if emp["ID_ROL"] == 1:
             raise HTTPException(status_code=403, detail="No se puede editar al administrador")
 
-        rol_sesion = getattr(req.state, "rol", None)
-        if rol_sesion == 6:
-            jefe_sector_id = await _get_jefe_sector_filter(req, db)
-            if jefe_sector_id is not None and emp.get("ID_Sector") != jefe_sector_id:
+        session_token_header = req.headers.get("X-Session-Token")
+        jefe_sector_id = await _get_jefe_sector_filter(session_token_header, db)
+        if jefe_sector_id is not None:
+            # Resolver ID del jefe desde el token para impedir auto-edición
+            q_self = (
+                select(SesionActiva.ID_Empleado)
+                .where(and_(SesionActiva.Token == session_token_header, SesionActiva.Activa == True))
+            )
+            r_self = await db.execute(q_self)
+            self_row = r_self.fetchone()
+            if self_row and self_row[0] == id_empleado:
+                raise HTTPException(status_code=403, detail="No puede editarse a sí mismo")
+            if emp.get("ID_Sector") != jefe_sector_id:
                 raise HTTPException(status_code=403, detail="No tiene permisos para editar este empleado")
 
         q_dup = select(Empleado.ID_Empleado).where(and_(Empleado.Usuario == usuario, Empleado.ID_Empleado != id_empleado)).limit(1)

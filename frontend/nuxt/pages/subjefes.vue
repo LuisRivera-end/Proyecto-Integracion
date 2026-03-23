@@ -74,7 +74,7 @@
                   <td class="px-6 py-3.5 text-slate-600 text-sm">{{ emp.Usuario }}</td>
                   <td class="px-6 py-3.5 text-slate-600 text-sm">{{ emp.Rol || 'N/A' }}</td>
                   <td class="px-6 py-3.5 text-center">
-                    <span v-if="emp.ID_ROL === 1" class="text-slate-300 text-xs italic">Sin acciones</span>
+                    <span v-if="emp.ID_ROL === 1 || emp.ID_Empleado === currentUser?.id" class="text-slate-300 text-xs italic">Sin acciones</span>
                     <button v-else class="edit-btn" @click="abrirEdicion(emp.ID_Empleado)">Editar</button>
                   </td>
                 </tr>
@@ -177,7 +177,8 @@ const nombreCompleto = (emp) => [emp.nombre1, emp.nombre2 || '', emp.Apellido1, 
 
 async function loadEmployees() {
   try {
-    const res = await fetch(`${API_BASE_URL}/api/employees/full`)
+    const token = getSessionToken()
+    const res = await fetch(`${API_BASE_URL}/api/employees/full?session_token=${encodeURIComponent(token || '')}`)
     if (!res.ok) throw new Error()
     empleados.value = await res.json()
   } catch { lanzarAlerta('Error al cargar empleados', 'error') }
@@ -211,7 +212,8 @@ async function agregarEmpleado() {
 async function abrirEdicion(id) {
   editAccordion.value?.open()
   try {
-    const res = await fetch(`${API_BASE_URL}/api/employees/full`)
+    const token = getSessionToken()
+    const res = await fetch(`${API_BASE_URL}/api/employees/full?session_token=${encodeURIComponent(token || '')}`)
     const todos = await res.json()
     const emp = todos.find(e => e.ID_Empleado === id)
     if (!emp) throw new Error('No encontrado')
