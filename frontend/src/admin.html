@@ -1,20 +1,20 @@
 <script type="module">
-import Config from './js/config.js';
+    import Config from './js/config.js';
 
-async function verificarSesion() {
-    try {
-        const res = await fetch(`${Config.API_BASE_URL}/api/check_session`, {
-            credentials: 'include' // para enviar cookies de sesión
-        });
-        if (!res.ok) {
+    async function verificarSesion() {
+        try {
+            const res = await fetch(`${Config.API_BASE_URL}/api/check_session`, {
+                credentials: 'include'
+            });
+            if (!res.ok) {
+                window.location.href = 'login.html';
+            }
+        } catch (err) {
             window.location.href = 'login.html';
         }
-    } catch (err) {
-        window.location.href = 'login.html';
     }
-}
 
-verificarSesion();
+    verificarSesion();
 </script>
 
 <!DOCTYPE html>
@@ -23,182 +23,372 @@ verificarSesion();
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Administrador</title>
+    <title>Administrador — Departamentos</title>
     <link rel="stylesheet" href="./dist/output.css">
     <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="./static/css/toastify.css">
+    <style>
+        .accordion-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.35s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
+            opacity: 0;
+        }
+
+        .accordion-content.open {
+            max-height: 9999px;
+            opacity: 1;
+        }
+
+        .accordion-arrow {
+            transition: transform 0.3s ease;
+        }
+
+        .accordion-header.open .accordion-arrow {
+            transform: rotate(180deg);
+        }
+
+        .edit-btn {
+            padding: 4px 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            border-radius: 8px;
+            background: #f1f5f9;
+            color: #475569;
+            border: 1px solid #e2e8f0;
+            cursor: pointer;
+            transition: background 0.15s, color 0.15s;
+        }
+
+        .edit-btn:hover {
+            background: #e0f2fe;
+            color: #0369a1;
+            border-color: #7dd3fc;
+        }
+    </style>
 </head>
 
-<body class="min-h-screen">
-    <div class="bg-gradient-to-br from-slate-600 via-slate-500 to-emerald-300 min-h-screen">
+<body
+    class="bg-gradient-to-br from-slate-600 via-slate-500 to-emerald-300 min-h-screen text-slate-800 font-sans antialiased overflow-hidden">
+    <div class="flex h-screen w-full relative">
 
-        <div class="min-h-screen p-8">
+        <aside id="sidebar"
+            class="w-72 h-full flex flex-col bg-white border-r border-slate-200 shadow-xl z-50 transition-transform duration-300 fixed inset-y-0 left-0 transform -translate-x-full lg:translate-x-0 lg:relative lg:flex">
 
-            <div class="fixed right-4 top-4 z-50" id="dropdown">
-                <div class="relative inline-block text-left">
-                    <button id="dropdownButton"
-                        class="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-gray-200">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2"
-                            stroke="currentColor" class="w-5 h-5 text-gray-700">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-                        </svg>
-                        <span class="text-sm font-medium text-gray-700">Menú</span>
-                        <svg id="dropdownIcon" class="w-4 h-4 text-gray-500 transition-transform duration-200"
-                            fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                        </svg>
-                    </button>
-
-                    <div id="dropdownMenu"
-                        class="absolute right-0 mt-2 w-52 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden hidden">
-                        <div class="py-1">
-                            <a href="pantalla.html"
-                                class="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors duration-150">
-                                <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor"
-                                    viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                                </svg>
-                                <span>Ver Pantalla</span>
-                            </a>
-
-                            <div class="border-t border-gray-100"></div>
-
-                            <a href="empleados.html"
-                                class="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors duration-150">
-                                <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor"
-                                    viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                                </svg>
-                                <span>Empleados</span>
-                            </a>
-
-                            <div class="border-t border-gray-100"></div>
-                            <a href="historial.html"
-                                class="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors duration-150">
-                                <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor"
-                                    viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M4 4h16v16H4V4zM4 9h16M4 15h16M9 4v16M15 4v16" />
-                                </svg>
-                                <span>Historial de Tickets</span>
-                            </a>
-
-                            <div class="border-t border-gray-100"></div>
-                            <a href="admin.html"
-                                class="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors duration-150">
-                                <svg class="w-6 h-6 text-gray-900" fill="none" stroke="currentColor"
-                                    viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
-                                </svg>
-                                <span>Admin</span>
-                            </a>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="max-w-6xl mx-auto">
+            <!-- Header -->
+            <div class="px-6 py-6 border-b border-slate-100 relative flex flex-col items-center bg-white">
+                <button id="closeSidebar" class="lg:hidden text-slate-400 hover:text-slate-600 absolute right-4 top-4">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12">
+                        </path>
+                    </svg>
+                </button>
                 <div
-                    class="bg-white/95 backdrop-blur-sm rounded-3xl shadow-xl p-8 mb-8 flex justify-between items-center border border-slate-200">
-                    <div>
-                        <h1 class="text-3xl font-bold text-slate-800">Panel de Administración</h1>
-                        <p class="text-slate-600 mt-2">Configura las agendas de turnos y tickets</p>
-                    </div>
-                    <button onclick="logout()"
-                        class="flex items-center gap-2 bg-gradient-to-r from-slate-600 to-slate-800 text-white px-5 sm:px-5 py-2.5 sm:py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl hover:scale-105 hover:brightness-110 active:scale-95 transition-all duration-300 ease-in-out text-sm sm:text-base">
-                        <svg class="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 
-                    01-3 3H6a3 3 0 01-3-3V7a3 3 0 
-                    013-3h4a3 3 0 013 3v1"></path>
-                        </svg>
-                        <span>Cerrar sesión</span>
-                    </button>
-                </div>
-
-                <div class="bg-white/95 backdrop-blur-sm rounded-3xl shadow-xl p-8 mb-8 border border-slate-200">
-                    <div class="border-b border-slate-200 pb-6 mb-8">
-                        <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
-
-                            <!-- Botones de sectores -->
-                            <div class="col-span-1 md:col-span-9 grid grid-cols-1 sm:grid-cols-3 gap-3">
-                                <button onclick="selectSector('cajas')" id="tab-cajas"
-                                    class="sector-tab px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl font-semibold bg-gradient-to-r from-slate-600 to-emerald-600 text-white shadow-md transition-all duration-300 text-sm sm:text-base">
-                                    Cajas
-                                </button>
-
-                                <button onclick="selectSector('becas')" id="tab-becas"
-                                    class="sector-tab px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl font-semibold bg-slate-200 text-slate-600 hover:bg-slate-300 transition-all duration-300 text-sm sm:text-base">
-                                    Becas
-                                </button>
-
-                                <button onclick="selectSector('servicios_escolares')" id="tab-servicios_escolares"
-                                    class="sector-tab px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl font-semibold bg-slate-200 text-slate-600 hover:bg-slate-300 transition-all duration-300 text-sm sm:text-base">
-                                    Servicios Escolares
-                                </button>
-                            </div>
-
-                            <div id="contenedor" class="col-span-1 md:col-span-3 flex justify-center md:justify-end">
-                            </div>
-
-                        </div>
-                    </div>
-
-                    <form id="agenda-form" class="space-y-8">
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div>
-                                <label for="horario_fin" class="block text-sm font-medium text-gray-700 mb-2">Horario de
-                                    de lunes a Viernes</label>
-                                <div class="bg-white rounded-2xl shadow-lg p-6 mb-8 flex justify-between items-center">
-                                    <h1>8:00 AM</h1>
-                                    <h1>5:00 PM</h1>
-                                </div>
-
-                            </div>
-                            <div>
-                                <label for="horario_fin" class="block text-sm font-medium text-gray-700 mb-2">Horario de
-                                    Sabado</label>
-                                <div class="bg-white rounded-2xl shadow-lg p-6 mb-8 flex justify-between items-center">
-                                    <h1>8:00 AM</h1>
-                                    <h1>2:00 PM</h1>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div>
-                            <div class="flex justify-between items-center mb-4">
-                                <label class="block text-sm font-semibold text-slate-700">Fechas de descanso</label>
-                                <button type="button" onclick="addDescanso()"
-                                    class="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 shadow-md hover:shadow-lg">
-                                    + Agregar Descanso
-                                </button>
-                            </div>
-                            <div id="descansos-container" class="space-y-3"></div>
-                        </div>
-
-                        <div class="flex justify-end pt-6 border-t border-slate-200">
-                            <button type="submit"
-                                class="bg-gradient-to-r from-slate-600 to-emerald-600 hover:from-slate-700 hover:to-emerald-700 text-white px-8 py-3.5 rounded-xl font-semibold transition-all duration-300 shadow-lg hover:shadow-xl">
-                                Guardar Cambios
-                            </button>
-                        </div>
-                    </form>
-
-                    <div id="success-message"
-                        class="hidden mt-4 bg-emerald-50 border border-emerald-300 text-emerald-700 px-4 py-3 rounded-xl text-sm font-medium">
-                        Agenda guardada exitosamente.
-                    </div>
+                    class="flex flex-col items-center gap-2 cursor-default hover:scale-105 transition-transform duration-300">
+                    <img src="./public/ual_no_fondo.png" alt="UAL" class="h-20 w-auto object-contain" />
+                    <p class="text-xs text-emerald-600 font-bold tracking-[0.2em] uppercase">Admin Panel</p>
                 </div>
             </div>
+
+            <!-- Navigation -->
+            <nav class="flex-1 overflow-y-auto py-6 px-4 space-y-2 custom-scrollbar bg-white">
+
+                <a href="pantalla.html"
+                    class="flex items-center gap-4 px-5 py-3.5 rounded-xl text-slate-600 hover:text-emerald-700 hover:bg-emerald-50/80 transition-all duration-200 group relative overflow-hidden">
+                    <svg class="w-6 h-6 text-slate-400 group-hover:text-emerald-500 transition-colors duration-300"
+                        fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                    <span class="font-bold tracking-wide text-sm relative z-10">Ver Pantalla</span>
+                </a>
+
+                <a href="empleados.html"
+                    class="flex items-center gap-4 px-5 py-3.5 rounded-xl text-slate-600 hover:text-emerald-700 hover:bg-emerald-50/80 transition-all duration-200 group relative overflow-hidden">
+                    <svg class="w-6 h-6 text-slate-400 group-hover:text-emerald-500 transition-colors duration-300"
+                        fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                    <span class="font-bold tracking-wide text-sm relative z-10">Empleados</span>
+                </a>
+
+                <a href="historial.html"
+                    class="flex items-center gap-4 px-5 py-3.5 rounded-xl text-slate-600 hover:text-emerald-700 hover:bg-emerald-50/80 transition-all duration-200 group relative overflow-hidden">
+                    <svg class="w-6 h-6 text-slate-400 group-hover:text-emerald-500 transition-colors duration-300"
+                        fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M4 4h16v16H4V4zM4 9h16M4 15h16M9 4v16M15 4v16" />
+                    </svg>
+                    <span class="font-bold tracking-wide text-sm relative z-10">Historial de Tickets</span>
+                </a>
+
+                <div class="my-4 mx-5 border-t border-slate-100"></div>
+
+                <a href="admin.html"
+                    class="flex items-center gap-4 px-5 py-3.5 rounded-xl bg-emerald-50 text-emerald-800 shadow-sm border border-emerald-100 relative overflow-hidden group">
+                    <svg class="w-6 h-6 relative z-10 text-emerald-600" fill="none" stroke="currentColor"
+                        viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                    </svg>
+                    <span class="font-bold tracking-wide text-sm relative z-10">Departamentos</span>
+                    <div
+                        class="absolute right-4 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse">
+                    </div>
+                </a>
+            </nav>
+
+            <!-- Footer: User Info + Cerrar Sesión -->
+            <div class="border-t border-slate-200 bg-slate-50 flex-shrink-0 mt-auto">
+                <div class="w-full px-8 py-4 flex items-center gap-4">
+                    <div
+                        class="w-10 h-10 rounded-full bg-emerald-100 border border-emerald-200 flex items-center justify-center text-emerald-700 text-sm font-bold shadow-sm">
+                        A
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-sm font-bold text-slate-800 truncate">Admin User</p>
+                        <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider truncate">Sistema</p>
+                    </div>
+                </div>
+                <div class="px-4 pb-4">
+                    <button onclick="logout()"
+                        class="w-full px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-red-50 text-slate-600 hover:text-red-600 font-bold text-xs uppercase tracking-wider transition-all hover:shadow-md flex items-center justify-center gap-2 group/btn">
+                        <svg class="w-4 h-4 transition-transform group-hover/btn:-translate-x-1" fill="none"
+                            stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1">
+                            </path>
+                        </svg>
+                        Cerrar Sesión
+                    </button>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Mobile Backdrop -->
+        <div id="mobileBackdrop"
+            class="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 hidden lg:hidden transition-opacity duration-300 opacity-0">
         </div>
-        <!-- idiomas -->
-        <div class="gtranslate_wrapper" title="Cambiar idioma"></div>
-        <script src="https://cdn.gtranslate.net/widgets/latest/float.js" defer></script>
-        <script src="./js/idioma.js"></script>
+
+        <!-- Main Content -->
+        <main class="flex-1 h-full relative overflow-y-auto overflow-x-hidden scroll-smooth bg-transparent">
+
+            <!-- Mobile Header -->
+            <div
+                class="lg:hidden flex items-center justify-between p-4 bg-white/10 backdrop-blur-md shadow-sm border-b border-white/10 sticky top-0 z-30">
+                <button id="openSidebar" class="text-slate-800 p-2 rounded-lg hover:bg-white/20 transition-colors">
+                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M4 6h16M4 12h16M4 18h16"></path>
+                    </svg>
+                </button>
+                <h1 class="text-xl font-bold text-slate-800 tracking-tight">UAL Admin</h1>
+                <div class="w-8"></div>
+            </div>
+
+            <!-- Content Wrapper -->
+            <div class="p-6 md:p-10 lg:p-14 max-w-7xl mx-auto w-full flex flex-col items-center">
+
+
+                <!-- Gestión de Departamentos -->
+                <div
+                    class="w-full mt-8 bg-white/95 backdrop-blur-sm shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-2xl border border-white/60">
+                    <div
+                        class="flex flex-col sm:flex-row justify-between sm:items-center border-b border-slate-100 p-6 md:p-8 gap-4 sm:gap-0">
+                        <div>
+                            <h1 class="text-2xl sm:text-3xl font-bold text-slate-800 tracking-tight">Gestión de
+                                Departamentos</h1>
+                            <p class="text-slate-500 mt-1 font-medium">Administra los departamentos del sistema</p>
+                        </div>
+                    </div>
+
+                    <!-- Accordion Panels Container -->
+                    <div class="p-6 md:p-8 flex flex-col gap-4">
+
+                        <!-- ===== PANEL 1: Agregar Sector ===== -->
+                        <div class="rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+                            <button id="header-agregar"
+                                class="accordion-header w-full flex items-center justify-between px-6 py-4 bg-slate-50 hover:bg-slate-100 transition-colors cursor-pointer text-left"
+                                onclick="toggleAccordion('agregar')">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center">
+                                        <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor"
+                                            viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                d="M12 4v16m8-8H4" />
+                                        </svg>
+                                    </div>
+                                    <span class="font-bold text-slate-800">Agregar Departamento</span>
+                                </div>
+                                <svg class="accordion-arrow w-5 h-5 text-slate-400" fill="none" stroke="currentColor"
+                                    viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </button>
+                            <div id="content-agregar" class="accordion-content">
+                                <div class="p-6 sm:p-8 bg-white">
+                                    <p class="text-sm text-slate-500 mb-6 font-medium">Ingrese el nombre del nuevo
+                                        departamento</p>
+                                    <form id="sectorForm" class="space-y-5">
+                                        <div>
+                                            <label
+                                                class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Nombre
+                                                del departamento *</label>
+                                            <input id="sectorNombre" type="text" required
+                                                placeholder="Ej: Recursos Humanos"
+                                                class="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-medium" />
+                                        </div>
+                                        <div>
+                                            <label
+                                                class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Cantidad
+                                                de ventanillas *</label>
+                                            <input id="sectorVentanillas" type="number" required min="1" max="5"
+                                                value="1" placeholder="Ej: 4"
+                                                class="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-medium" />
+                                        </div>
+                                        <button type="submit"
+                                            class="w-full bg-slate-800 hover:bg-slate-700 text-white font-bold py-3.5 rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl hover:-translate-y-0.5 mt-2 active:scale-95">
+                                            Agregar departamento
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ===== PANEL 2: Lista de Departamentos ===== -->
+                        <div class="rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+                            <button id="header-lista"
+                                class="accordion-header open w-full flex items-center justify-between px-6 py-4 bg-slate-50 hover:bg-slate-100 transition-colors cursor-pointer text-left"
+                                onclick="toggleAccordion('lista')">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-8 h-8 rounded-lg bg-sky-100 flex items-center justify-center">
+                                        <svg class="w-4 h-4 text-sky-600" fill="none" stroke="currentColor"
+                                            viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                                        </svg>
+                                    </div>
+                                    <span class="font-bold text-slate-800">Departamentos Existentes</span>
+                                </div>
+                                <svg class="accordion-arrow rotate-180 w-5 h-5 text-slate-400" fill="none"
+                                    stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </button>
+                            <div id="content-lista" class="accordion-content open">
+                                <div class="bg-white overflow-x-auto">
+                                    <table class="w-full text-sm text-left">
+                                        <thead class="bg-slate-50 border-b border-slate-200">
+                                            <tr>
+                                                <th
+                                                    class="px-6 py-4 font-bold text-slate-600 uppercase tracking-wider text-xs text-center">
+                                                    #</th>
+                                                <th
+                                                    class="px-6 py-4 font-bold text-slate-600 uppercase tracking-wider text-xs">
+                                                    Nombre del Departamento</th>
+                                                <th
+                                                    class="px-6 py-4 font-bold text-slate-600 uppercase tracking-wider text-xs text-center">
+                                                    Ventanillas</th>
+                                                <th
+                                                    class="px-6 py-4 font-bold text-slate-600 uppercase tracking-wider text-xs text-center">
+                                                    Acciones</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="tablaSectores" class="divide-y divide-slate-100">
+                                            <!-- Se llenará dinámicamente -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ===== PANEL 3: Editar Departamento ===== -->
+                        <div class="rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+                            <button id="header-editar"
+                                class="accordion-header w-full flex items-center justify-between px-6 py-4 bg-slate-50 hover:bg-slate-100 transition-colors cursor-pointer text-left"
+                                onclick="toggleAccordion('editar')">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center">
+                                        <svg class="w-4 h-4 text-amber-600" fill="none" stroke="currentColor"
+                                            viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 012.828 2.828L11.828 15.828a4 4 0 01-1.414.943l-3 1 1-3a4 4 0 01.943-1.414z" />
+                                        </svg>
+                                    </div>
+                                    <span class="font-bold text-slate-800">Editar Departamento</span>
+                                </div>
+                                <svg class="accordion-arrow w-5 h-5 text-slate-400" fill="none" stroke="currentColor"
+                                    viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </button>
+                            <div id="content-editar" class="accordion-content">
+                                <div class="p-6 sm:p-8 bg-white">
+                                    <div id="editSectorContainer">
+                                        <!-- Placeholder when no sector selected -->
+                                        <div id="editPlaceholder"
+                                            class="flex flex-col items-center justify-center py-10 text-slate-400">
+                                            <svg class="w-12 h-12 mb-3 text-slate-300" fill="none" stroke="currentColor"
+                                                viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                                                    d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                                            </svg>
+                                            <p class="font-medium text-sm">Selecciona un departamento en la lista para
+                                                editarlo</p>
+                                        </div>
+                                        <!-- Edit form will be injected here by JS -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Floating Language Selector -->
+            <div class="fixed bottom-6 right-6 z-50">
+                <div class="gtranslate_wrapper" title="Cambiar idioma"></div>
+            </div>
+
+        </main>
     </div>
-    
+
+    <script src="https://cdn.gtranslate.net/widgets/latest/float.js" defer></script>
+    <script src="./static/js/toastify.js"></script>
+    <script src="./js/idioma.js"></script>
     <script type="module" src="./js/admin.js"></script>
-    <script type="module" src="./js/desplegable.js"></script>
+    <script src="./js/lib/socket.io.min.js"></script>
+    <script type="module" src="./js/sectores.js"></script>
+
+    <!-- Sidebar Toggle Script -->
+    <script>
+        const sidebar = document.getElementById('sidebar');
+        const openBtn = document.getElementById('openSidebar');
+        const closeBtn = document.getElementById('closeSidebar');
+        const backdrop = document.getElementById('mobileBackdrop');
+
+        function toggleSidebar() {
+            sidebar.classList.toggle('-translate-x-full');
+
+            if (!sidebar.classList.contains('-translate-x-full')) {
+                backdrop.classList.remove('hidden');
+                setTimeout(() => backdrop.classList.remove('opacity-0'), 10);
+            } else {
+                backdrop.classList.add('opacity-0');
+                setTimeout(() => backdrop.classList.add('hidden'), 300);
+            }
+        }
+
+        openBtn.addEventListener('click', toggleSidebar);
+        closeBtn.addEventListener('click', toggleSidebar);
+        backdrop.addEventListener('click', toggleSidebar);
+    </script>
 </body>
 
 </html>

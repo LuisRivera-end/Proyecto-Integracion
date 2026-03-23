@@ -4,16 +4,33 @@ const { exec } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
+const os = require('os');
+const platform = os.platform();
+
+const IS_WINDOWS = platform === 'win32';
+const IS_LINUX = platform === 'linux';
+
+// Detectar si corre como .exe (pkg) o como script normal
+const appDir = process.pkg ? path.dirname(process.execPath) : __dirname;
+
+// Buscar el archivo .env en la carpeta actual, o en un nivel superior (útil si el .exe está en /dist)
+const envPath = fs.existsSync(path.join(appDir, '.env')) 
+    ? path.join(appDir, '.env') 
+    : path.join(appDir, '..', '.env');
+
+require('dotenv').config({ path: envPath });
+
 const app = express();
-const PORT = 3001;
+const PORT = process.env.PRINT_SERVICE_PORT;
 
-// Apunta al proxy HTTPS de Docker/Nginx
-const SERVER_URL = 'https://host.docker.internal:4443'; 
-
-const SUMATRA_PATH = '"C:\\Users\\lelie\\AppData\\Local\\SumatraPDF\\SumatraPDF.exe"';
-const PRINTER_NAME = 'POS-58';
+const SERVER_URL = process.env.PRINT_SERVER_URL;
+const SUMATRA_PATH = `"${process.env.SUMATRA_PATH}"`;
+const PRINTER_NAME = process.env.PRINTER_NAME;
 
 console.log('🚀 Iniciando cliente de impresión...');
+console.log(`📂 Directorio: ${appDir}`);
+console.log(`🌐 Servidor: ${SERVER_URL}`);
+console.log(`🖨️ Impresora: ${PRINTER_NAME}`);
 
 const socket = io(SERVER_URL, {
     transports: ['websocket', 'polling'],
@@ -53,36 +70,65 @@ socket.on('print_job', (data) => {
     handlePrintJob(data);
 });
 
-// Función de impresión
+// Función de impresión (Windows / Linux) WIP
 function handlePrintJob(data) {
     try {
-        const tempDir = "C:\\temp\\prints";
-        if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
+
+        const tempDir = path.join(os.tmpdir(), "print-service");
+
+        if (!fs.existsSync(tempDir)) {
+            fs.mkdirSync(tempDir, { recursive: true });
+        }
 
         const pdfPath = path.join(tempDir, `ticket_${data.ticket_number}.pdf`);
+
         fs.writeFileSync(pdfPath, Buffer.from(data.pdf_content, "base64"));
 
-        const command = `${SUMATRA_PATH} -print-to "${PRINTER_NAME}" "${pdfPath}"`;
+        const command = buildPrintCommand(pdfPath);
+
         console.log('🖨️ Ejecutando:', command);
 
         exec(command, (error) => {
+
             if (error) {
                 console.error('❌ Error imprimiendo:', error.message);
-                socket.emit('print_failed', { ticket_number: data.ticket_number, error: error.message });
-            } else {
-                console.log('✅ Impresión exitosa:', data.ticket_number);
-                socket.emit('print_completed', { ticket_number: data.ticket_number });
 
-                setTimeout(() => {
-                    try { fs.unlinkSync(pdfPath); console.log('🧹 Archivo eliminado'); } 
-                    catch(e){ console.log('⚠️ No se pudo eliminar archivo:', e.message); }
-                }, 5000);
+                socket.emit('print_failed', {
+                    ticket_number: data.ticket_number,
+                    error: error.message
+                });
+
+                return;
             }
+
+            console.log('✅ Impresión exitosa:', data.ticket_number);
+
+            socket.emit('print_completed', {
+                ticket_number: data.ticket_number
+            });
+
+            setTimeout(() => {
+
+                try {
+                    fs.unlinkSync(pdfPath);
+                    console.log('🧹 Archivo eliminado');
+                } catch(e) {
+                    console.log('⚠️ No se pudo eliminar archivo:', e.message);
+                }
+
+            }, 5000);
+
         });
 
     } catch (error) {
+
         console.error('❌ Error procesando trabajo:', error);
-        socket.emit('print_failed', { ticket_number: data.ticket_number, error: error.message });
+
+        socket.emit('print_failed', {
+            ticket_number: data.ticket_number,
+            error: error.message
+        });
+
     }
 }
 

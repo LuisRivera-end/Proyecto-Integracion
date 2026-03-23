@@ -3,9 +3,20 @@
   "version": "1.0.0",
   "main": "print-service.js",
   "bin": "print-service.js",
-  "scripts": {},
+  "scripts": {
+    "build:exe": "pkg print-service.js --targets node18-win-x64 --output dist/print-service.exe"
+  },
+  "pkg": {
+    "scripts": ["print-service.js"],
+    "outputPath": "dist"
+  },
   "dependencies": {
+    "dotenv": "^17.3.1",
     "express": "^5.1.0",
-    "socket.io-client": "^4.8.1"
+    "socket.io-client": "^4.8.1",
+    "toastify-js": "^1.12.0"
+  },
+  "devDependencies": {
+    "pkg": "^5.8.1"
   }
 }

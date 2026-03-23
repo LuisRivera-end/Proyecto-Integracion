@@ -1,4 +1,5 @@
 import Config from './config.js';
+import { lanzarAlerta } from './alertas/notifier.js';
 const API_BASE_URL = Config.API_BASE_URL;
 
 document.addEventListener("DOMContentLoaded", async () => {
@@ -19,24 +20,26 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     // Elementos de la UI
-    const managementScreen = document.getElementById("management-screen"); // En gestion.html el id es management-screen
+    const managementScreen = document.getElementById("management-screen"); // En ventanilla.html el id es management-screen
     const userSector = document.getElementById("user-sector");
     const userName = document.getElementById("user-name");
     const logoutBtn = document.getElementById("logout-btn");
-    
+
     // Variables de estado
     let callNextBtn, completeCurrentBtn, cancelCurrentBtn, currentTicketSection;
     let currentTicketFolio, currentTicketMatricula, currentTicketAlumno, ticketsContainer, noTicketsMessage;
     let normalTicketLayout, invitadoTicketLayout, currentTicketFolioInvitado, currentTicketInvitado;
-    
-    let refreshInterval = null;
+
     let currentTicket = null;
+    let isCajaRapidaActiva = false;
+    let cajaRapidaHoraFin = null;
+    let tipoCajaFiltro = null; // null = sin filtro, 'rapida' = solo rápida, 'normal' = solo normal
 
     // Inicializar UI
     if (managementScreen) {
         managementScreen.classList.remove("hidden");
     }
-    
+
     // Inicializar referencias a elementos
     function initializeManagementElements() {
         callNextBtn = document.getElementById("call-next-btn");
@@ -48,7 +51,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         currentTicketAlumno = document.getElementById("current-ticket-alumno");
         ticketsContainer = document.getElementById("tickets-container");
         noTicketsMessage = document.getElementById("no-tickets-message");
-        
+
         // ELEMENTOS PARA INVITADOS
         normalTicketLayout = document.getElementById("normal-ticket-layout");
         invitadoTicketLayout = document.getElementById("invitado-ticket-layout");
@@ -65,15 +68,126 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     if (initializeManagementElements()) {
         // Mostrar info del usuario
-        if (userSector && currentUser.ventanilla) {
-            userSector.textContent = `${currentUser.sector} - ${currentUser.ventanilla.nombre}`;
+        if (userSector) {
+            if (currentUser.ventanilla) {
+                userSector.textContent = `${currentUser.sector} - ${currentUser.ventanilla.nombre}`;
+            } else {
+                userSector.textContent = currentUser.sector;
+                // Si es jefe y no tiene ventanilla, ocultar botón de llamar
+                if (currentUser.rol === 6 && callNextBtn) {
+                    callNextBtn.classList.add("hidden");
+                }
+            }
         }
         if (userName) {
             userName.textContent = currentUser.username;
         }
-        
+
         setupEventListeners();
-        startTicketPolling();
+        await checkCajaRapida();
+        await recuperarTicketActivo();
+        await fetchTickets();
+    }
+
+    // -----------------------------
+    // CAJA RÁPIDA — Estado
+    // -----------------------------
+    async function checkCajaRapida() {
+        try {
+            const res = await fetch(`${API_BASE_URL}/api/caja-rapida/estado`);
+            const estado = await res.json();
+            const banner = document.getElementById('caja-rapida-banner');
+            const bannerHora = document.getElementById('caja-rapida-banner-hora');
+
+            const miVentanillaId = currentUser.ventanilla ? currentUser.ventanilla.id : null;
+
+            // Mi ventanilla está en modo rápida (activo O drenando)
+            const esMiVentanillaActiva = (estado.activo || estado.expirado) && miVentanillaId &&
+                Array.isArray(estado.ventanillas) && estado.ventanillas.includes(miVentanillaId);
+
+            // Caja rápida activa en mi sector pero NO en mi ventanilla
+            const cajaRapidaActivaEnMiSector = (estado.activo || estado.expirado) && currentUser.sector &&
+                currentUser.sector.toLowerCase() === 'cajas';
+
+            if (esMiVentanillaActiva) {
+                isCajaRapidaActiva = true;
+                tipoCajaFiltro = 'rapida';
+                cajaRapidaHoraFin = estado.hora_fin;
+                if (banner) {
+                    banner.classList.remove('hidden');
+                    banner.classList.add('flex');
+                    if (bannerHora) {
+                        if (estado.expirado) {
+                            bannerHora.textContent = `Tiempo expirado — atendiendo tickets restantes`;
+                        } else {
+                            bannerHora.textContent = `Hasta las ${estado.hora_fin}`;
+                        }
+                    }
+                }
+            } else if (cajaRapidaActivaEnMiSector) {
+                isCajaRapidaActiva = false;
+                tipoCajaFiltro = 'normal';
+                cajaRapidaHoraFin = null;
+                if (banner) {
+                    banner.classList.remove('flex');
+                    banner.classList.add('hidden');
+                }
+            } else {
+                isCajaRapidaActiva = false;
+                tipoCajaFiltro = null;
+                cajaRapidaHoraFin = null;
+                if (banner) {
+                    banner.classList.remove('flex');
+                    banner.classList.add('hidden');
+                }
+            }
+        } catch (err) {
+            console.error('Error al verificar Caja Rápida:', err);
+        }
+    }
+
+    // Verificar si el modo drenaje puede terminar
+    async function checkDrenajeCajaRapida() {
+        try {
+            const res = await fetch(`${API_BASE_URL}/api/caja-rapida/check-drenaje`, { method: 'POST' });
+            const data = await res.json();
+            if (!data.drenando) {
+                await checkCajaRapida();
+                await fetchTickets();
+            }
+        } catch (err) {
+            console.error('Error en check drenaje:', err);
+        }
+    }
+
+    // -----------------------------
+    // RECUPERAR TICKET ACTIVO (tras cerrar pestaña)
+    // -----------------------------
+    async function recuperarTicketActivo() {
+        if (!currentUser?.ventanilla) return;
+
+        try {
+            const res = await fetch(`${API_BASE_URL}/api/tickets/activo/${currentUser.ventanilla.id}`);
+            if (!res.ok) return;
+
+            const data = await res.json();
+
+            if (data.activo && data.folio) {
+                console.log("Ticket activo recuperado:", data.folio);
+                currentTicket = { folio: data.folio };
+
+                updateCurrentTicketUI();
+
+                // Restaurar estado de botones
+                callNextBtn.disabled = true;
+                callNextBtn.classList.add("opacity-50", "cursor-not-allowed");
+                completeCurrentBtn.classList.remove("hidden");
+                cancelCurrentBtn.classList.remove("hidden");
+                currentTicketSection.classList.remove("hidden");
+            }
+        } catch (err) {
+            console.error("Error al recuperar ticket activo:", err);
+        }
     }
 
     // -----------------------------
@@ -84,6 +198,68 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (completeCurrentBtn) completeCurrentBtn.addEventListener("click", completarTicketActual);
         if (cancelCurrentBtn) cancelCurrentBtn.addEventListener("click", cancelarTicketActual);
         if (logoutBtn) logoutBtn.addEventListener("click", cerrarSesion);
+
+        // Atajos de teclado
+        document.addEventListener("keydown", (e) => {
+            // Bloquear TODAS las teclas si hay un modal de confirmación abierto
+            const modal = document.getElementById("confirm-modal");
+            if (modal && !modal.classList.contains("hidden")) {
+                e.preventDefault();
+                e.stopPropagation();
+                return;
+            }
+
+            // Enter: Llamar al siguiente ticket
+            if (e.key === "Enter") {
+                if (!currentTicket && callNextBtn && !callNextBtn.disabled) {
+                    e.preventDefault();
+                    llamarSiguienteTicket();
+                }
+            }
+
+            // F: Completar ticket actual
+            if (e.key === "f" || e.key === "F") {
+                if (currentTicket && completeCurrentBtn && !completeCurrentBtn.classList.contains("hidden")) {
+                    e.preventDefault();
+                    completarTicketActual();
+                }
+            }
+        });
+    }
+
+    function mostrarConfirmacion(mensaje, titulo = "Confirmación") {
+        return new Promise((resolve) => {
+            const modal = document.getElementById("confirm-modal");
+            const messageEl = document.getElementById("confirm-message");
+            const titleEl = document.getElementById("confirm-title");
+            const btnAccept = document.getElementById("confirm-accept");
+            const btnCancel = document.getElementById("confirm-cancel");
+
+            titleEl.textContent = titulo;
+            messageEl.textContent = mensaje;
+
+            modal.classList.remove("hidden");
+            modal.classList.add("flex");
+
+            function limpiar(valor) {
+                modal.classList.add("hidden");
+                modal.classList.remove("flex");
+                btnAccept.removeEventListener("click", aceptar);
+                btnCancel.removeEventListener("click", cancelar);
+                resolve(valor);
+            }
+
+            function aceptar() {
+                limpiar(true);
+            }
+
+            function cancelar() {
+                limpiar(false);
+            }
+
+            btnAccept.addEventListener("click", aceptar);
+            btnCancel.addEventListener("click", cancelar);
+        });
     }
 
     // -----------------------------
@@ -91,51 +267,55 @@ document.addEventListener("DOMContentLoaded", async () => {
     // -----------------------------
     async function llamarSiguienteTicket() {
         if (!currentUser?.ventanilla) return;
-        
+
         if (currentTicket) {
-            alert("Debes completar o cancelar el ticket actual antes de llamar al siguiente.");
+            lanzarAlerta("Debes completar o cancelar el ticket actual antes de llamar al siguiente.", 'warning');
             return;
         }
 
         try {
+            const bodyData = {
+                id_ventanilla: currentUser.ventanilla.id,
+                id_empleado: currentUser.id
+            };
+
+            // Filtrar por tipo de caja si corresponde
+            if (tipoCajaFiltro) {
+                bodyData.tipo_caja = tipoCajaFiltro;
+            }
+
             const res = await fetch(`${API_BASE_URL}/api/tickets/llamar-siguiente`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ 
-                    id_ventanilla: currentUser.ventanilla.id,
-                    id_empleado: currentUser.id
-                })
+                body: JSON.stringify(bodyData)
             });
 
             if (!res.ok) {
                 const errorData = await res.json();
                 throw new Error(errorData.error || "No se pudo llamar siguiente ticket");
             }
-            
+
             const data = await res.json();
-            
+
             currentTicket = {
                 folio: data.folio,
-                matricula: data.matricula || null,
-                nombre_alumno: data.nombre_alumno || 'Invitado',
-                tipo: data.tipo || 'normal'
             };
-            
+
             console.log("Ticket actual establecido:", currentTicket);
             updateCurrentTicketUI();
-            
+
             // Actualizar estado botones
             callNextBtn.disabled = true;
             callNextBtn.classList.add("opacity-50", "cursor-not-allowed");
             completeCurrentBtn.classList.remove("hidden");
             cancelCurrentBtn.classList.remove("hidden");
             currentTicketSection.classList.remove("hidden");
-            
+
             await fetchTickets();
-            
+
         } catch (err) {
             console.error("Error al llamar siguiente ticket:", err);
-            alert(err.message || "Error al llamar siguiente ticket");
+            lanzarAlerta(err.message || "Error al llamar siguiente ticket", 'error');
         }
     }
 
@@ -144,22 +324,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     // -----------------------------
     function updateCurrentTicketUI() {
         if (!currentTicket) return;
-        
-        if (currentTicket.tipo === 'invitado' || currentTicket.nombre_alumno === 'Invitado') {
-            normalTicketLayout.classList.add("hidden");
-            invitadoTicketLayout.classList.remove("hidden");
-            
-            if(currentTicketFolioInvitado) currentTicketFolioInvitado.textContent = currentTicket.folio;
-            if(currentTicketInvitado) currentTicketInvitado.textContent = 'Invitado';
-            
-        } else {
-            invitadoTicketLayout.classList.add("hidden");
-            normalTicketLayout.classList.remove("hidden");
-            
-            if(currentTicketFolio) currentTicketFolio.textContent = currentTicket.folio;
-            if(currentTicketMatricula) currentTicketMatricula.textContent = currentTicket.matricula || 'N/A';
-            if(currentTicketAlumno) currentTicketAlumno.textContent = currentTicket.nombre_alumno;
-        }
+
+        if (currentTicketFolio) currentTicketFolio.textContent = currentTicket.folio;
+
+        // Show/hide layouts only if elements exist
+        if (normalTicketLayout) normalTicketLayout.classList.remove("hidden");
+        if (invitadoTicketLayout) invitadoTicketLayout.classList.add("hidden");
     }
 
     // -----------------------------
@@ -181,14 +351,19 @@ document.addEventListener("DOMContentLoaded", async () => {
 
             const completedFolio = currentTicket.folio;
             currentTicket = null;
-            
+
             resetCurrentTicketUI();
             await fetchTickets();
-            alert(`Ticket ${completedFolio} completado exitosamente`);
-            
+            lanzarAlerta(`Ticket ${completedFolio} completado exitosamente`, 'success');
+
+            // Verificar si el modo drenaje de caja rápida puede terminar
+            if (tipoCajaFiltro === 'rapida') {
+                await checkDrenajeCajaRapida();
+            }
+
         } catch (err) {
             console.error("Error al completar ticket:", err);
-            alert(err.message || "Error al completar el ticket");
+            lanzarAlerta(err.message || "Error al completar el ticket", 'error');
         }
     }
 
@@ -198,9 +373,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     async function cancelarTicketActual() {
         if (!currentTicket) return;
 
-        if (!confirm(`¿Estás seguro de que deseas cancelar el ticket ${currentTicket.folio}?`)) {
-            return;
-        }
+        const confirmado = await mostrarConfirmacion(
+            `¿Estás seguro de que deseas cancelar el ticket ${currentTicket.folio}?`,
+            "Cancelar Ticket"
+        );
+
+        if (!confirmado) return;
 
         try {
             const res = await fetch(`${API_BASE_URL}/api/tickets/${currentTicket.folio}/cancel`, {
@@ -215,14 +393,19 @@ document.addEventListener("DOMContentLoaded", async () => {
 
             const canceledFolio = currentTicket.folio;
             currentTicket = null;
-            
+
             resetCurrentTicketUI();
             await fetchTickets();
-            alert(`Ticket ${canceledFolio} cancelado exitosamente`);
-            
+            lanzarAlerta(`Ticket ${canceledFolio} cancelado exitosamente`, 'success');
+
+            // Verificar si el modo drenaje de caja rápida puede terminar
+            if (tipoCajaFiltro === 'rapida') {
+                await checkDrenajeCajaRapida();
+            }
+
         } catch (err) {
             console.error("Error al cancelar ticket:", err);
-            alert(err.message || "Error al cancelar el ticket");
+            lanzarAlerta(err.message || "Error al cancelar el ticket", 'error');
         }
     }
 
@@ -235,31 +418,23 @@ document.addEventListener("DOMContentLoaded", async () => {
         completeCurrentBtn.classList.add("hidden");
         cancelCurrentBtn.classList.add("hidden");
         currentTicketSection.classList.add("hidden");
-        
-        normalTicketLayout.classList.add("hidden");
-        invitadoTicketLayout.classList.add("hidden");
-    }
 
-    // -----------------------------
-    // POLLING PARA TICKETS
-    // -----------------------------
-    function startTicketPolling() {
-        fetchTickets();
-        refreshInterval = setInterval(fetchTickets, 5000);
-    }
-    
-    function stopTicketPolling() {
-        if (refreshInterval) {
-            clearInterval(refreshInterval);
-            refreshInterval = null;
-        }
+        if (normalTicketLayout) normalTicketLayout.classList.add("hidden");
+        if (invitadoTicketLayout) invitadoTicketLayout.classList.add("hidden");
     }
 
     async function getAllTickets() {
         try {
-            const res = await fetch(`${API_BASE_URL}/api/tickets?sector=${encodeURIComponent(currentUser.sector)}`);
+            let url = `${API_BASE_URL}/api/tickets?sector=${encodeURIComponent(currentUser.sector)}`;
+
+            // Filtrar por tipo de caja si corresponde
+            if (tipoCajaFiltro) {
+                url += `&tipo_caja=${tipoCajaFiltro}`;
+            }
+
+            const res = await fetch(url);
             if (!res.ok) return [];
-            
+
             const tickets = await res.json();
             if (Array.isArray(tickets)) return tickets;
             else if (tickets && Array.isArray(tickets.tickets)) return tickets.tickets;
@@ -290,7 +465,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         ticketsContainer.innerHTML = "";
         const normSector = String(sector ?? "").trim().toLowerCase();
-        
+
         const pendientes = tickets.filter(t => {
             if (!t || t.sector == null) return false;
             const ticketSector = String(t.sector).trim().toLowerCase();
@@ -306,20 +481,17 @@ document.addEventListener("DOMContentLoaded", async () => {
         } else {
             noTicketsMessage.classList.add("hidden");
             ticketsContainer.classList.remove("hidden");
-            
+
             pendientes.forEach(ticket => {
                 const div = document.createElement("div");
                 div.className = "p-4 bg-gray-50 border rounded-lg shadow-sm";
                 const ticketId = ticket.folio || ticket.Folio || ticket.ID_Ticket;
                 const esInvitado = ticket.tipo === 'invitado' || ticket.nombre_alumno === 'Invitado' || !ticket.matricula;
-                
+
                 div.innerHTML = `
                   <div class="text-center">
                     <p class="font-semibold text-gray-800">
                       Ticket: <span class="text-blue-600">${ticketId}</span>
-                    </p>
-                    <p class="text-sm ${esInvitado ? 'text-blue-600 font-semibold' : 'text-gray-600'} mt-1">
-                      ${esInvitado ? 'Turno Invitado' : `Matrícula: ${ticket.matricula}`}
                     </p>
                     <p class="text-xs text-gray-500 mt-1">
                       Estado: <span class="text-orange-500">${ticket.estado || 'Pendiente'}</span>
@@ -331,12 +503,70 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
     }
 
+    // socket
+    // Verificamos si la librería existe antes de usarla
+    if (typeof io !== 'undefined') {
+        const socket = io(API_BASE_URL);
+
+        socket.on('connect', () => {
+            console.log('Conectado al sistema de tiempo real (Ventanilla)');
+            // Registrar a este empleado como activo en ventanilla
+            if (currentUser && currentUser.id) {
+                socket.emit('ventanilla_register', { id_empleado: currentUser.id });
+            }
+        });
+
+        socket.on('tickets_updated', async () => {
+            console.log('Cambio detectado, refrescando...');
+            await fetchTickets();
+            await recuperarTicketActivo();
+        });
+
+        // Escuchar cambios en Caja Rápida
+        socket.on('caja_rapida_updated', async (data) => {
+            const wasActive = isCajaRapidaActiva;
+            const prevFiltro = tipoCajaFiltro;
+            await checkCajaRapida();
+            await fetchTickets();
+
+            // Notificar al empleado del cambio
+            if (isCajaRapidaActiva && !wasActive) {
+                if (data && data.expirado) {
+                    lanzarAlerta('⏰ Tiempo de Caja Rápida expirado — atiende los tickets restantes', 'warning');
+                } else {
+                    lanzarAlerta(`Modo Caja Rápida activado hasta las ${cajaRapidaHoraFin}`, 'warning');
+                }
+            } else if (!isCajaRapidaActiva && wasActive) {
+                lanzarAlerta('Modo Caja Rápida desactivado', 'success');
+            } else if (prevFiltro === 'normal' && tipoCajaFiltro === null) {
+                // Las cajas normales vuelven a ver todos los tickets
+                lanzarAlerta('Modo Caja Rápida finalizado', 'success');
+            }
+        });
+    } else {
+        console.error("No se pudo conectar al WebSocket");
+    }
     // -----------------------------
     // CERRAR SESIÓN
     // -----------------------------
     function cerrarSesion() {
-        stopTicketPolling();
-        localStorage.removeItem('currentUser');
-        window.location.href = "login.html";
+        try {
+            lanzarAlerta("Sesión cerrada correctamente", "success");
+
+            localStorage.removeItem('currentUser');
+
+            // Bloquear interacción durante la redirección
+            const overlay = document.createElement('div');
+            overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;cursor:not-allowed;';
+            overlay.innerHTML = '<p style="color:white;font-size:1.25rem;font-weight:bold;">Cerrando sesión...</p>';
+            document.body.appendChild(overlay);
+
+            setTimeout(() => {
+                window.location.href = "login.html";
+            }, 1500);
+        } catch (error) {
+            console.error("Error al cerrar sesión:", error);
+            lanzarAlerta("Error al cerrar sesión", "error");
+        }
     }
 });

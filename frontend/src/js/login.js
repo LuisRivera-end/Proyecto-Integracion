@@ -1,36 +1,35 @@
 import Config from './config.js';
 
+
 const API_BASE_URL = Config.API_BASE_URL;
 
 document.addEventListener("DOMContentLoaded", async () => {
     const loginForm = document.getElementById("login-form");
     const loginError = document.getElementById("login-error");
-    const errorMessage = document.getElementById("error-message");
-    const errorText = document.getElementById("error-text");
+
 
     // Limpiar sesión anterior al cargar login
     localStorage.removeItem('currentUser');
 
-    try {
-        // Llamada POST para actualizar los estados según descansos activos hoy
-        await fetch(`${API_BASE_URL}/api/employees/update-status`, { method: "POST" });
-        console.log("Estados de empleados actualizados al abrir login");
-    } catch (err) {
-        console.error("No se pudieron actualizar los estados al abrir login:", err);
-    }
-
     if (loginForm) {
+        const submitBtn = loginForm.querySelector("button[type='submit']");
         loginForm.addEventListener("submit", async (e) => {
             e.preventDefault();
+
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<svg class="animate-spin h-5 w-5 mr-2 border-b-2 border-blue-600 rounded-full" viewBox="0 0 24 24"></svg> Iniciando sesión...';
+
             const username = document.getElementById("username").value.trim();
             const password = document.getElementById("password").value.trim();
 
             function showError(message) {
-                if (errorText) errorText.textContent = message;
-                if (errorMessage) errorMessage.classList.remove("hidden");
                 if (loginError) {
                     loginError.textContent = message;
                     loginError.classList.remove("hidden");
+
+                    setTimeout(() => {
+                        loginError.classList.add("hidden");
+                    }, 3000);
                 }
             }
 
@@ -48,11 +47,11 @@ document.addEventListener("DOMContentLoaded", async () => {
                 }
 
                 const data = await res.json();
-                const currentUser = { 
-                    id: data.id, 
-                    username: data.nombre, 
-                    rol: data.rol, 
-                    sector: data.sector 
+                const currentUser = {
+                    id: data.id,
+                    username: data.nombre,
+                    rol: data.rol,
+                    sector: data.sector
                 };
 
                 if (currentUser.rol === 1) {
@@ -62,23 +61,11 @@ document.addEventListener("DOMContentLoaded", async () => {
                     return;
                 }
 
-                const ahora = new Date();
-                const dia = ahora.getDay();
-                const hora = ahora.getHours();
-
-                if (dia === 0) {
-                    showError("No se puede acceder a ventanilla en los domingos.");
+                if (currentUser.rol === 6) {
+                    // Jefe de Departamento → vista de empleados de su sector
+                    localStorage.setItem('currentUser', JSON.stringify(currentUser));
+                    window.location.href = "subjefes.html";
                     return;
-                } else if (dia >= 1 && dia <= 5) {
-                    if (hora < 8 || hora >= 17) {
-                        showError("Solo se puede acceder de lunes a viernes de 8:00 a 17:00.");
-                        return;
-                    }
-                } else if (dia === 6) {
-                    if (hora < 8 || hora >= 14) {
-                        showError("Solo se puede acceder los sábados de 8:00 a 14:00.");
-                        return;
-                    }
                 }
 
                 // Si pasa la validación, seguimos con la ventanilla
@@ -88,27 +75,33 @@ document.addEventListener("DOMContentLoaded", async () => {
                 }
 
                 const ventanillaActiva = await ventanillaActivaRes.json();
-                if (ventanillaActiva && ventanillaActiva.ID_Ventanilla) {
-                    console.log("Usando ventanilla asignada:", ventanillaActiva);
-                    currentUser.ventanilla = {
-                        id: ventanillaActiva.ID_Ventanilla,
-                        nombre: ventanillaActiva.Ventanilla
-                    };
-                    
+                if ((ventanillaActiva && ventanillaActiva.ID_Ventanilla) || currentUser.rol === 6) {
+                    console.log("Sesión válida:", currentUser.rol === 6 ? "Jefe de Departamento" : "Operador con ventanilla");
+
+                    if (ventanillaActiva && ventanillaActiva.ID_Ventanilla) {
+                        currentUser.ventanilla = {
+                            id: ventanillaActiva.ID_Ventanilla,
+                            nombre: ventanillaActiva.Ventanilla
+                        };
+                    }
+
                     // Guardar sesión en localStorage
                     localStorage.setItem('currentUser', JSON.stringify(currentUser));
-                    
-                    // Redirigir a gestion.html
-                    window.location.href = "gestion.html";
+
+                    // Redirigir a ventanilla.html
+                    window.location.href = "ventanilla.html";
                     return;
                 }
 
-                alert("No tienes una ventanilla asignada. Contacta al administrador.");
+                showError("No tienes una ventanilla asignada. Contacta al administrador.");
                 return;
 
             } catch (err) {
                 console.error("Error en login:", err);
                 showError(err.message);
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = 'Iniciar Sesión';
             }
         });
     }

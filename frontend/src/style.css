@@ -1,3 +1,44 @@
 button {
     cursor: pointer !important;
 }
+
+/* Force GTranslate float widget position */
+#gt-float-switcher,
+.gt-float-switcher {
+    right: 24px !important;
+    bottom: 24px !important;
+    left: auto !important;
+}
+
+/* Make GTranslate widget display HORIZONTALLY */
+.gt-float-switcher a,
+.gtranslate_wrapper a {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 6px !important;
+    padding: 6px 10px !important;
+}
+
+/* Remove vertical stacking inside the widget */
+.gt-float-switcher .gt-float-switcher-content,
+.gt-float-switcher>div,
+.gtranslate_wrapper>div {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+}
+
+/* Keep flag at a reasonable size */
+.gt-float-switcher img,
+.gtranslate_wrapper img {
+    width: 22px !important;
+    height: auto !important;
+    display: inline !important;
+}
+
+/* Hide the secondary GTranslate circle trigger */
+.gt-float-switcher~div[style*="position: fixed"],
+.gt-float-switcher+div {
+    display: none !important;
+}

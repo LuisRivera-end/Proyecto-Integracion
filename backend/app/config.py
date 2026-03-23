@@ -1,10 +1,21 @@
-import os
+from pydantic_settings import BaseSettings
+from pydantic import ConfigDict
 
-class Config:
-    DB_HOST = os.getenv("DB_HOST", "mariadb")
-    DB_USER = os.getenv("DB_USER", "turnoadmin")
-    DB_PASSWORD = os.getenv("DB_PASSWORD", "13Demayo!")
-    DB_NAME = os.getenv("DB_NAME", "TurnosUal")
-    HOST = os.getenv("HOST", "0.0.0.0")
-    PORT = os.getenv("PORT", 5000)
-    DEBUG = os.getenv("DEBUG", True)
+class Settings(BaseSettings):
+    DB_HOST: str = "127.0.0.1"
+    MARIADB_USER: str
+    MARIADB_PASSWORD: str
+    MARIADB_DATABASE: str
+    
+    HOST: str = "0.0.0.0"
+    PORT: int = 5000
+    DEBUG: bool = True
+    
+    SECRET_KEY: str
+    
+    model_config = ConfigDict(env_file=("../.env", ".env"), extra="ignore")
+
+settings = Settings()
+
+# Construir URL de SQLAlchemy
+DATABASE_URL = f"mysql+asyncmy://{settings.MARIADB_USER}:{settings.MARIADB_PASSWORD}@{settings.DB_HOST}/{settings.MARIADB_DATABASE}"

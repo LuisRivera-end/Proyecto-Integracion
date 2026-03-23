@@ -1,15 +1,16 @@
-# Etapa de build
-FROM node:18-alpine AS build
+# Etapa de build y ejecución para Nuxt 3
+FROM node:20-alpine
 WORKDIR /app
-COPY package*.json ./
-RUN npm ci
-COPY . .
+COPY nuxt/package*.json ./
+RUN npm install
+COPY nuxt/ ./
 RUN npm run build
 
-# Etapa de producción con Nginx
-FROM nginx:alpine
-COPY --from=build /app/src/ /usr/share/nginx/html
-COPY --from=build /app/dist /usr/share/nginx/html/dist 
-COPY --from=build /app/src/js /usr/share/nginx/html/js
-EXPOSE 80
-CMD ["nginx", "-g", "daemon off;"]
+# Asignar la propiedad al usuario 'node' que ya viene con la imagen
+RUN chown -R node:node /app
+
+# Ejecutar como usuario 'node' sin privilegios de root
+USER node
+
+EXPOSE 3000
+CMD ["node", ".output/server/index.mjs"]

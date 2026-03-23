@@ -1,66 +1,77 @@
-import random
-import string
 from datetime import datetime
-from app.models.database import get_db_connection
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import text
 from functools import wraps
-from flask import session, jsonify
 import pytz
+import subprocess
+import os
+import uuid
+import threading
 
-def get_sector_prefix_and_length(sector_nombre):
-    """Mapea el nombre del sector a su prefijo y la longitud de la parte aleatoria."""
-    # Los prefijos de ejemplo son 'C', 'B' y 'SE'.
-    # La longitud total del folio será 6 caracteres.
-    if sector_nombre == "Cajas":
-        return "C", 5 # C (1 char) + 5 random chars = 6 total
-    elif sector_nombre == "Becas":
-        return "B", 5 # B (1 char) + 5 random chars = 6 total
-    elif sector_nombre == "Servicios Escolares":
-        return "SE", 4 # SE (2 chars) + 4 random chars = 6 total
-    else:
-        # Valor por defecto si el sector no coincide.
-        return "", 6
+async def get_sector_prefix(sector_nombre: str, db: AsyncSession):
+    """Genera un prefijo único para el sector basándose en su nombre.
+    Consulta todos los sectores en orden de creación (ID) y asigna
+    prefijos determinísticamente para evitar colisiones."""
+    result = await db.execute(text("SELECT Sector FROM Sectores ORDER BY ID_Sector"))
+    sectores = [row[0] for row in result.fetchall()]
 
-def generar_folio_unico(sector_nombre):
-    estados_activos = (1, 3)
-    # Obtener el prefijo y cuántos caracteres aleatorios generar
-    prefix, random_part_length = get_sector_prefix_and_length(sector_nombre)
-        
-    conn = get_db_connection()
-    cursor = conn.cursor()
+    asignados = {}
+    for nombre in sectores:
+        asignados[nombre] = _gen_prefix(nombre, set(asignados.values()))
+
+    return asignados.get(sector_nombre, "X")
+
+
+def _gen_prefix(nombre, usados):
+    """Genera un prefijo único para un sector dado los ya usados."""
+    words = nombre.strip().split()
+    upper = nombre.upper().replace(" ", "")
+
+    # Multi-palabra: intentar iniciales (ej. "Servicios Escolares" → "SE")
+    if len(words) > 1:
+        initials = ''.join(w[0].upper() for w in words)
+        if initials not in usados:
+            return initials
+
+    # Intentar primera letra
+    if upper[0] not in usados:
+        return upper[0]
+
+    # Intentar primeras 2 letras
+    if len(upper) >= 2 and upper[:2] not in usados:
+        return upper[:2]
+
+    # Intentar primeras 3 letras
+    if len(upper) >= 3 and upper[:3] not in usados:
+        return upper[:3]
+
+    # Fallback: primera letra + número
+    for i in range(1, 100):
+        candidate = f"{upper[0]}{i}"
+        if candidate not in usados:
+            return candidate
+
+    return "X"
+
+async def generar_folio_unico(sector_nombre: str, db: AsyncSession):
+    prefix = await get_sector_prefix(sector_nombre, db)
+    prefix_len = len(prefix)
     
-    try:
-        while True:
-            # Generar la parte aleatoria
-            # Se usa string.ascii_uppercase + string.digits para alfanumérico
-            random_part = ''.join(random.choices(string.ascii_uppercase + string.digits, k=random_part_length))
-            
-            # Crear el folio completo de 6 caracteres
-            folio = prefix + random_part
-            
-            # Verificar unicidad en la base de datos
-            placeholders = ','.join(['%s'] * len(estados_activos))
-            query_normal = f"""
-                SELECT 1 FROM Turno 
-                WHERE Folio = %s AND ID_Estados IN ({placeholders})
-            """
-            cursor.execute(query_normal, (folio, *estados_activos))
-            
-            if cursor.fetchone():
-                continue  # Folio ya existe en Turno, generar otro
-            
-            # También verificar en Turno_Invitado
-            query_invitado = f"""
-                SELECT 1 FROM Turno_Invitado  
-                WHERE Folio_Invitado = %s AND ID_Estados IN ({placeholders})
-            """
-            cursor.execute(query_invitado, (folio, *estados_activos))
-
-
-            if not cursor.fetchone():
-                return folio
-    finally:
-        cursor.close()
-        conn.close()
+    # Obtener la fecha actual en zona horaria de México
+    tz_mexico = pytz.timezone('America/Mexico_City')
+    hoy = datetime.now(tz_mexico).strftime('%Y-%m-%d')
+        
+    result = await db.execute(text("""
+        SELECT MAX(CAST(SUBSTRING(Folio, :prefix_len + 1) AS UNSIGNED)) AS max_num
+        FROM Turno
+        WHERE Folio LIKE CONCAT(:prefix, '%%') AND DATE(Fecha_Ticket) = :hoy
+    """), {"prefix_len": prefix_len, "prefix": prefix, "hoy": hoy})
+    
+    row = result.fetchone()
+    max_num = max(row[0], 9) if row and row[0] is not None else 9
+    
+    folio = prefix + str(max_num + 1)
+    return folio
 
 def obtener_fecha_actual():
     tz_mexico = pytz.timezone('America/Mexico_City')
@@ -70,71 +81,6 @@ def obtener_fecha_publico():
     tz_mexico = pytz.timezone('America/Mexico_City')
     return datetime.now(tz_mexico).strftime("%Y-%m-%d %H:%M:%S")
 
-def generar_folio_invitado(sector_nombre):
-    """Genera un folio único para turnos invitados"""
-    conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)
-    estados_activos = (1, 3)
-    prefix, random_part_length = get_sector_prefix_and_length(sector_nombre)
-    
-    try:
-        while True:
-            random_part = ''.join(random.choices(string.ascii_uppercase + string.digits, k=random_part_length))
-            folio = prefix + random_part
-            
-            placeholders = ','.join(['%s'] * len(estados_activos))
-            query_invitado  = f"""
-                SELECT 1 FROM Turno_Invitado  
-                WHERE Folio_Invitado = %s AND ID_Estados IN ({placeholders})
-            """
-            cursor.execute(query_invitado , (folio, *estados_activos))
-            if cursor.fetchone():
-                continue
-            
-            query_normal = f"""
-                SELECT 1 FROM Turno  
-                WHERE Folio = %s AND ID_Estados IN ({placeholders})
-            """
-            cursor.execute(query_normal, (folio, *estados_activos))
-            
-            if not cursor.fetchone():
-                return folio
-    except Exception as e:
-        print(f"Error generando folio invitado: {e}")
-        # Fallback: usar timestamp
-        return f"INV{int(datetime.now().timestamp()) % 1000:03d}"
-    finally:
-        cursor.close()
-        conn.close()
-
-def es_turno_invitado(folio):
-    """Determina si un folio corresponde a un turno invitado"""
-    conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)
-    
-    try:
-        print(f"🔍 Verificando tipo de ticket: {folio}")
-        
-        # Verificar si existe en Turno_Invitado
-        cursor.execute("""
-            SELECT 1 FROM Turno_Invitado 
-            WHERE Folio_Invitado = %s
-        """, (folio,))
-        
-        es_invitado = cursor.fetchone() is not None
-        
-        print(f"🔍 Resultado verificación: {es_invitado}")
-        
-        return es_invitado
-        
-    except Exception as e:
-        print(f"❌ Error en es_turno_invitado: {e}")
-        # En caso de error, asumir que es ticket normal
-        return False
-    finally:
-        cursor.close()
-        conn.close()
-
 def login_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
@@ -142,3 +88,41 @@ def login_required(f):
             return jsonify({"error": "No autenticado"}), 401
         return f(*args, **kwargs)
     return decorated
+
+AUDIO_DIR = "/app/audio"
+
+def _cleanup_audio(filepath, delay=120):
+    """Elimina un archivo de audio después de un delay en segundos."""
+    def _delete():
+        try:
+            if os.path.exists(filepath):
+                os.remove(filepath)
+                print(f"🗑️ Audio eliminado: {filepath}")
+        except OSError as e:
+            print(f"⚠️ Error al eliminar audio {filepath}: {e}")
+    timer = threading.Timer(delay, _delete)
+    timer.daemon = True
+    timer.start()
+
+def speak_to_file(text):
+    os.makedirs(AUDIO_DIR, exist_ok=True)
+
+    filename = f"turno_{uuid.uuid4().hex}.mp3"
+    filepath = os.path.join(AUDIO_DIR, filename)
+
+    try:
+        from gtts import gTTS
+        tts = gTTS(text=text, lang='es', slow=False)
+        tts.save(filepath)
+    except Exception as e:
+        print(f"⚠️ gTTS falló ({e}), usando espeak como fallback")
+        filename = f"turno_{uuid.uuid4().hex}.wav"
+        filepath = os.path.join(AUDIO_DIR, filename)
+        subprocess.run([
+            "espeak", "-v", "es", "-w", filepath, text
+        ], check=True)
+
+    # Programar eliminación automática del archivo en 30 segundos
+    _cleanup_audio(filepath)
+
+    return filename

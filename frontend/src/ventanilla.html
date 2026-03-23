@@ -1,0 +1,166 @@
+<script type="module">
+    import Config from './js/config.js';
+
+    async function verificarSesion() {
+        try {
+            const res = await fetch(`${Config.API_BASE_URL}/api/check_session`, {
+                credentials: 'include' // para enviar cookies de sesión
+            });
+            if (!res.ok) {
+                window.location.href = 'login.html';
+            }
+        } catch (err) {
+            window.location.href = 'login.html';
+        }
+    }
+
+    verificarSesion();
+</script>
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Gestión</title>
+    <link rel="stylesheet" href="./dist/output.css" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="./static/css/toastify.css">
+</head>
+
+<body class="min-h-screen">
+    <div class="bg-gradient-to-br from-slate-600 via-slate-500 to-emerald-300 min-h-screen">
+        <div id="management-screen" class="hidden min-h-screen p-8">
+            <div class="max-w-6xl mx-auto">
+                <div
+                    class="bg-white/95 backdrop-blur-sm rounded-3xl shadow-xl p-8 mb-8 flex justify-between items-center border border-slate-200">
+                    <div class="flex items-center gap-5 flex-1">
+                        <img src="./public/ual_no_fondo.png" alt="Logo UAL" class="h-14 object-contain">
+                        <div>
+                            <h1 class="text-3xl font-bold text-slate-800">Panel de Ventanilla</h1>
+                            <p class="text-slate-600 mt-1">Sector: <span id="user-sector"
+                                    class="font-semibold text-emerald-700"></span></p>
+                            <p class="text-sm text-slate-500 mt-0.5">Usuario: <span id="user-name"
+                                    class="font-medium"></span></p>
+                        </div>
+                    </div>
+                    <button id="logout-btn"
+                        class="bg-slate-600 hover:bg-slate-700 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-300 flex items-center gap-2 shadow-md hover:shadow-lg">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0
+                    01-3 3H6a3 3 0
+                    01-3-3V7a3 3 0
+                    013-3h4a3 3 0
+                    013 3v1" />
+                        </svg>
+                        Cerrar Sesión
+                    </button>
+                </div>
+
+                <div class="bg-white/95 backdrop-blur-sm rounded-3xl shadow-xl p-8 border border-slate-200">
+
+                    <!-- Banner Caja Rápida -->
+                    <div id="caja-rapida-banner"
+                        class="hidden mb-6 rounded-xl border border-amber-300 bg-gradient-to-r from-amber-50 to-amber-100 p-4 items-center gap-3 shadow-sm">
+                        <div class="w-10 h-10 rounded-lg bg-amber-200 flex items-center justify-center flex-shrink-0">
+                            <svg class="w-5 h-5 text-amber-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M13 10V3L4 14h7v7l9-11h-7z" />
+                            </svg>
+                        </div>
+                        <div>
+                            <p class="font-bold text-amber-800 text-sm">Modo Caja Rápida Activo</p>
+                            <p id="caja-rapida-banner-hora" class="text-xs text-amber-600 font-medium">Hasta las --:--
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Botón Llamar Siguiente -->
+                    <button id="call-next-btn" title="También puedes presionar Enter"
+                        class="w-full bg-gradient-to-r from-slate-500 to-emerald-600 hover:from-slate-700 hover:to-emerald-700 text-white text-lg font-bold py-3 mb-6 rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl">
+                        Llamar Siguiente Ticket
+                    </button>
+
+                    <!-- Área para mostrar el ticket actual en atención -->
+                    <div id="current-ticket-section" class="hidden mb-6">
+                        <div class="bg-blue-50 border border-blue-200 rounded-xl p-6">
+                            <h3 class="text-lg font-semibold text-emerald-800 mb-4 text-center">Ticket en Atención</h3>
+
+                            <!-- Layout para tickets normales (3 columnas) -->
+                            <div id="normal-ticket-layout" class="flex items-center justify-center space-x-6 mb-4">
+                                <div class="text-center">
+                                    <p class="text-2xl font-bold text-emerald-600" id="current-ticket-folio">-</p>
+                                    <p class="text-sm text-emerald-500 mt-1">Folio</p>
+                                </div>
+                            </div>
+
+                            <!-- BOTONES DIVIDIDOS: Cancelar (Izquierda) y Completar (Derecha) -->
+                            <div class="flex gap-4 mt-4">
+                                <!-- Botón Cancelar (Izquierda - Rojo) -->
+                                <button id="cancel-current-btn"
+                                    class="flex-1 bg-red-600 hover:bg-red-700 text-white text-lg font-bold py-3 rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl flex items-center justify-center gap-2">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                    Cancelar Ticket
+                                </button>
+
+                                <!-- Botón Completar (Derecha - Verde) -->
+                                <button id="complete-current-btn" title="También puedes presionar la tecla F"
+                                    class="flex-1 bg-green-600 hover:bg-green-700 text-white text-lg font-bold py-3 rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl flex items-center justify-center gap-2">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M5 13l4 4L19 7" />
+                                    </svg>
+                                    Completar Ticket
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h2 class="text-2xl font-bold text-slate-800 mb-6">Tickets en Espera</h2>
+                    <!-- CONTENEDOR DE TICKETS PENDIENTES -->
+                    <div id="tickets-container" class="space-y-4 mb-6"></div>
+
+                    <!-- Mensaje de No Tickets -->
+                    <div id="no-tickets-message"
+                        class="hidden text-center py-16 bg-white/80 backdrop-blur-sm rounded-2xl border border-slate-200">
+                        <div class="inline-flex items-center justify-center w-24 h-24 bg-slate-100 rounded-full mb-4">
+                            <svg class="w-12 h-12 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0
+                        11-18 0 9 9 0
+                        0118 0z" />
+                            </svg>
+                        </div>
+                        <p class="text-slate-600 text-xl font-semibold">No hay tickets pendientes</p>
+                        <p class="text-slate-500 mt-2">Los nuevos tickets aparecerán aquí automáticamente</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="confirm-modal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50">
+            <div class="bg-white rounded-xl shadow-lg p-6 w-96 text-center">
+                <h2 id="confirm-title" class="text-lg font-semibold mb-4">Confirmación</h2>
+                <p id="confirm-message" class="text-gray-600 mb-6"></p>
+
+                <div class="flex justify-center gap-4">
+                    <button id="confirm-cancel" class="px-4 py-2 bg-gray-300 hover:bg-gray-400 rounded-lg">
+                        Cancelar
+                    </button>
+
+                    <button id="confirm-accept" class="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg">
+                        Aceptar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="./js/lib/socket.io.min.js"></script>
+    <script src="./static/js/toastify.js"></script>
+    <script type="module" src="./js/ventanilla.js"></script>
+</body>
+
+</html>
