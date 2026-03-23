@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update, insert, func, and_, or_, null
+from sqlalchemy import select, update, insert, func, and_, or_
 from typing import Optional, List
 from hashlib import sha256
 
@@ -103,8 +103,12 @@ async def get_employees_full(req: Request, db: AsyncSession = Depends(get_db)):
                 Empleado.ID_Sector.label("ID_Sector_Jefe"),
                 SectorJefe.Sector.label("Nombre_Sector_Jefe"),
                 SesionActiva.Token.label("session_token"),
-                (SesionActiva.ID_Empleado.isnot(null)).label("sesion_activa")
+                and_(
+                    SesionActiva.ID_Empleado.is_not(None),
+                    EmpleadoVentanilla.ID_Ventanilla.is_not(None)
+                ).label("sesion_activa")
             )
+            .select_from(Empleado)
             .outerjoin(Rol, Empleado.ID_ROL == Rol.ID_Rol)
             .outerjoin(EstadoEmpleado, Empleado.ID_Estado == EstadoEmpleado.ID_Estado)
             .outerjoin(

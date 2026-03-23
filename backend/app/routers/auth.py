@@ -28,7 +28,7 @@ def _broadcast_session_event(event_type: str, employee_id: int):
             })
         except Exception as e:
             print(f"⚠️ Error emitiendo {event_type}: {e}")
-    
+
     try:
         loop = asyncio.get_running_loop()
         loop.create_task(_emit())
@@ -54,7 +54,7 @@ async def login(request: Request, credentials: LoginRequest, db: AsyncSession = 
             .outerjoin(Rol, Empleado.ID_ROL == Rol.ID_Rol)
             .outerjoin(EstadoEmpleado, Empleado.ID_Estado == EstadoEmpleado.ID_Estado)
             .outerjoin(
-                EmpleadoVentanilla, 
+                EmpleadoVentanilla,
                 and_(
                     Empleado.ID_Empleado == EmpleadoVentanilla.ID_Empleado,
                     EmpleadoVentanilla.ID_Estado == 1,
@@ -66,7 +66,7 @@ async def login(request: Request, credentials: LoginRequest, db: AsyncSession = 
             .outerjoin(SectorJefe, Empleado.ID_Sector == SectorJefe.ID_Sector)
             .where(Empleado.Usuario == credentials.username)
         )
-        
+
         result = await db.execute(query)
         user_row = result.mappings().fetchone()
 
@@ -135,12 +135,21 @@ async def login(request: Request, credentials: LoginRequest, db: AsyncSession = 
             sector_row_val = sector_res.mappings().fetchone()
             sector = sector_row_val["Sector"] if sector_row_val else "Desconocido"
 
-        # ── 5. Crear nueva sesión con expiración basada en el rol ──
+        # ── 5. Validar que operadores tengan ventanilla asignada ──
+        # Roles que requieren ventanilla: todos excepto Admin (1) y Subjefe (6)
+        if user.ID_ROL not in (1, 6):
+            if not user_row["ID_Ventanilla"]:
+                raise HTTPException(
+                    status_code=403,
+                    detail="No tiene una ventanilla asignada. Contacte al administrador."
+                )
+
+        # ── 6. Crear nueva sesión con expiración basada en el rol ──
         session_token = str(uuid.uuid4())
-        if user.ID_ROL in (1, 6):  # Admin o Jefe de Departamento
-            expira = datetime.utcnow() + timedelta(seconds=30)  # Token corto que se renueva con actividad
+        if user.ID_ROL in (1, 6): # Admin o Jefe de Departamento
+            expira = datetime.utcnow() + timedelta(seconds=30) # Token corto que se renueva con actividad
         else:
-            expira = datetime.utcnow() + timedelta(hours=SESSION_DURATION_HOURS)  # 8 horas fijo para otros roles
+            expira = datetime.utcnow() + timedelta(hours=SESSION_DURATION_HOURS) # 8 horas fijo para otros roles
 
         await db.execute(
             insert(SesionActiva)
@@ -148,7 +157,7 @@ async def login(request: Request, credentials: LoginRequest, db: AsyncSession = 
         )
         await db.commit()
 
-        # ── 6. Emitir evento WS ──
+        # ── 7. Emitir evento WS ──
         _broadcast_session_event("session_started", user.ID_Empleado)
 
         return {
@@ -289,6 +298,15 @@ async def force_close_session(id_empleado: int, request: Request, db: AsyncSessi
     if requester_role != 1:
         raise HTTPException(status_code=403, detail="Solo los administradores pueden forzar el cierre de sesiones")
 
+    # Extend admin session (sliding window) - same logic as check_session
+    if requester_role in (1, 6):
+        new_expira = datetime.utcnow() + timedelta(seconds=30)
+        await db.execute(
+            update(SesionActiva)
+            .where(SesionActiva.Token == session_token)
+            .values(Expira=new_expira)
+        )
+
     # Proceed to force close the target employee's session(s)
     # Set Activa=0 for any active session of the target employee
     await db.execute(
@@ -296,10 +314,25 @@ async def force_close_session(id_empleado: int, request: Request, db: AsyncSessi
         .where(and_(SesionActiva.ID_Empleado == id_empleado, SesionActiva.Activa == True))
         .values(Activa=False)
     )
+
+    # Also terminate any active ventanilla assignment
+    await db.execute(
+        update(EmpleadoVentanilla)
+        .where(
+            and_(
+                EmpleadoVentanilla.ID_Empleado == id_empleado,
+                EmpleadoVentanilla.Fecha_Termino.is_(None),
+                EmpleadoVentanilla.ID_Estado == 1
+            )
+        )
+        .values(Fecha_Termino=datetime.utcnow(), ID_Estado=2)
+    )
+
     await db.commit()
 
     # Emit WS event to notify that the session was forced closed (so the client can react if still connected)
     _broadcast_session_event("session_force_closed", id_empleado)
+    _broadcast_session_event("ventanilla_status_changed", id_empleado)
 
     return {"message": f"Sesión forzada a cerrar para el empleado {id_empleado}"}
 
@@ -308,6 +341,7 @@ async def force_close_session(id_empleado: int, request: Request, db: AsyncSessi
 async def get_roles(db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Rol.ID_Rol, Rol.Rol).order_by(Rol.ID_Rol))
     return result.mappings().fetchall()
+
 
 @router.get("/estados_empleado", response_model=List[EstadoEmpleadoResponse])
 async def get_estados_empleado(db: AsyncSession = Depends(get_db)):

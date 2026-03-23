@@ -343,6 +343,7 @@ onMounted(async () => {
   // --- WebSocket Listeners ---
   socket.on('tickets_updated', handleTicketsUpdated)
   socket.on('caja_rapida_updated', handleCajaRapidaUpdated)
+  socket.on('session_force_closed', handleSessionForceClosed)
 
   document.addEventListener("keydown", handleKeydown)
 
@@ -383,10 +384,20 @@ async function handleCajaRapidaUpdated(data) {
   }
 }
 
+async function handleSessionForceClosed(data) {
+  console.log('🚫 Sesión forzada a cerrar:', data)
+  // Check if this session force close is for the current employee
+  if (data && data.employee_id === currentUser.value?.id) {
+    // Show logout overlay and redirect
+    await logoutWithOverlay()
+  }
+}
+
 onUnmounted(() => {
   document.removeEventListener("keydown", handleKeydown)
   socket.off('tickets_updated', handleTicketsUpdated)
   socket.off('caja_rapida_updated', handleCajaRapidaUpdated)
+  socket.off('session_force_closed', handleSessionForceClosed)
   socket.emit('ventanilla_disconnect')
 })
 </script>

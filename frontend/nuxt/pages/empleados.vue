@@ -108,8 +108,8 @@
                               :disabled="forzarLoading[emp.ID_Empleado]">
                         {{ forzarLoading[emp.ID_Empleado] ? 'Procesando...' : 'Forzar Desconexión' }}
                       </button>
-                      <!-- Edit button (only if not in ventanilla) -->
-                      <button v-if="!activosSet.has(emp.ID_Empleado)" class="edit-btn mt-1" @click="abrirEdicion(emp.ID_Empleado)">Editar</button>
+            <!-- Edit button (only if no active session) -->
+            <button v-if="!emp.sesion_activa" class="edit-btn mt-1" @click="abrirEdicion(emp.ID_Empleado)">Editar</button>
                     </div>
                   </td>
                 </tr>
@@ -341,37 +341,49 @@ async function guardarEdicion() {
 
 function cancelarEdicion() { editEmpleado.value = null }
 
-  let onConnect
-  let onStatusChanged
+let onConnect
+let onStatusChanged
+let onSessionForceClosed
 
-  onMounted(() => {
-    currentUser.value = getCurrentUser()
-    cargarRoles()
+onMounted(() => {
+  currentUser.value = getCurrentUser()
+  cargarRoles()
 
-    onConnect = () => {
-      const token = getSessionToken()
-      if (currentUser.value?.id && token) {
-        socket.emit('ventanilla_register', {
-          id_empleado: currentUser.value.id,
-          session_token: token
-        })
-      }
-
-      loadEmployees()
+  onConnect = () => {
+    const token = getSessionToken()
+    if (currentUser.value?.id && token) {
+      socket.emit('ventanilla_register', {
+        id_empleado: currentUser.value.id,
+        session_token: token
+      })
     }
 
-    onStatusChanged = () => {
-      loadEmployees()
-    }
+    loadEmployees()
+  }
 
-    socket.on('connect', onConnect)
-    socket.on('ventanilla_status_changed', onStatusChanged)
-  })
+  onStatusChanged = () => {
+    loadEmployees()
+  }
 
-  onUnmounted(() => {
-    socket.off('connect', onConnect)
-    socket.off('ventanilla_status_changed', onStatusChanged)
-  })
+  onSessionForceClosed = () => {
+    // Refresh when a session is force-closed by admin
+    loadEmployees()
+  }
+
+  socket.on('connect', onConnect)
+  socket.on('ventanilla_status_changed', onStatusChanged)
+  socket.on('session_force_closed', onSessionForceClosed)
+  socket.on('session_ended', onStatusChanged)
+  socket.on('session_started', onStatusChanged)
+})
+
+onUnmounted(() => {
+  socket.off('connect', onConnect)
+  socket.off('ventanilla_status_changed', onStatusChanged)
+  socket.off('session_force_closed', onSessionForceClosed)
+  socket.off('session_ended', onStatusChanged)
+  socket.off('session_started', onStatusChanged)
+})
 
   async function forzarDesconexion(id_empleado) {
     try {
