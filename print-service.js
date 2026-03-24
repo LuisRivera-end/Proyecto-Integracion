@@ -50,7 +50,7 @@ socket.on('connect', () => {
     socket.emit('register_printer', {
         printer_name: PRINTER_NAME,
         location: 'Recepcion',
-        client_type: 'windows_print_service'
+        client_type: IS_WINDOWS ? 'windows_print_service' : 'linux_print_service'
     });
 });
 
@@ -70,7 +70,17 @@ socket.on('print_job', (data) => {
     handlePrintJob(data);
 });
 
-// Función de impresión (Windows / Linux) WIP
+function buildPrintCommand(pdfPath) {
+    if (IS_WINDOWS) {
+        return `${SUMATRA_PATH} -print-to "${PRINTER_NAME}" "${pdfPath}"`;
+    } else if (IS_LINUX) {
+        return `lp -d "${PRINTER_NAME}" "${pdfPath}"`;
+    } else {
+        throw new Error(`Plataforma ${platform} no soportada`);
+    }
+}
+
+// Función de impresión (Windows / Linux)
 function handlePrintJob(data) {
     try {
 

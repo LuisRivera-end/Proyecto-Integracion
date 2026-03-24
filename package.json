@@ -4,7 +4,8 @@
   "main": "print-service.js",
   "bin": "print-service.js",
   "scripts": {
-    "build:exe": "pkg print-service.js --targets node18-win-x64 --output dist/print-service.exe"
+    "build:exe": "pkg print-service.js --targets node18-win-x64 --output dist/print-service.exe",
+    "build:linux": "pkg print-service.js --targets node18-linux-x64 --output dist/print-service"
   },
   "pkg": {
     "scripts": ["print-service.js"],
