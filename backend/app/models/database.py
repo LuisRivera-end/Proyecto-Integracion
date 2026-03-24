@@ -8,7 +8,7 @@ engine = create_async_engine(
     pool_recycle=3600
 )
 
-AsyncSessionLocal = async_sessionmaker(
+async_session_local = async_sessionmaker(
     engine,
     class_=AsyncSession,
     expire_on_commit=False,
@@ -17,7 +17,13 @@ AsyncSessionLocal = async_sessionmaker(
 
 Base = declarative_base()
 
-# Dependencia para inyectar en las rutas FastAPI
 async def get_db():
-    async with AsyncSessionLocal() as session:
+    """
+    Dependencia de FastAPI para obtener la sesión de la base de datos.
+    Asegura que la conexión se cierre o se devuelva al pool automáticamente después de cada petición.
+    
+    Yields:
+        AsyncSession: Sesión asíncrona de SQLAlchemy.
+    """
+    async with async_session_local() as session:
         yield session

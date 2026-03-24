@@ -156,14 +156,21 @@
   </aside>
 </template>
 
-<script setup>
+<script setup lang="ts">
+/**
+ * Componente AdminSidebar
+ * Muestra la barra lateral de navegación para usuarios administradores y subjefes.
+ * 
+ * @prop {string} activePage - Indica la página actualmente activa para resaltar el enlace correspondiente.
+ */
+
 const props = defineProps({
   activePage: { type: String, required: true },
 })
 
 const { logoutWithOverlay, getCurrentUser } = useAuth()
 
-const currentUser = ref(null)
+const currentUser = ref<any>(null)
 
 onMounted(() => {
   currentUser.value = getCurrentUser()
@@ -194,17 +201,26 @@ const roleLabel = computed(() => {
   return 'Sistema'
 })
 
-const sidebarEl = ref(null)
+const sidebarEl = ref<HTMLElement | null>(null)
 
-const openSidebar = () => {
+/**
+ * Abre la barra lateral eliminando la clase de ocultación.
+ */
+const openSidebar = (): void => {
   sidebarEl.value?.classList.remove('-translate-x-full')
 }
 
-const closeSidebar = () => {
+/**
+ * Cierra la barra lateral añadiendo la clase de ocultación.
+ */
+const closeSidebar = (): void => {
   sidebarEl.value?.classList.add('-translate-x-full')
 }
 
-const handleLogout = () => {
+/**
+ * Maneja el evento de cerrar sesión.
+ */
+const handleLogout = (): void => {
   logoutWithOverlay()
 }
 

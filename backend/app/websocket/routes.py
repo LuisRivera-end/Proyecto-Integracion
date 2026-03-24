@@ -2,7 +2,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update, and_
 from sqlalchemy import text
-from app.models.database import AsyncSessionLocal
+from app.models.database import async_session_local
 from app.models.models import SesionActiva
 from .manager import manager
 import json
@@ -105,7 +105,7 @@ async def websocket_endpoint(websocket: WebSocket):
                         continue
                     
                     # Llamada a DB Asincrona para chechar ventanillas    
-                    async with AsyncSessionLocal() as db:
+                    async with async_session_local() as db:
                         q = text("""
                             SELECT 
                                 e.ID_Empleado,

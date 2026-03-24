@@ -2,6 +2,7 @@ import asyncio
 import base64
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy import select, update, insert, func, and_
 from typing import Optional
 from datetime import datetime
@@ -48,9 +49,12 @@ async def crear_sector(req: SectorCreateReq, db: AsyncSession = Depends(get_db))
             
         await db.commit()
         return {"mensaje": "Sector creado exitosamente", "id_sector": id_sector}
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(status_code=400, detail="Error de integridad en la base de datos")
     except Exception as e:
         await db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Error interno del servidor")
 
 @router.put("/sectores/{id_sector}")
 async def actualizar_sector(id_sector: int, req: SectorUpdateReq, db: AsyncSession = Depends(get_db)):
@@ -65,9 +69,12 @@ async def actualizar_sector(id_sector: int, req: SectorUpdateReq, db: AsyncSessi
     except HTTPException:
         await db.rollback()
         raise
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(status_code=400, detail="Error de integridad en la base de datos")
     except Exception as e:
         await db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Error interno del servidor")
 
 @router.post("/ticket", status_code=201)
 async def generar_ticket(req: TicketGenerateReq, db: AsyncSession = Depends(get_db)):
@@ -121,9 +128,12 @@ async def generar_ticket(req: TicketGenerateReq, db: AsyncSession = Depends(get_
     except HTTPException:
         await db.rollback()
         raise
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(status_code=400, detail="Error de integridad en la base de datos")
     except Exception as e:
         await db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Error interno del servidor")
 
 @router.post("/ticket/print")
 async def request_ticket_print(req: Request):
@@ -175,8 +185,10 @@ async def request_ticket_print(req: Request):
             
     except HTTPException:
         raise
+    except IntegrityError:
+        raise HTTPException(status_code=400, detail="Error de integridad en la base de datos")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Error interno del servidor")
 
 @router.get("/tickets")
 async def get_tickets(
@@ -198,125 +210,11 @@ async def get_tickets(
             )
             res_emp = await db.execute(q_emp)
             sector_empleado = res_emp.fetchone()
-            if sector_empleado:
-                sector = sector_empleado[0]
+        if sector_empleado:
+            sector = sector_empleado[0]
 
+        from sqlalchemy.exc import IntegrityError
         from sqlalchemy import literal_column
-        base_query = (
-            select(
-                Turno.Folio.label("folio"),
-                Turno.ID_Turno.label("id_turno"),
-                Sector.Sector.label("sector"),
-                EstadoTurno.Nombre.label("estado"),
-                Turno.Fecha_Ticket.label("fecha_ticket"),
-                Turno.Tipo_Caja.label("tipo_caja"),
-                literal_column("'normal'").label("tipo")
-            )
-            .join(Sector, Turno.ID_Sector == Sector.ID_Sector)
-            .join(EstadoTurno, Turno.ID_Estados == EstadoTurno.ID_Estado)
-            .where(Turno.ID_Estados == 1)
-        )
-
-        if sector:
-            base_query = base_query.where(Sector.Sector == sector)
-
-        if tipo_caja and tipo_caja in ('normal', 'rapida'):
-            base_query = base_query.where(Turno.Tipo_Caja == tipo_caja)
-
-        res = await db.execute(base_query)
-        tickets = res.mappings().fetchall()
-        
-        # Sort manually using mappings to dict conversion
-        tickets_list = [dict(t) for t in tickets]
-        tickets_list.sort(key=lambda x: str(x['fecha_ticket']))
-        
-        return tickets_list
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@router.put("/tickets/{folio}/attend")
-async def attend_ticket(folio: str, req: TicketAttendReq, db: AsyncSession = Depends(get_db)):
-    id_ventanilla = req.id_ventanilla
-
-    import app.utils.helpers as sync_helpers
-    nueva_fecha = sync_helpers.obtener_fecha_actual()
-    
-    try:
-        q_upd = (
-            update(Turno)
-            .where(and_(Turno.Folio == folio, Turno.ID_Estados == 1))
-            .values(
-                ID_Estados=3,
-                Fecha_Ultimo_Estado=nueva_fecha,
-                ID_Ventanilla=id_ventanilla
-            )
-        )
-        res = await db.execute(q_upd)
-
-        if res.rowcount == 0:
-            raise HTTPException(status_code=404, detail="Ticket no encontrado o ya atendido")
-
-        await db.commit()
-        await emit_tickets_update()
-        
-        return {"message": f"Ticket {folio} en estado 'Atendiendo' por ventanilla {id_ventanilla}"}
-        
-    except HTTPException:
-        await db.rollback()
-        raise
-    except Exception as e:
-        await db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
-
-@router.put("/tickets/{folio}/complete")
-async def complete_ticket(folio: str, db: AsyncSession = Depends(get_db)):
-    import app.utils.helpers as sync_helpers
-    nueva_fecha = sync_helpers.obtener_fecha_actual()
-    try:
-        q_upd = (
-            update(Turno)
-            .where(Turno.Folio == folio)
-            .values(ID_Estados=4, Fecha_Ultimo_Estado=nueva_fecha)
-        )
-        await db.execute(q_upd)
-        await db.commit()
-        await emit_tickets_update()
-        
-        return {"message": f"Ticket {folio} marcado como 'Completado'"}
-    except Exception as e:
-        await db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
-
-@router.put("/tickets/{folio}/cancel")
-async def cancel_ticket(folio: str, db: AsyncSession = Depends(get_db)):
-    import app.utils.helpers as sync_helpers
-    nueva_fecha = sync_helpers.obtener_fecha_actual()
-    try:
-        q_upd = (
-            update(Turno)
-            .where(and_(Turno.Folio == folio, Turno.ID_Estados == 3))
-            .values(ID_Estados=2, Fecha_Ultimo_Estado=nueva_fecha)
-        )
-        res = await db.execute(q_upd)
-        
-        if res.rowcount == 0:
-            raise HTTPException(status_code=404, detail="Ticket no encontrado o no está siendo atendido")
-            
-        await db.commit()
-        await emit_tickets_update()
-        
-        return {"message": f"Ticket {folio} cancelado exitosamente"}
-    except HTTPException:
-        await db.rollback()
-        raise
-    except Exception as e:
-        await db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
-
-@router.get("/tickets_count")
-async def get_tickets_count(db: AsyncSession = Depends(get_db)):
-    try:
         q = (
             select(Sector.Sector.label("nombre_sector"), func.count(Turno.ID_Turno).label("cantidad"))
             .join(Sector, Turno.ID_Sector == Sector.ID_Sector)
@@ -327,8 +225,10 @@ async def get_tickets_count(db: AsyncSession = Depends(get_db)):
         rows = res.mappings().fetchall()
         
         return {r["nombre_sector"]: r["cantidad"] for r in rows}
+    except IntegrityError:
+        raise HTTPException(status_code=400, detail="Error de integridad en la base de datos")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Error interno del servidor")
 
 @router.get("/total_tickets")
 async def total_tickets(db: AsyncSession = Depends(get_db)):
@@ -344,8 +244,10 @@ async def total_tickets(db: AsyncSession = Depends(get_db)):
         
         row = res.fetchone()
         return {"cantidad": row[0] if row else 0}
+    except IntegrityError:
+        raise HTTPException(status_code=400, detail="Error de integridad en la base de datos")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Error interno del servidor")
 
 @router.get("/tickets/activo/{id_ventanilla}")
 async def get_ticket_activo(id_ventanilla: int, db: AsyncSession = Depends(get_db)):
@@ -363,8 +265,10 @@ async def get_ticket_activo(id_ventanilla: int, db: AsyncSession = Depends(get_d
             return {"activo": False}
             
         return {"activo": True, "folio": ticket[0]}
+    except IntegrityError:
+        raise HTTPException(status_code=400, detail="Error de integridad en la base de datos")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Error interno del servidor")
 
 @router.post("/tickets/llamar-siguiente")
 async def llamar_siguiente_ticket(req: TicketNextReq, db: AsyncSession = Depends(get_db)):
@@ -435,9 +339,12 @@ async def llamar_siguiente_ticket(req: TicketNextReq, db: AsyncSession = Depends
     except HTTPException:
         await db.rollback()
         raise
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(status_code=400, detail="Error de integridad en la base de datos")
     except Exception as e:
         await db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Error interno del servidor")
 
 @router.put("/turno/{id_turno}/estado")
 async def actualizar_estado_turno(id_turno: int, req: TurnoStatusReq, db: AsyncSession = Depends(get_db)):
@@ -463,13 +370,17 @@ async def actualizar_estado_turno(id_turno: int, req: TurnoStatusReq, db: AsyncS
     except HTTPException:
         await db.rollback()
         raise
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(status_code=400, detail="Error de integridad en la base de datos")
     except Exception as e:
         await db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Error interno del servidor")
 
 @router.get("/tickets/historial")
 async def get_historial_tickets(db: AsyncSession = Depends(get_db)):
     try:
+        from sqlalchemy.exc import IntegrityError
         from sqlalchemy import literal_column
         q = (
             select(
@@ -488,12 +399,15 @@ async def get_historial_tickets(db: AsyncSession = Depends(get_db)):
         )
         res = await db.execute(q)
         return res.mappings().fetchall()
+    except IntegrityError:
+        raise HTTPException(status_code=400, detail="Error de integridad en la base de datos")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Error interno del servidor")
 
 @router.get("/tickets/publico")
 async def get_tickets_publico(db: AsyncSession = Depends(get_db)):
     try:
+        from sqlalchemy.exc import IntegrityError
         from sqlalchemy import literal_column
         q = (
             select(
@@ -518,5 +432,7 @@ async def get_tickets_publico(db: AsyncSession = Depends(get_db)):
         # Sort
         tickets.sort(key=lambda x: (x['estado_id'] != 3, str(x['fecha_ticket'])))
         return tickets
+    except IntegrityError:
+        raise HTTPException(status_code=400, detail="Error de integridad en la base de datos")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Error interno del servidor")

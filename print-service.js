@@ -70,6 +70,13 @@ socket.on('print_job', (data) => {
     handlePrintJob(data);
 });
 
+/**
+ * Construye el comando de impresión dependiendo del sistema operativo.
+ * 
+ * @param {string} pdfPath - La ruta absoluta al archivo PDF a imprimir.
+ * @returns {string} El comando a ejecutar en la terminal.
+ * @throws {Error} Si la plataforma no está soportada.
+ */
 function buildPrintCommand(pdfPath) {
     if (IS_WINDOWS) {
         return `${SUMATRA_PATH} -print-to "${PRINTER_NAME}" "${pdfPath}"`;
@@ -80,9 +87,20 @@ function buildPrintCommand(pdfPath) {
     }
 }
 
-// Función de impresión (Windows / Linux)
+/**
+ * Procesa un trabajo de impresión recibido por WebSockets.
+ * Guarda el PDF temporalmente, lo imprime y luego lo elimina.
+ * 
+ * @param {Object} data - Objeto con los datos del trabajo de impresión.
+ * @param {string|number} data.ticket_number - Identificador del ticket.
+ * @param {string} data.pdf_content - Contenido del PDF en formato base64.
+ */
 function handlePrintJob(data) {
     try {
+        // Validación de datos: Evitar inyección de comandos limitando los caracteres permitidos
+        if (!/^[a-zA-Z0-9_\-]+$/.test(String(data.ticket_number))) {
+            throw new Error(`El número de ticket es inválido. Posible intento de inyección de comandos.`);
+        }
 
         const tempDir = path.join(os.tmpdir(), "print-service");
 

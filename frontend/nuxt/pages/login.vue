@@ -83,7 +83,12 @@
     </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
+/**
+ * Página Login
+ * Maneja la autenticación de usuarios (Administradores, Jefes de sector y Operadores de ventanilla).
+ * Si la autenticación es exitosa, guarda la sesión y redirige a la vista correspondiente.
+ */
 definePageMeta({ layout: 'default' })
 
 useHead({ title: 'Inicio de Sesión' })
@@ -97,7 +102,12 @@ const password = ref('')
 const loading = ref(false)
 const errorMsg = ref('')
 
-const showError = (message) => {
+/**
+ * Muestra un mensaje de error en pantalla durante 5 segundos.
+ * 
+ * @param {string} message - El mensaje de error a mostrar.
+ */
+const showError = (message: string): void => {
   errorMsg.value = message
   setTimeout(() => { errorMsg.value = '' }, 5000)
 }
@@ -111,15 +121,15 @@ onMounted(() => {
   }
 
   // Escuchar eventos WS de sesión en tiempo real
-  socket.on('session_already_active', (payload) => {
+  socket.on('session_already_active', (payload: any) => {
     console.log('🔒 Intento de login bloqueado — sesión ya activa para empleado:', payload?.employee_id)
   })
 
-  socket.on('session_started', (payload) => {
+  socket.on('session_started', (payload: any) => {
     console.log('🟢 Sesión iniciada para empleado:', payload?.employee_id)
   })
 
-  socket.on('session_ended', (payload) => {
+  socket.on('session_ended', (payload: any) => {
     console.log('🔓 Sesión cerrada para empleado:', payload?.employee_id)
   })
 })
@@ -130,7 +140,13 @@ onUnmounted(() => {
   socket.off('session_ended')
 })
 
-const handleLogin = async () => {
+/**
+ * Maneja el envío del formulario de inicio de sesión.
+ * Envía las credenciales al backend y maneja la redirección basada en el rol del usuario.
+ * 
+ * @returns {Promise<void>}
+ */
+const handleLogin = async (): Promise<void> => {
   loading.value = true
   errorMsg.value = ''
 
@@ -147,7 +163,7 @@ const handleLogin = async () => {
     }
 
     const data = await res.json()
-    const currentUser = {
+    const currentUser: any = {
       id: data.id,
       username: data.nombre,
       rol: data.rol,
@@ -185,7 +201,7 @@ const handleLogin = async () => {
     }
 
     showError('No tienes una ventanilla asignada. Contacta al administrador.')
-  } catch (err) {
+  } catch (err: any) {
     console.error('Error en login:', err)
     showError(err.message)
   } finally {

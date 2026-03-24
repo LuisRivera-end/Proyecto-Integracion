@@ -171,9 +171,13 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import Toastify from 'toastify-js'
 
+/**
+ * Página Principal (Index)
+ * Actúa como el kiosco de los alumnos para generar tickets de atención por departamento.
+ */
 definePageMeta({ layout: 'default' })
 
 useHead({ title: 'Alumno' })
@@ -181,7 +185,7 @@ useHead({ title: 'Alumno' })
 const { API_BASE_URL } = useConfig()
 const socket = useSocket()
 
-const sectores = ref([])
+const sectores = ref<any[]>([])
 const ticketVisible = ref(false)
 const ticketFolio = ref('')
 const ticketSector = ref('')
@@ -189,18 +193,23 @@ const ticketTipoCaja = ref('normal')
 const ticketFecha = ref('')
 const errorMessage = ref('')
 const mostrarModalCaja = ref(false)
-let currentSectorForCaja = null
-let lastTicketData = null
+let currentSectorForCaja: any = null
+let lastTicketData: any = null
 
-// Load sectors
-const cargarSectores = async () => {
+/**
+ * Carga la lista de departamentos activos desde el backend.
+ * Realiza reintentos automáticos si el servidor no está listo.
+ * 
+ * @returns {Promise<void>}
+ */
+const cargarSectores = async (): Promise<void> => {
   let exito = false
   while (!exito) {
     try {
       const res = await fetch(`${API_BASE_URL}/api/sectores`, { credentials: 'include' })
       if (!res.ok) throw new Error('Servidor no listo')
       const data = await res.json()
-      sectores.value = data.map((s) => ({ id: s.ID_Sector, nombre: s.Sector }))
+      sectores.value = data.map((s: any) => ({ id: s.ID_Sector, nombre: s.Sector }))
       exito = true
     } catch (err) {
       console.error('Error cargando sectores, reintentando...', err)
@@ -209,7 +218,15 @@ const cargarSectores = async () => {
   }
 }
 
-const handleSectorClick = async (sector) => {
+/**
+ * Maneja el clic en un botón de sector.
+ * Si es el sector "Cajas" y la caja rápida está activa, muestra el modal de selección.
+ * De lo contrario, genera el ticket normal inmediatamente.
+ * 
+ * @param {any} sector - El objeto del sector seleccionado.
+ * @returns {Promise<void>}
+ */
+const handleSectorClick = async (sector: any): Promise<void> => {
   if (sector.nombre.toLowerCase() === 'cajas') {
     try {
       const res = await fetch(`${API_BASE_URL}/api/caja-rapida/estado`)
@@ -228,7 +245,10 @@ const handleSectorClick = async (sector) => {
   generarTicket(sector.id, sector.nombre, 'normal')
 }
 
-const onCajaNormal = () => {
+/**
+ * Confirma la selección de "Caja Normal" desde el modal y genera el ticket.
+ */
+const onCajaNormal = (): void => {
   mostrarModalCaja.value = false
   if (currentSectorForCaja) {
     generarTicket(currentSectorForCaja.id, currentSectorForCaja.nombre, 'normal')
@@ -236,7 +256,10 @@ const onCajaNormal = () => {
   }
 }
 
-const onCajaRapida = () => {
+/**
+ * Confirma la selección de "Caja Rápida" desde el modal y genera el ticket.
+ */
+const onCajaRapida = (): void => {
   mostrarModalCaja.value = false
   if (currentSectorForCaja) {
     generarTicket(currentSectorForCaja.id, currentSectorForCaja.nombre, 'rapida')
@@ -244,12 +267,23 @@ const onCajaRapida = () => {
   }
 }
 
-const onCajaCancel = () => {
+/**
+ * Cancela y cierra el modal de selección de tipo de caja.
+ */
+const onCajaCancel = (): void => {
   mostrarModalCaja.value = false
   currentSectorForCaja = null
 }
 
-const generarTicket = async (sectorId, sectorNombre, tipoCaja = 'normal') => {
+/**
+ * Envía la petición al backend para generar un nuevo ticket en el sector dado.
+ * 
+ * @param {number} sectorId - El ID del sector.
+ * @param {string} sectorNombre - El nombre del sector.
+ * @param {string} [tipoCaja='normal'] - El tipo de caja requerida ('normal' o 'rapida').
+ * @returns {Promise<void>}
+ */
+const generarTicket = async (sectorId: number, sectorNombre: string, tipoCaja: string = 'normal'): Promise<void> => {
   try {
     const res = await fetch(`${API_BASE_URL}/api/ticket`, {
       method: 'POST',
@@ -283,7 +317,12 @@ const generarTicket = async (sectorId, sectorNombre, tipoCaja = 'normal') => {
   }
 }
 
-const imprimir = () => {
+/**
+ * Envía una petición de impresión a los servicios conectados al backend.
+ * 
+ * @returns {void}
+ */
+const imprimir = (): void => {
   if (!lastTicketData) return
   const printUrl = `${API_BASE_URL}/api/ticket/print`
   fetch(printUrl, {
@@ -319,7 +358,10 @@ const imprimir = () => {
     })
 }
 
-const resetForm = () => {
+/**
+ * Reinicia el formulario para generar un nuevo ticket.
+ */
+const resetForm = (): void => {
   ticketVisible.value = false
   ticketFolio.value = ''
   ticketSector.value = ''

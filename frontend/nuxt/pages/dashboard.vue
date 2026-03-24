@@ -181,7 +181,12 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
+/**
+ * Página Dashboard
+ * Muestra el panel principal de control para administradores.
+ * Proporciona estadísticas en tiempo real y resumen de tickets.
+ */
 definePageMeta({ layout: 'admin', middleware: 'auth' })
 useHead({ title: 'Dashboard — TurnosUal' })
 
@@ -191,7 +196,7 @@ const socket = useSocket()
 const { getSessionToken } = useAuth()
 const { startGuard, stopGuard } = useSessionGuard()
 
-const stats = ref(null)
+const stats = ref<any>(null)
 const loading = ref(false)
 const socketConnected = ref(false)
 
@@ -221,7 +226,13 @@ const eficienciaColor = computed(() => {
   return 'text-red-600'
 })
 
-function formatTime(seconds) {
+/**
+ * Formatea una cantidad de segundos en minutos y segundos.
+ * 
+ * @param {number} seconds - La cantidad total de segundos.
+ * @returns {string} La cadena de tiempo formateada (ej. '5m 30s').
+ */
+function formatTime(seconds: number): string {
   if (!seconds) return '-'
   const mins = Math.floor(seconds / 60)
   const secs = Math.floor(seconds % 60)
@@ -229,7 +240,12 @@ function formatTime(seconds) {
   return `${mins}m ${secs}s`
 }
 
-async function fetchStats() {
+/**
+ * Recupera las estadísticas actuales del backend y actualiza el estado.
+ * 
+ * @returns {Promise<void>}
+ */
+async function fetchStats(): Promise<void> {
   const token = getSessionToken()
   if (!token) return
   
@@ -241,7 +257,7 @@ async function fetchStats() {
       throw new Error(e.detail || e.error || 'Error al cargar estadísticas')
     }
     stats.value = await res.json()
-  } catch (err) {
+  } catch (err: any) {
     console.error('Error fetching dashboard stats:', err)
     lanzarAlerta(err.message || 'Error al cargar estadísticas', 'error')
   } finally {
@@ -249,10 +265,10 @@ async function fetchStats() {
   }
 }
 
-let onConnect
-let onDisconnect
-let onTicketsUpdate
-let onVentanillaStatus
+let onConnect: () => void
+let onDisconnect: () => void
+let onTicketsUpdate: () => void
+let onVentanillaStatus: () => void
 
 onMounted(() => {
   fetchStats()

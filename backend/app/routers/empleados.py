@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy import select, update, insert, func, and_, or_
 from typing import Optional, List
 from hashlib import sha256
@@ -82,8 +83,10 @@ async def get_employees(req: Request, db: AsyncSession = Depends(get_db), sessio
         res = await db.execute(query)
         return res.mappings().fetchall()
 
+    except IntegrityError:
+        raise HTTPException(status_code=400, detail="Error de integridad en la base de datos")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Error interno del servidor")
 
 @router.get("/employees/full")
 async def get_employees_full(req: Request, db: AsyncSession = Depends(get_db), session_token: str | None = Query(None)):
@@ -158,8 +161,10 @@ async def get_employees_full(req: Request, db: AsyncSession = Depends(get_db), s
         res = await db.execute(query)
         return res.mappings().fetchall()
 
+    except IntegrityError:
+        raise HTTPException(status_code=400, detail="Error de integridad en la base de datos")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Error interno del servidor")
 
 @router.put("/employees/{id_empleado}/estado")
 async def update_employee_status(id_empleado: int, request_data: EmpleadoStatusReq, db: AsyncSession = Depends(get_db)):
@@ -192,9 +197,12 @@ async def update_employee_status(id_empleado: int, request_data: EmpleadoStatusR
     except HTTPException:
         await db.rollback()
         raise
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(status_code=400, detail="Error de integridad en la base de datos")
     except Exception as e:
         await db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Error interno del servidor")
 
 @router.get("/empleado/{id_empleado}/ventanilla-activa")
 async def get_ventanilla_activa_empleado(id_empleado: int, db: AsyncSession = Depends(get_db)):
@@ -219,8 +227,10 @@ async def get_ventanilla_activa_empleado(id_empleado: int, db: AsyncSession = De
         
         return ventanilla if ventanilla else {}
         
+    except IntegrityError:
+        raise HTTPException(status_code=400, detail="Error de integridad en la base de datos")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Error interno del servidor")
 
 @router.post("/employees/add", status_code=201)
 async def add_employee(req_data: EmpleadoCreateReq, req: Request, db: AsyncSession = Depends(get_db)):
@@ -264,9 +274,12 @@ async def add_employee(req_data: EmpleadoCreateReq, req: Request, db: AsyncSessi
     except HTTPException:
         await db.rollback()
         raise
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(status_code=400, detail="Error de integridad en la base de datos")
     except Exception as e:
         await db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Error interno del servidor")
 
 @router.put("/employees/{id_empleado}")
 async def update_employee(id_empleado: int, req_data: EmpleadoUpdateReq, req: Request, db: AsyncSession = Depends(get_db)):
@@ -339,9 +352,12 @@ async def update_employee(id_empleado: int, req_data: EmpleadoUpdateReq, req: Re
     except HTTPException:
         await db.rollback()
         raise
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(status_code=400, detail="Error de integridad en la base de datos")
     except Exception as e:
         await db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Error interno del servidor")
 
 @router.get("/employees/exists/{usuario}")
 async def check_user_exists(usuario: str, db: AsyncSession = Depends(get_db)):
@@ -350,8 +366,10 @@ async def check_user_exists(usuario: str, db: AsyncSession = Depends(get_db)):
         res = await db.execute(q)
         exists = res.fetchone() is not None
         return {"exists": exists}
+    except IntegrityError:
+        raise HTTPException(status_code=400, detail="Error de integridad en la base de datos")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Error interno del servidor")
 
 @router.put("/employees/{id_empleado}/sector")
 async def update_employee_sector(id_empleado: int, request_data: EmpleadoSectorReq, db: AsyncSession = Depends(get_db)):
@@ -387,9 +405,12 @@ async def update_employee_sector(id_empleado: int, request_data: EmpleadoSectorR
     except HTTPException:
         await db.rollback()
         raise
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(status_code=400, detail="Error de integridad en la base de datos")
     except Exception as e:
         await db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Error interno del servidor")
 
 @router.get("/sectores/ocupados")
 async def get_sectores_ocupados(db: AsyncSession = Depends(get_db)):
@@ -401,8 +422,10 @@ async def get_sectores_ocupados(db: AsyncSession = Depends(get_db)):
         res = await db.execute(q)
         rows = res.fetchall()
         return [r[0] for r in rows]
+    except IntegrityError:
+        raise HTTPException(status_code=400, detail="Error de integridad en la base de datos")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Error interno del servidor")
 
 @router.get("/employees/activos")
 async def get_active_employees_ids(db: AsyncSession = Depends(get_db)):
@@ -425,5 +448,7 @@ async def get_active_employees_ids(db: AsyncSession = Depends(get_db)):
         real_active_ids = list(db_active_ids.intersection(ws_active_ids))
         
         return real_active_ids
+    except IntegrityError:
+        raise HTTPException(status_code=400, detail="Error de integridad en la base de datos")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Error interno del servidor")

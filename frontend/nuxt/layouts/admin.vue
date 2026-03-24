@@ -31,7 +31,14 @@
   </body>
 </template>
 
-<script setup>
+<script setup lang="ts">
+/**
+ * Layout Admin
+ * Estructura principal para el área de administración y panel de jefes.
+ * Contiene la barra lateral, cabecera móvil y contenedor principal.
+ * 
+ * @prop {string} [mobileTitle='UAL Admin'] - Título que se mostrará en dispositivos móviles.
+ */
 const route = useRoute()
 
 const props = defineProps({
@@ -43,10 +50,13 @@ const activePage = computed(() => {
   return path || 'admin'
 })
 
-const sidebarRef = ref(null)
-const backdropRef = ref(null)
+const sidebarRef = ref<any>(null)
+const backdropRef = ref<HTMLElement | null>(null)
 
-const openSidebar = () => {
+/**
+ * Abre la barra lateral en la vista móvil y muestra el fondo (backdrop).
+ */
+const openSidebar = (): void => {
   sidebarRef.value?.openSidebar()
   if (backdropRef.value) {
     backdropRef.value.classList.remove('hidden')
@@ -54,7 +64,10 @@ const openSidebar = () => {
   }
 }
 
-const closeSidebar = () => {
+/**
+ * Cierra la barra lateral en la vista móvil y oculta el fondo (backdrop).
+ */
+const closeSidebar = (): void => {
   sidebarRef.value?.closeSidebar()
   if (backdropRef.value) {
     backdropRef.value.classList.add('opacity-0')

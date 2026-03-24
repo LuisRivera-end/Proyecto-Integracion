@@ -1,13 +1,15 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy import select, func, and_
 from datetime import datetime
 from pydantic import BaseModel
-from typing import List
+from typing import List, Dict, Any
 import asyncio
 import pytz
 
 from app.models.database import get_db
+from app.models.models import Turno
 
 router = APIRouter(prefix="/api", tags=["Caja Rápida"])
 
@@ -29,7 +31,8 @@ class ActivarCajaRequest(BaseModel):
     hora_fin: str
     ventanillas: List[int]
 
-async def emit_caja_rapida_updated():
+async def emit_caja_rapida_updated() -> None:
+    """Emite el estado actualizado de la caja rápida a través de WebSockets."""
     try:
         from app.websocket.manager import manager
         await manager.broadcast_json({
@@ -39,21 +42,26 @@ async def emit_caja_rapida_updated():
     except Exception as e:
         print(f"Error al emitir actualización de Caja Rápida: {e}")
 
-async def _contar_tickets_rapida_pendientes(db: AsyncSession):
-    q = text("""
-        SELECT COUNT(*) as total FROM Turno
-        WHERE Tipo_Caja = 'rapida' AND ID_Estados = 1
-    """)
+async def _contar_tickets_rapida_pendientes(db: AsyncSession) -> int:
+    """Cuenta los tickets de caja rápida que están en estado pendiente (ID_Estados = 1).
+    
+    Args:
+        db (AsyncSession): Sesión de la base de datos.
+        
+    Returns:
+        int: Número de tickets pendientes.
+    """
+    q = select(func.count(Turno.ID_Turno)).where(
+        and_(Turno.Tipo_Caja == 'rapida', Turno.ID_Estados == 1)
+    )
     res = await db.execute(q)
-    row = res.fetchone()
-    return row[0] if row else 0
+    return res.scalar() or 0
 
-async def _desactivar_caja_rapida():
+async def _desactivar_caja_rapida() -> None:
+    """Desactiva la caja rápida. Si hay tickets pendientes, entra en modo drenaje."""
     global _timer_task
     _timer_task = None
 
-    from app.models.database import get_db
-    # We need a new session context here as this runs in background
     from app.models.database import AsyncSessionLocal
     async with AsyncSessionLocal() as db:
         pendientes = await _contar_tickets_rapida_pendientes(db)
@@ -66,7 +74,8 @@ async def _desactivar_caja_rapida():
     else:
         await _desactivar_completo_interno()
 
-async def _desactivar_completo_interno():
+async def _desactivar_completo_interno() -> None:
+    """Desactiva completamente la caja rápida y resetea su estado."""
     global _timer_task
     if _timer_task and not _timer_task.done():
         _timer_task.cancel()
@@ -82,7 +91,12 @@ async def _desactivar_completo_interno():
     print("🛑 Caja Rápida desactivada completamente")
     await emit_caja_rapida_updated()
 
-async def _programar_expiracion(hora_fin_str: str):
+async def _programar_expiracion(hora_fin_str: str) -> None:
+    """Programa la desactivación de la caja rápida a una hora determinada.
+    
+    Args:
+        hora_fin_str (str): Hora de finalización en formato 'HH:MM'.
+    """
     global _timer_task
 
     if _timer_task and not _timer_task.done():
@@ -112,7 +126,15 @@ async def _programar_expiracion(hora_fin_str: str):
         print(f"Error al programar expiración: {e}")
 
 @router.post("/caja-rapida/activar", status_code=200)
-async def activar_caja_rapida(req: ActivarCajaRequest):
+async def activar_caja_rapida(req: ActivarCajaRequest) -> Dict[str, Any]:
+    """Activa la caja rápida.
+    
+    Args:
+        req (ActivarCajaRequest): Datos de activación de la caja rápida.
+        
+    Returns:
+        dict: Estado actualizado de la caja rápida.
+    """
     if not req.ventanillas:
         raise HTTPException(status_code=400, detail="Debes seleccionar al menos una ventanilla")
 
@@ -136,7 +158,12 @@ async def activar_caja_rapida(req: ActivarCajaRequest):
     }
 
 @router.post("/caja-rapida/desactivar", status_code=200)
-async def desactivar_caja_rapida_endpoint():
+async def desactivar_caja_rapida_endpoint() -> Dict[str, Any]:
+    """Desactiva manualmente la caja rápida.
+    
+    Returns:
+        dict: Estado actualizado de la caja rápida.
+    """
     await _desactivar_completo_interno()
     return {
         "message": "Caja Rápida desactivada",
@@ -144,11 +171,24 @@ async def desactivar_caja_rapida_endpoint():
     }
 
 @router.get("/caja-rapida/estado")
-async def estado_caja_rapida():
+async def estado_caja_rapida() -> Dict[str, Any]:
+    """Obtiene el estado actual de la caja rápida.
+    
+    Returns:
+        dict: Estado de la caja rápida.
+    """
     return caja_rapida_state
 
 @router.post("/caja-rapida/check-drenaje")
-async def check_drenaje(db: AsyncSession = Depends(get_db)):
+async def check_drenaje(db: AsyncSession = Depends(get_db)) -> Dict[str, Any]:
+    """Verifica si la caja rápida está en modo drenaje y si ya terminó.
+    
+    Args:
+        db (AsyncSession): Sesión de la base de datos.
+        
+    Returns:
+        dict: Estado de drenaje y cantidad de tickets pendientes (si aplica).
+    """
     if not caja_rapida_state["expirado"]:
         return {"drenando": False}
 
@@ -159,5 +199,7 @@ async def check_drenaje(db: AsyncSession = Depends(get_db)):
             return {"drenando": False, "message": "Modo drenaje finalizado"}
 
         return {"drenando": True, "pendientes": pendientes}
+    except IntegrityError:
+        raise HTTPException(status_code=400, detail="Error de integridad en la base de datos")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Error interno del servidor")

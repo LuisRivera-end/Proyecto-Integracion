@@ -210,7 +210,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 
 definePageMeta({ layout: 'admin', middleware: 'auth' })
 useHead({ title: 'Gestión de Empleados — Jefe' })
@@ -242,9 +242,18 @@ const crVentanillas = ref([])
 const crVentanillasSeleccionadas = ref([])
 const crMensaje = ref('')
 
-const nombreCompleto = (emp) => [emp.nombre1, emp.nombre2 || '', emp.Apellido1, emp.Apellido2 || ''].filter(n => n.trim() !== '').join(' ')
+/**
+ * Obtiene el nombre completo del empleado.
+ * @param {any} emp - Datos del empleado.
+ * @returns {string} Nombre completo.
+ */
+const nombreCompleto = (emp: any): string => [emp.nombre1, emp.nombre2 || '', emp.Apellido1, emp.Apellido2 || ''].filter(n => n.trim() !== '').join(' ')
 
-async function loadEmployees() {
+/**
+ * Carga la lista de empleados.
+ * @returns {Promise<void>}
+ */
+async function loadEmployees(): Promise<void> {
   try {
     const token = getSessionToken()
     const res = await fetch(`${API_BASE_URL}/api/employees/full?session_token=${encodeURIComponent(token || '')}`)
@@ -253,14 +262,22 @@ async function loadEmployees() {
   } catch { lanzarAlerta('Error al cargar empleados', 'error') }
 }
 
-async function cargarRoles() {
+/**
+ * Carga la lista de roles.
+ * @returns {Promise<void>}
+ */
+async function cargarRoles(): Promise<void> {
   try {
     const res = await fetch(`${API_BASE_URL}/api/roles`)
     roles.value = await res.json()
   } catch {}
 }
 
-async function agregarEmpleado() {
+/**
+ * Agrega un nuevo empleado.
+ * @returns {Promise<void>}
+ */
+async function agregarEmpleado(): Promise<void> {
   if (!form.nombre1 || !form.apellido1 || !form.usuario || !form.passwd) { lanzarAlerta('Complete los campos obligatorios', 'error'); return }
   if (!form.id_rol) { lanzarAlerta('Seleccione un rol', 'error'); return }
   if (form.passwd.length < 8) { lanzarAlerta('Mínimo 8 caracteres', 'error'); return }
@@ -278,7 +295,12 @@ async function agregarEmpleado() {
   } catch (err) { lanzarAlerta(err.message || 'Error', 'error') }
 }
 
-async function abrirEdicion(id) {
+/**
+ * Abre el panel de edición para un empleado.
+ * @param {number} id - ID del empleado.
+ * @returns {Promise<void>}
+ */
+async function abrirEdicion(id: number): Promise<void> {
   editAccordion.value?.open()
   try {
     const token = getSessionToken()
@@ -296,7 +318,11 @@ async function abrirEdicion(id) {
   } catch { lanzarAlerta('Error al cargar datos', 'error') }
 }
 
-async function guardarEdicion() {
+/**
+ * Guarda los cambios de la edición del empleado.
+ * @returns {Promise<void>}
+ */
+async function guardarEdicion(): Promise<void> {
   if (!editEmpleado.value) return
   const id = editEmpleado.value.ID_Empleado
   if (!editF.nombre1 || !editF.apellido1 || !editF.usuario) { lanzarAlerta('Campos obligatorios', 'error'); return }
@@ -322,10 +348,18 @@ async function guardarEdicion() {
   } catch (err) { lanzarAlerta(err.message || 'Error', 'error') }
 }
 
-function cancelarEdicion() { editEmpleado.value = null }
+/**
+ * Cancela la edición del empleado.
+ * @returns {void}
+ */
+function cancelarEdicion(): void { editEmpleado.value = null }
 
 // --- Caja Rápida funciones ---
-async function cargarVentanillasSector() {
+/**
+ * Carga las ventanillas del sector.
+ * @returns {Promise<void>}
+ */
+async function cargarVentanillasSector(): Promise<void> {
   if (!jefeSectorId.value) return
   try {
     const res = await fetch(`${API_BASE_URL}/api/sectores/${jefeSectorId.value}/ventanillas`)
@@ -333,7 +367,11 @@ async function cargarVentanillasSector() {
   } catch { crVentanillas.value = [] }
 }
 
-async function cargarEstadoCajaRapida() {
+/**
+ * Carga el estado de la caja rápida.
+ * @returns {Promise<void>}
+ */
+async function cargarEstadoCajaRapida(): Promise<void> {
   try {
     const res = await fetch(`${API_BASE_URL}/api/caja-rapida/estado`)
     const estado = await res.json()
@@ -356,7 +394,11 @@ async function cargarEstadoCajaRapida() {
   }
 }
 
-async function guardarCajaRapida() {
+/**
+ * Guarda o actualiza el estado de la caja rápida.
+ * @returns {Promise<void>}
+ */
+async function guardarCajaRapida(): Promise<void> {
   try {
     if (crEstadoActual.value) {
       const res = await fetch(`${API_BASE_URL}/api/caja-rapida/desactivar`, { method: 'POST' })

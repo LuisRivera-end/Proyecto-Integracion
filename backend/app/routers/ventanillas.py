@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy import select, update, insert, func, and_
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
@@ -45,8 +46,10 @@ async def get_ventanillas_por_sector(id_sector: int, db: AsyncSession = Depends(
         )
         res = await db.execute(q)
         return res.mappings().fetchall()
+    except IntegrityError:
+        raise HTTPException(status_code=400, detail="Error de integridad en la base de datos")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Error interno del servidor")
 
 @router.get("/ventanillas/libres/{id_empleado}")
 async def ventanillas_libres(id_empleado: int, db: AsyncSession = Depends(get_db)):
@@ -165,9 +168,12 @@ async def iniciar_ventanilla(req: EmpleadoVentanillaReq, db: AsyncSession = Depe
     except HTTPException:
         await db.rollback()
         raise
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(status_code=400, detail="Error de integridad en la base de datos")
     except Exception as e:
         await db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Error interno del servidor")
 
 @router.get("/ventanillas/disponibles/{id_rol}")
 async def get_ventanillas_disponibles(
@@ -225,8 +231,10 @@ async def get_ventanillas_disponibles(
         
         return res.mappings().fetchall()
 
+    except IntegrityError:
+        raise HTTPException(status_code=400, detail="Error de integridad en la base de datos")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Error interno del servidor")
 
 
 @router.put("/ventanillas/{id_ventanilla}")
@@ -291,9 +299,12 @@ async def update_ventanilla(id_ventanilla: int, req: VentanillaUpdateReq, db: As
     except HTTPException:
         await db.rollback()
         raise
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(status_code=400, detail="Error de integridad en la base de datos")
     except Exception as e:
         await db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Error interno del servidor")
 
 @router.put("/employees/{id_empleado}/ventanilla")
 async def update_employee_ventanilla(
@@ -353,9 +364,12 @@ async def update_employee_ventanilla(
     except HTTPException:
         await db.rollback()
         raise
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(status_code=400, detail="Error de integridad en la base de datos")
     except Exception as e:
         await db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Error interno del servidor")
         
 @router.post("/turno/llamar")
 async def llamar_turno(turno: TurnoRequest, db: AsyncSession = Depends(get_db)):

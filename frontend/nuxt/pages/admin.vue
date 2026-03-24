@@ -236,8 +236,11 @@
   </div>
 </template>
 
-<script setup>
-
+<script setup lang="ts">
+/**
+ * Página Administrador de Departamentos
+ * Permite gestionar los departamentos, sus ventanillas, y activar funciones especiales como la Caja Rápida.
+ */
 definePageMeta({ layout: 'admin', middleware: 'auth' })
 useHead({ title: 'Administrador — Departamentos' })
 
@@ -248,7 +251,7 @@ const { getCurrentUser, getSessionToken } = useAuth()
 const { startGuard, stopGuard } = useSessionGuard()
 
 // Sector list
-const sectores = ref([])
+const sectores = ref<any[]>([])
 
 // Add form
 const nuevoNombre = ref('')
@@ -256,23 +259,20 @@ const nuevaVentanillas = ref(1)
 
 // Edit form
 const editando = ref(false)
-const editSectorId = ref(null)
+const editSectorId = ref<number | null>(null)
 const editNombre = ref('')
 const editNombreOriginal = ref('')
-const editVentanillas = ref([])
+const editVentanillas = ref<any[]>([])
 const guardando = ref(false)
-const editAccordion = ref(null)
+const editAccordion = ref<any>(null)
 
 // --- Caja Rapida ---
 const esSectorCajas = computed(() => editNombreOriginal.value?.trim().toLowerCase() === 'cajas')
 const cajaRapidaActiva = ref(false)
 const currentEstadoCajaRapida = ref(false)
 const cajaRapidaHoraFin = ref('')
-const cajaRapidaVentanillasSeleccionadas = ref([])
+const cajaRapidaVentanillasSeleccionadas = ref<number[]>([])
 const cajaRapidaMensajeEstado = ref('')
-
-
-
 
 onMounted(() => {
   cargarSectores()
@@ -309,8 +309,12 @@ onUnmounted(() => {
   socket.off('caja_rapida_updated')
 })
 
-// Load sectors
-async function cargarSectores() {
+/**
+ * Carga la lista de departamentos y ventanillas desde la API.
+ * 
+ * @returns {Promise<void>}
+ */
+async function cargarSectores(): Promise<void> {
   try {
     const res = await fetch(`${API_BASE_URL}/api/sectores`)
     if (!res.ok) throw new Error('Error al cargar departamentos')
@@ -321,8 +325,12 @@ async function cargarSectores() {
   }
 }
 
-// Add sector
-async function agregarSector() {
+/**
+ * Agrega un nuevo departamento (sector) al sistema enviando los datos del formulario al backend.
+ * 
+ * @returns {Promise<void>}
+ */
+async function agregarSector(): Promise<void> {
   if (!nuevoNombre.value.trim()) {
     lanzarAlerta('El nombre del departamento es obligatorio', 'error')
     return
@@ -339,13 +347,19 @@ async function agregarSector() {
     nuevoNombre.value = ''
     nuevaVentanillas.value = 1
     cargarSectores()
-  } catch (err) {
+  } catch (err: any) {
     lanzarAlerta(err.message || 'Error al agregar departamento', 'error')
   }
 }
 
-// Edit sector
-async function editarSector(id, nombre) {
+/**
+ * Inicia el proceso de edición para un sector, cargando sus ventanillas.
+ * 
+ * @param {number} id - Identificador del sector.
+ * @param {string} nombre - Nombre del sector.
+ * @returns {Promise<void>}
+ */
+async function editarSector(id: number, nombre: string): Promise<void> {
   editSectorId.value = id
   editNombre.value = nombre
   editNombreOriginal.value = nombre
@@ -358,7 +372,7 @@ async function editarSector(id, nombre) {
     const res = await fetch(`${API_BASE_URL}/api/sectores/${id}/ventanillas`)
     if (!res.ok) throw new Error('Error al cargar ventanillas')
     const data = await res.json()
-    editVentanillas.value = data.map(v => ({ ...v, nuevoNombre: v.Ventanilla }))
+    editVentanillas.value = data.map((v: any) => ({ ...v, nuevoNombre: v.Ventanilla }))
     
     // Check if es sector cajas
     if (nombre.trim().toLowerCase() === 'cajas') {
@@ -370,17 +384,28 @@ async function editarSector(id, nombre) {
   }
 }
 
-async function refreshVentanillas() {
+/**
+ * Refresca la información de las ventanillas del sector que se está editando actualmente.
+ * 
+ * @returns {Promise<void>}
+ */
+async function refreshVentanillas(): Promise<void> {
   if (!editSectorId.value) return
   try {
     const res = await fetch(`${API_BASE_URL}/api/sectores/${editSectorId.value}/ventanillas`)
     if (!res.ok) return
     const data = await res.json()
-    editVentanillas.value = data.map(v => ({ ...v, nuevoNombre: v.Ventanilla }))
+    editVentanillas.value = data.map((v: any) => ({ ...v, nuevoNombre: v.Ventanilla }))
   } catch {}
 }
 
-async function toggleVentanilla(v) {
+/**
+ * Cambia el estado (activa/inactiva) de una ventanilla.
+ * 
+ * @param {any} v - Objeto de la ventanilla.
+ * @returns {Promise<void>}
+ */
+async function toggleVentanilla(v: any): Promise<void> {
   try {
     const res = await fetch(`${API_BASE_URL}/api/ventanillas/${v.ID_Ventanilla}`, {
       method: 'PUT',
@@ -391,12 +416,17 @@ async function toggleVentanilla(v) {
     if (!res.ok) throw new Error(data.detail || data.error || 'Error')
     lanzarAlerta(data.message, 'success')
     // Se deja que el socket recargue las ventanillas
-  } catch (err) {
+  } catch (err: any) {
     lanzarAlerta(err.message || 'Error al cambiar estado', 'error')
   }
 }
 
-async function cargarEstadoCajaRapida() {
+/**
+ * Carga la configuración actual de la Caja Rápida del backend si es aplicable.
+ * 
+ * @returns {Promise<void>}
+ */
+async function cargarEstadoCajaRapida(): Promise<void> {
   try {
     const res = await fetch(`${API_BASE_URL}/api/caja-rapida/estado`)
     const estado = await res.json()
@@ -420,7 +450,12 @@ async function cargarEstadoCajaRapida() {
   }
 }
 
-async function guardarAccionCajaRapida() {
+/**
+ * Guarda o actualiza el estado de la Caja Rápida dependiendo de la selección del usuario.
+ * 
+ * @returns {Promise<void>}
+ */
+async function guardarAccionCajaRapida(): Promise<void> {
   try {
     if (currentEstadoCajaRapida.value) {
       // Desactivar
@@ -472,7 +507,12 @@ async function guardarAccionCajaRapida() {
   }
 }
 
-async function guardarEdicion() {
+/**
+ * Guarda la edición de nombre del departamento y los nombres de las ventanillas editadas.
+ * 
+ * @returns {Promise<void>}
+ */
+async function guardarEdicion(): Promise<void> {
   if (!editNombre.value.trim()) {
     lanzarAlerta('El nombre del departamento es obligatorio', 'error')
     return
@@ -499,7 +539,7 @@ async function guardarEdicion() {
           })
           const dataV = await resV.json()
           if (!resV.ok) renameErrors.push(`${v.Ventanilla}: ${dataV.detail || dataV.error}`)
-        } catch (err) {
+        } catch (err: any) {
           renameErrors.push(`${v.Ventanilla}: ${err.message}`)
         }
       }
@@ -512,14 +552,19 @@ async function guardarEdicion() {
     }
     cancelarEdicion()
     cargarSectores()
-  } catch (err) {
+  } catch (err: any) {
     lanzarAlerta(err.message || 'Error al actualizar', 'error')
   } finally {
     guardando.value = false
   }
 }
 
-function cancelarEdicion() {
+/**
+ * Cancela y cierra el estado de edición del departamento actual.
+ * 
+ * @returns {void}
+ */
+function cancelarEdicion(): void {
   editando.value = false
   editSectorId.value = null
   editNombre.value = ''
@@ -527,8 +572,12 @@ function cancelarEdicion() {
   editVentanillas.value = []
 }
 
-// Semester cleanup
-async function verificarLimpiezaSemestral() {
+/**
+ * Verifica si es necesario generar y descargar automáticamente el reporte semestral de limpieza.
+ * 
+ * @returns {Promise<void>}
+ */
+async function verificarLimpiezaSemestral(): Promise<void> {
   try {
     const response = await fetch(`${API_BASE_URL}/api/reporte/limpieza-semestral`)
     if (response.status === 204) return

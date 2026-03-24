@@ -81,7 +81,7 @@
             <div class="absolute -top-10 -right-10 w-32 h-32 bg-emerald-500/10 rounded-full blur-3xl"></div>
             
             <div class="flex justify-center mb-6 bg-slate-50 p-4 rounded-2xl w-full shadow-inner border border-slate-100 relative z-10">
-                <img src="/ual_no_fondo.png" alt="Logo UAL" class="h-32 object-contain">
+                <img :src="'/ual_no_fondo.png'" alt="Logo UAL" class="h-32 object-contain">
             </div>
             
             <h1 class="text-3xl font-black text-slate-800 tracking-tight relative z-10">Sistema de Turnos</h1>
@@ -125,7 +125,7 @@
   </body>
 </template>
 
-<script setup>
+<script setup lang="ts">
 
 definePageMeta({ layout: 'default' })
 useHead({ title: 'Pantalla de Turnos' })
@@ -164,15 +164,29 @@ const visibles = computed(() => pendientes.value.slice(0, MAX_VISIBLE.value))
 const overflow = computed(() => pendientes.value.slice(MAX_VISIBLE.value))
 const tickerItems = computed(() => overflow.value.length >= 5 ? [...overflow.value, ...overflow.value] : overflow.value)
 
-function getEstado(t) { return t.estado_id || t.ID_Estados || t.estado }
-function getVentanillaDisplay(t) {
+/**
+ * Obtiene el estado del ticket.
+ * @param {any} t - El ticket.
+ * @returns {number | string}
+ */
+function getEstado(t: any): number | string { return t.estado_id || t.ID_Estados || t.estado }
+/**
+ * Obtiene el texto a mostrar para la ventanilla del ticket.
+ * @param {any} t - El ticket.
+ * @returns {string}
+ */
+function getVentanillaDisplay(t: any): string {
   const v = t.ventanilla || t.Ventanilla
   if (v) return v.replace(/ventanilla\s*/i, '')
   if (t.id_ventanilla) return `Ventanilla ${t.id_ventanilla}`
   return 'En atención'
 }
 
-function toggleAudio() {
+/**
+ * Activa o desactiva la reproducción de audio.
+ * @returns {void}
+ */
+function toggleAudio(): void {
   audioActivado.value = true
   const AudioCtx = window.AudioContext || window.webkitAudioContext
   audioContext = new AudioCtx()
@@ -182,13 +196,22 @@ function toggleAudio() {
   src.buffer = buf; src.connect(audioContext.destination); src.start(0)
 }
 
-function reproducirAudio(url) {
+/**
+ * Agrega un audio a la cola de reproducción.
+ * @param {string} url - La URL del audio.
+ * @returns {void}
+ */
+function reproducirAudio(url: string): void {
   if (!audioActivado.value || !audioContext) return
   audioQueue.push(url)
   if (!isPlaying) _playNext()
 }
 
-async function _playNext() {
+/**
+ * Reproduce el siguiente audio de la cola.
+ * @returns {Promise<void>}
+ */
+async function _playNext(): Promise<void> {
   if (!audioQueue.length) { isPlaying = false; return }
   isPlaying = true
   const url = audioQueue.shift()
@@ -204,7 +227,14 @@ async function _playNext() {
   } catch { _playNext() }
 }
 
-async function llamarTicket(folio, ventanilla, id_ventanilla) {
+/**
+ * Llama a un ticket por audio.
+ * @param {string} folio - El folio del ticket.
+ * @param {string} ventanilla - El nombre de la ventanilla.
+ * @param {number} id_ventanilla - El ID de la ventanilla.
+ * @returns {Promise<void>}
+ */
+async function llamarTicket(folio: string, ventanilla: string, id_ventanilla: number): Promise<void> {
   try {
     const res = await fetch(`${API_BASE_URL}/api/turno/llamar`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -219,7 +249,11 @@ async function llamarTicket(folio, ventanilla, id_ventanilla) {
   } catch {}
 }
 
-async function cargarTickets() {
+/**
+ * Carga los tickets desde la API.
+ * @returns {Promise<void>}
+ */
+async function cargarTickets(): Promise<void> {
   try {
     const [resTickets, resCounts] = await Promise.all([
       fetch(`${API_BASE_URL}/api/tickets/publico`),

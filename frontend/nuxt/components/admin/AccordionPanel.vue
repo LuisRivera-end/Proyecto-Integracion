@@ -28,7 +28,16 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
+/**
+ * Componente AccordionPanel
+ * Muestra un panel de acordeón colapsable con un título, un ícono y un área de contenido.
+ * 
+ * @prop {string} id - Identificador único para el acordeón.
+ * @prop {string} title - El título visible en la cabecera del acordeón.
+ * @prop {string} [iconBgClass='bg-emerald-100'] - Clase CSS de Tailwind para el fondo del ícono.
+ * @prop {boolean} [defaultOpen=false] - Define si el acordeón inicia abierto o cerrado.
+ */
 const props = defineProps({
   id: { type: String, required: true },
   title: { type: String, required: true },
@@ -38,11 +47,18 @@ const props = defineProps({
 
 const isOpen = ref(props.defaultOpen)
 
-const toggle = () => {
+/**
+ * Alterna el estado (abierto/cerrado) del acordeón.
+ */
+const toggle = (): void => {
   isOpen.value = !isOpen.value
 }
 
-defineExpose({ isOpen, open: () => { isOpen.value = true }, close: () => { isOpen.value = false } })
+defineExpose({ 
+  isOpen, 
+  open: (): void => { isOpen.value = true }, 
+  close: (): void => { isOpen.value = false } 
+})
 </script>
 
 <style scoped>

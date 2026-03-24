@@ -147,7 +147,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 definePageMeta({ layout: 'default' })
 
 useHead({ title: 'Acceso de Emergencia' })
@@ -176,7 +176,11 @@ const formattedCountdown = computed(() => {
   return `${m}:${s.toString().padStart(2, '0')}`
 })
 
-const startCountdown = () => {
+/**
+ * Inicia el temporizador de la sesión de emergencia.
+ * @returns {void}
+ */
+const startCountdown = (): void => {
   countdown.value = 300 // 5 minutos
   countdownInterval = setInterval(() => {
     countdown.value--
@@ -191,12 +195,21 @@ onUnmounted(() => {
   if (countdownInterval) clearInterval(countdownInterval)
 })
 
-const showError = (message) => {
+/**
+ * Muestra un mensaje de error.
+ * @param {string} message - El mensaje a mostrar.
+ * @returns {void}
+ */
+const showError = (message: string): void => {
   errorMsg.value = message
   setTimeout(() => { errorMsg.value = '' }, 5000)
 }
 
-const handlePinSubmit = async () => {
+/**
+ * Maneja el envío del PIN de seguridad.
+ * @returns {Promise<void>}
+ */
+const handlePinSubmit = async (): Promise<void> => {
   loading.value = true
   errorMsg.value = ''
 
@@ -223,7 +236,11 @@ const handlePinSubmit = async () => {
   }
 }
 
-const handleResetSessions = async () => {
+/**
+ * Reinicia todas las sesiones del sistema.
+ * @returns {Promise<void>}
+ */
+const handleResetSessions = async (): Promise<void> => {
   resetting.value = true
   resetError.value = ''
  

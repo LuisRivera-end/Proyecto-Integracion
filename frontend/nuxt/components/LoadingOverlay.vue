@@ -14,8 +14,15 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
+/**
+ * Componente LoadingOverlay
+ * Muestra una pantalla de carga mientras intenta conectarse con el servidor backend.
+ * Desaparece automáticamente cuando la conexión es exitosa.
+ */
+
 const props = defineProps({
+  /** Color o degradado de fondo de la superposición */
   background: {
     type: String,
     default: 'linear-gradient(135deg, #475569, #64748b, #6ee7b7)',
@@ -26,7 +33,13 @@ const visible = ref(true)
 
 const { API_BASE_URL } = useConfig()
 
-const checkBackend = async () => {
+/**
+ * Función que verifica periódicamente si el backend está en línea.
+ * Realiza peticiones a una ruta ligera de la API y oculta el overlay si responde correctamente.
+ * 
+ * @returns {Promise<void>}
+ */
+const checkBackend = async (): Promise<void> => {
   while (visible.value) {
     try {
       const res = await fetch(`${API_BASE_URL}/api/sectores`, {
@@ -38,8 +51,9 @@ const checkBackend = async () => {
         return
       }
     } catch {
-      // Backend not available, retry
+      // El backend no está disponible, se reintenta
     }
+    // Esperar 2 segundos antes del siguiente reintento
     await new Promise((r) => setTimeout(r, 2000))
   }
 }

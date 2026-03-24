@@ -6,7 +6,7 @@
           <!-- Header Card -->
           <div class="bg-white/95 backdrop-blur-sm rounded-3xl shadow-xl p-8 mb-8 flex justify-between items-center border border-slate-200">
             <div class="flex items-center gap-5 flex-1">
-              <img src="/ual_no_fondo.png" alt="Logo UAL" class="h-14 object-contain" />
+              <img :src="'/ual_no_fondo.png'" alt="Logo UAL" class="h-14 object-contain" />
               <div>
                 <h1 class="text-3xl font-bold text-slate-800">Panel de Ventanilla</h1>
                 <p class="text-slate-600 mt-1">Sector: <span class="font-semibold text-emerald-700">{{ userSectorDisplay }}</span></p>
@@ -105,7 +105,7 @@
   </body>
 </template>
 
-<script setup>
+<script setup lang="ts">
 
 definePageMeta({ layout: 'default', middleware: 'auth' })
 useHead({ title: 'Panel de Ventanilla' })
@@ -138,7 +138,13 @@ const tipoCajaFiltro = ref(null) // null = sin filtro, 'rapida' = solo rápida, 
 const cajaRapidaVisible = computed(() => isCajaRapidaActiva.value)
 const cajaRapidaBannerHora = ref('')
 
-function mostrarConfirmacion(msg, titulo = 'Confirmación') {
+/**
+ * Muestra un modal de confirmación.
+ * @param {string} msg - Mensaje a mostrar.
+ * @param {string} [titulo='Confirmación'] - Título del modal.
+ * @returns {Promise<boolean>}
+ */
+function mostrarConfirmacion(msg: string, titulo: string = 'Confirmación'): Promise<boolean> {
   return new Promise((resolve) => {
     confirmTitle.value = titulo
     confirmMessage.value = msg
@@ -147,7 +153,11 @@ function mostrarConfirmacion(msg, titulo = 'Confirmación') {
   })
 }
 
-async function recuperarTicketActivo() {
+/**
+ * Recupera el ticket activo de la ventanilla.
+ * @returns {Promise<void>}
+ */
+async function recuperarTicketActivo(): Promise<void> {
   if (!currentUser.value?.ventanilla) return
   try {
     const res = await fetch(`${API_BASE_URL}/api/tickets/activo/${currentUser.value.ventanilla.id}`)
@@ -157,7 +167,11 @@ async function recuperarTicketActivo() {
   } catch {}
 }
 
-async function fetchTickets() {
+/**
+ * Obtiene la lista de tickets pendientes.
+ * @returns {Promise<void>}
+ */
+async function fetchTickets(): Promise<void> {
   if (!currentUser.value?.sector) return
   try {
     let url = `${API_BASE_URL}/api/tickets?sector=${encodeURIComponent(currentUser.value.sector)}`
@@ -190,7 +204,11 @@ async function fetchTickets() {
   }
 }
 
-async function llamarSiguiente() {
+/**
+ * Llama al siguiente ticket.
+ * @returns {Promise<void>}
+ */
+async function llamarSiguiente(): Promise<void> {
   if (!currentUser.value?.ventanilla || currentTicket.value) return
   try {
     const bodyData = { id_ventanilla: currentUser.value.ventanilla.id, id_empleado: currentUser.value.id }
@@ -209,7 +227,11 @@ async function llamarSiguiente() {
   } catch (err) { lanzarAlerta(err.message || 'Error', 'error') }
 }
 
-async function completarTicket() {
+/**
+ * Completa el ticket actual.
+ * @returns {Promise<void>}
+ */
+async function completarTicket(): Promise<void> {
   if (!currentTicket.value) return
   try {
     const res = await fetch(`${API_BASE_URL}/api/tickets/${currentTicket.value.folio}/complete`, { method: 'PUT', headers: { 'Content-Type': 'application/json' } })
@@ -225,7 +247,11 @@ async function completarTicket() {
   } catch (err) { lanzarAlerta(err.message || 'Error', 'error') }
 }
 
-async function cancelarTicket() {
+/**
+ * Cancela el ticket actual.
+ * @returns {Promise<void>}
+ */
+async function cancelarTicket(): Promise<void> {
   if (!currentTicket.value) return
   const ok = await mostrarConfirmacion(`¿Cancelar ticket ${currentTicket.value.folio}?`, 'Cancelar Ticket')
   if (!ok) return
@@ -243,7 +269,12 @@ async function cancelarTicket() {
   } catch (err) { lanzarAlerta(err.message || 'Error', 'error') }
 }
 
-function formatHora12(hora24) {
+/**
+ * Formatea la hora a 12 hrs.
+ * @param {string} hora24 - Hora en formato 24 hrs.
+ * @returns {string}
+ */
+function formatHora12(hora24: string): string {
   if (!hora24) return ''
   const [h, m] = hora24.split(':').map(Number)
   const ampm = h >= 12 ? 'PM' : 'AM'
@@ -251,7 +282,11 @@ function formatHora12(hora24) {
   return `${h12}:${String(m).padStart(2, '0')} ${ampm}`
 }
 
-async function checkCajaRapida() {
+/**
+ * Verifica el estado de la caja rápida.
+ * @returns {Promise<void>}
+ */
+async function checkCajaRapida(): Promise<void> {
   try {
     const res = await fetch(`${API_BASE_URL}/api/caja-rapida/estado`)
     const estado = await res.json()
@@ -289,7 +324,11 @@ async function checkCajaRapida() {
   }
 }
 
-async function checkDrenajeCajaRapida() {
+/**
+ * Verifica si hay drenaje activo.
+ * @returns {Promise<void>}
+ */
+async function checkDrenajeCajaRapida(): Promise<void> {
   try {
     const res = await fetch(`${API_BASE_URL}/api/caja-rapida/check-drenaje`, { method: 'POST' })
     const data = await res.json()
@@ -302,12 +341,21 @@ async function checkDrenajeCajaRapida() {
   }
 }
 
-function cerrarSesion() {
+/**
+ * Cierra la sesión del usuario.
+ * @returns {void}
+ */
+function cerrarSesion(): void {
   socket.emit('ventanilla_disconnect')
   logoutWithOverlay()
 }
 
-function handleKeydown(e) {
+/**
+ * Maneja eventos de teclado.
+ * @param {KeyboardEvent} e - Evento de teclado.
+ * @returns {void}
+ */
+function handleKeydown(e: KeyboardEvent): void {
   if (showConfirm.value) {
     e.preventDefault()
     e.stopPropagation()
@@ -358,13 +406,22 @@ onMounted(async () => {
   }
 })
 
-async function handleTicketsUpdated() {
+/**
+ * Maneja la actualización de tickets desde socket.
+ * @returns {Promise<void>}
+ */
+async function handleTicketsUpdated(): Promise<void> {
   console.log('🔄 Actualizando tickets por WS...');
   await fetchTickets()
   await recuperarTicketActivo()
 }
 
-async function handleCajaRapidaUpdated(data) {
+/**
+ * Maneja la actualización de caja rápida.
+ * @param {any} data - Datos del socket.
+ * @returns {Promise<void>}
+ */
+async function handleCajaRapidaUpdated(data: any): Promise<void> {
   console.log('⚡ Cambio detectado en Caja Rápida...');
   const wasActive = isCajaRapidaActiva.value
   const prevFiltro = tipoCajaFiltro.value

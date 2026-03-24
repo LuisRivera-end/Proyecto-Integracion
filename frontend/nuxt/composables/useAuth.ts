@@ -1,18 +1,32 @@
 export const useAuth = () => {
   const { API_BASE_URL } = useConfig()
 
-  /** Save session data: token in sessionStorage (per-tab), user data in localStorage keyed by token */
+  /**
+   * Guarda los datos de sesión.
+   * Almacena el token en sessionStorage (por pestaña) y los datos del usuario en localStorage indexados por el token.
+   * 
+   * @param {any} userData - Los datos del usuario a guardar.
+   * @param {string} sessionToken - El token de la sesión.
+   */
   const saveSession = (userData: any, sessionToken: string) => {
     sessionStorage.setItem('session_token', sessionToken)
     localStorage.setItem(`session_${sessionToken}`, JSON.stringify(userData))
   }
 
-  /** Get the session token for this tab */
+  /**
+   * Obtiene el token de sesión para la pestaña actual.
+   * 
+   * @returns {string | null} El token de sesión si existe, o null en caso contrario.
+   */
   const getSessionToken = (): string | null => {
     return sessionStorage.getItem('session_token')
   }
 
-  /** Get current user data using this tab's session token */
+  /**
+   * Obtiene los datos del usuario actual utilizando el token de sesión de la pestaña actual.
+   * 
+   * @returns {any | null} Los datos del usuario si existen, o null en caso contrario o si hay un error.
+   */
   const getCurrentUser = () => {
     try {
       const token = getSessionToken()
@@ -24,8 +38,12 @@ export const useAuth = () => {
     }
   }
 
-  /** Check if this tab's session token is still valid on the backend.
-   *  Envía SOLO el token — el backend retorna {user_id, rol}. */
+  /**
+   * Verifica si el token de sesión de la pestaña actual sigue siendo válido en el backend.
+   * Envía SOLO el token al backend y actualiza el rol local si es necesario.
+   * 
+   * @returns {Promise<boolean>} Promesa que resuelve a true si la sesión es válida, false en caso contrario.
+   */
   const checkSession = async (): Promise<boolean> => {
     try {
       const token = getSessionToken()
@@ -54,7 +72,11 @@ export const useAuth = () => {
     }
   }
 
-  /** Logout: envía solo el token al backend */
+  /**
+   * Cierra la sesión enviando el token al backend y limpia los datos locales.
+   * 
+   * @returns {Promise<void>}
+   */
   const logout = async () => {
     const token = getSessionToken()
 
@@ -78,6 +100,11 @@ export const useAuth = () => {
     sessionStorage.removeItem('session_token')
   }
 
+  /**
+   * Cierra la sesión, muestra una capa superpuesta de carga y redirige a la página de inicio de sesión.
+   * 
+   * @returns {Promise<void>}
+   */
   const logoutWithOverlay = async () => {
     await logout()
     // Create overlay

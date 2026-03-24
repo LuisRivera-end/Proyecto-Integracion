@@ -193,7 +193,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 
 definePageMeta({ layout: 'admin', middleware: 'auth' })
 useHead({ title: 'Administración — Empleados' })
@@ -226,9 +226,18 @@ const editVentanillasDisp = ref([])
 const editSectoresDisp = ref([])
 
 
-const nombreCompleto = (emp) => [emp.nombre1, emp.nombre2 || '', emp.Apellido1, emp.Apellido2 || ''].filter(n => n.trim() !== '').join(' ')
+/**
+ * Obtiene el nombre completo del empleado.
+ * @param {any} emp - Datos del empleado.
+ * @returns {string} Nombre completo.
+ */
+const nombreCompleto = (emp: any): string => [emp.nombre1, emp.nombre2 || '', emp.Apellido1, emp.Apellido2 || ''].filter(n => n.trim() !== '').join(' ')
 
-async function loadEmployees() {
+/**
+ * Carga la lista de empleados.
+ * @returns {Promise<void>}
+ */
+async function loadEmployees(): Promise<void> {
   try {
     if (!getSessionToken()) return
 
@@ -248,7 +257,11 @@ async function loadEmployees() {
   }
 }
 
-async function cargarRoles() {
+/**
+ * Carga la lista de roles.
+ * @returns {Promise<void>}
+ */
+async function cargarRoles(): Promise<void> {
   try {
     const res = await fetch(`${API_BASE_URL}/api/roles`)
     const data = await res.json()
@@ -256,7 +269,11 @@ async function cargarRoles() {
   } catch {}
 }
 
-async function onRolChange() {
+/**
+ * Evento al cambiar de rol en el formulario.
+ * @returns {Promise<void>}
+ */
+async function onRolChange(): Promise<void> {
   if (form.id_rol === 6) {
     const [sectores, ocupados] = await Promise.all([
       fetch(`${API_BASE_URL}/api/sectores`).then(r => r.json()),
@@ -267,7 +284,11 @@ async function onRolChange() {
   }
 }
 
-async function agregarEmpleado() {
+/**
+ * Agrega un nuevo empleado al sistema.
+ * @returns {Promise<void>}
+ */
+async function agregarEmpleado(): Promise<void> {
   if (!form.nombre1 || !form.apellido1 || !form.usuario || !form.passwd) { lanzarAlerta('Complete los campos obligatorios', 'error'); return }
   if (form.passwd.length < 8) { lanzarAlerta('La contraseña debe tener al menos 8 caracteres', 'error'); return }
   if (!/[A-Z]/.test(form.passwd)) { lanzarAlerta('La contraseña debe contener al menos una mayúscula', 'error'); return }
@@ -287,7 +308,12 @@ async function agregarEmpleado() {
   } catch (err) { lanzarAlerta(err.message || 'Error', 'error') }
 }
 
-async function abrirEdicion(id) {
+/**
+ * Abre el panel de edición para un empleado.
+ * @param {number} id - ID del empleado.
+ * @returns {Promise<void>}
+ */
+async function abrirEdicion(id: number): Promise<void> {
   editAccordion.value?.open()
 
   try {
@@ -312,7 +338,11 @@ async function abrirEdicion(id) {
   } catch { lanzarAlerta('Error al cargar datos', 'error') }
 }
 
-async function guardarEdicion() {
+/**
+ * Guarda los cambios realizados a un empleado.
+ * @returns {Promise<void>}
+ */
+async function guardarEdicion(): Promise<void> {
   if (!editEmpleado.value) return
   const id = editEmpleado.value.ID_Empleado
   if (!editForm.nombre1 || !editForm.apellido1 || !editForm.usuario) { lanzarAlerta('Campos obligatorios', 'error'); return }
@@ -340,7 +370,11 @@ async function guardarEdicion() {
   } catch (err) { lanzarAlerta(err.message || 'Error', 'error') }
 }
 
-function cancelarEdicion() { editEmpleado.value = null }
+/**
+ * Cancela la edición de un empleado.
+ * @returns {void}
+ */
+function cancelarEdicion(): void { editEmpleado.value = null }
 
 let onConnect
 let onStatusChanged
@@ -388,7 +422,12 @@ onUnmounted(() => {
   socket.off('session_started', onStatusChanged)
 })
 
-  async function forzarDesconexion(id_empleado) {
+  /**
+   * Fuerza el cierre de sesión de un empleado.
+   * @param {number} id_empleado - ID del empleado a desconectar.
+   * @returns {Promise<void>}
+   */
+  async function forzarDesconexion(id_empleado: number): Promise<void> {
     try {
       forzarLoading[id_empleado] = true
       const res = await fetch(`${API_BASE_URL}/api/employees/${id_empleado}/forzar-cierre`, {

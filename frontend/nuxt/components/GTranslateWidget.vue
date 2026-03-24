@@ -4,10 +4,14 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
+/**
+ * Componente GTranslateWidget
+ * Configura y monta el widget flotante de Google Translate (GTranslate) en la parte inferior derecha.
+ */
 onMounted(() => {
   // Configure GTranslate
-  window.gtranslateSettings = {
+  ;(window as any).gtranslateSettings = {
     default_language: 'es',
     native_language_names: true,
     languages: ['es', 'en', 'fr', 'pt', 'it', 'de', 'ru', 'zh-CN', 'ar', 'vi'],

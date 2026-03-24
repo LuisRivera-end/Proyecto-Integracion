@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy import text
 from fpdf import FPDF
 from datetime import datetime, timedelta, date
@@ -468,9 +469,12 @@ async def limpieza_semestral(db: AsyncSession = Depends(get_db)):
             filename=f'reporte_semestral_{fi_str}_{ff_str}.pdf'
         )
         
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(status_code=400, detail="Error de integridad en la base de datos")
     except Exception as e:
         await db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Error interno del servidor")
 
 @router.get("/reporte/semestre-actual")
 async def info_semestre_actual():

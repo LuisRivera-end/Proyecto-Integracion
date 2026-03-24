@@ -16,7 +16,14 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
+/**
+ * Componente MobileHeader
+ * Muestra el encabezado visible solo en dispositivos móviles. Contiene el botón para abrir el menú lateral.
+ * 
+ * @prop {string} title - El título que se mostrará en el encabezado.
+ * @emits openSidebar - Evento emitido cuando se hace clic en el botón de abrir menú.
+ */
 defineProps({
   title: { type: String, required: true },
 })

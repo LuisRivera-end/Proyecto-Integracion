@@ -249,7 +249,7 @@
     </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 
 definePageMeta({ layout: 'admin', middleware: 'auth' })
 useHead({ title: 'Historial de Tickets' })
@@ -287,18 +287,48 @@ const presets = [{ key: 'hoy', label: 'Hoy' }, { key: 'semanal', label: 'Última
 
 const fechaActual = computed(() => new Date().toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }))
 
-function parseFecha(str) { if (!str) return null; const d = new Date(str); return isNaN(d) ? null : d }
-function formatearFecha(str) {
+/**
+ * Parsea una fecha desde un string.
+ * @param {string | null} str - Cadena de fecha.
+ * @returns {Date | null}
+ */
+function parseFecha(str: string | null): Date | null { if (!str) return null; const d = new Date(str); return isNaN(d.getTime()) ? null : d }
+/**
+ * Formatea una fecha a string.
+ * @param {string} str - Cadena de fecha.
+ * @returns {string}
+ */
+function formatearFecha(str: string): string {
   const f = parseFecha(str); if (!f) return '-'
   const dd = String(f.getUTCDate()).padStart(2,'0'), mm = String(f.getUTCMonth()+1).padStart(2,'0'), yy = f.getUTCFullYear()
   const hh = String(f.getUTCHours()).padStart(2,'0'), mi = String(f.getUTCMinutes()).padStart(2,'0')
   return `${dd}/${mm}/${yy}, ${hh}:${mi}`
 }
-function formatDateLabel(s) { const [y,m,d] = s.split('-'); return `${d}/${m}/${y}` }
-function toYMD(d) { return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}` }
-function getEstadoColor(e) { return { Completado:'text-green-600 font-semibold', Cancelado:'text-red-600 font-semibold', Atendiendo:'text-blue-600 font-semibold', Pendiente:'text-yellow-600 font-semibold' }[e] || 'text-gray-600' }
+/**
+ * Formatea una etiqueta de fecha.
+ * @param {string} s - Cadena de fecha YYYY-MM-DD.
+ * @returns {string}
+ */
+function formatDateLabel(s: string): string { const [y,m,d] = s.split('-'); return `${d}/${m}/${y}` }
+/**
+ * Convierte un objeto Date a formato YYYY-MM-DD.
+ * @param {Date} d - Objeto Date.
+ * @returns {string}
+ */
+function toYMD(d: Date): string { return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}` }
+/**
+ * Obtiene la clase de color para un estado.
+ * @param {string} e - Estado.
+ * @returns {string}
+ */
+const estadoColors: Record<string, string> = { Completado:'text-green-600 font-semibold', Cancelado:'text-red-600 font-semibold', Atendiendo:'text-blue-600 font-semibold', Pendiente:'text-yellow-600 font-semibold' };
+function getEstadoColor(e: string): string { return estadoColors[e] || 'text-gray-600' }
 
-async function cargarHistorial() {
+/**
+ * Carga el historial de tickets.
+ * @returns {Promise<void>}
+ */
+async function cargarHistorial(): Promise<void> {
   try {
     const res = await fetch(`${API_BASE_URL}/api/tickets/historial`); if (!res.ok) return
     let data = await res.json()
@@ -307,7 +337,11 @@ async function cargarHistorial() {
   } catch {}
 }
 
-async function cargarTotalTickets() {
+/**
+ * Carga el total de tickets del día.
+ * @returns {Promise<void>}
+ */
+async function cargarTotalTickets(): Promise<void> {
   if (esSubjefe.value) {
     const hoy = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Mexico_City' })
     totalTicketsHoy.value = historial.value.filter(t => {
@@ -324,7 +358,11 @@ async function cargarTotalTickets() {
   }
 }
 
-function aplicarFiltros() {
+/**
+ * Aplica los filtros seleccionados al historial de tickets.
+ * @returns {void}
+ */
+function aplicarFiltros(): void {
   let f = [...historial.value]
   if (filtroEstado.value !== 'todos') f = f.filter(t => t.estado === filtroEstado.value)
   if (filtroSector.value !== 'todos') f = f.filter(t => t.sector === filtroSector.value)
@@ -342,23 +380,48 @@ function aplicarFiltros() {
   resumen.pendientes = f.filter(t => t.estado === 'Pendiente').length
 }
 
-function limpiarFiltros() { filtroEstado.value = 'todos'; filtroSector.value = 'todos'; fechaInicio.value = ''; fechaFin.value = ''; buscarFolio.value = ''; aplicarFiltros() }
+/**
+ * Limpia los filtros actuales.
+ * @returns {void}
+ */
+function limpiarFiltros(): void { filtroEstado.value = 'todos'; filtroSector.value = 'todos'; fechaInicio.value = ''; fechaFin.value = ''; buscarFolio.value = ''; aplicarFiltros() }
 
-async function cargarSectores() {
+/**
+ * Carga la lista de sectores disponibles.
+ * @returns {Promise<void>}
+ */
+async function cargarSectores(): Promise<void> {
   try {
     const res = await fetch(`${API_BASE_URL}/api/sectores`); if (!res.ok) return
     sectores.value = await res.json()
   } catch {}
 }
 
-function abrirModalReporte() { showModal.value = true; modalError.value = ''; presetActivo.value = ''; cargarInfoSemestre() }
-function cerrarModal() { showModal.value = false; modalError.value = '' }
+/**
+ * Abre el modal de reporte.
+ * @returns {void}
+ */
+function abrirModalReporte(): void { showModal.value = true; modalError.value = ''; presetActivo.value = ''; cargarInfoSemestre() }
+/**
+ * Cierra el modal de reporte.
+ * @returns {void}
+ */
+function cerrarModal(): void { showModal.value = false; modalError.value = '' }
 
-async function cargarInfoSemestre() {
+/**
+ * Carga la información del semestre actual.
+ * @returns {Promise<void>}
+ */
+async function cargarInfoSemestre(): Promise<void> {
   try { const res = await fetch(`${API_BASE_URL}/api/reporte/semestre-actual`); if (res.ok) semestreActual.value = await res.json() } catch {}
 }
 
-function aplicarPreset(key) {
+/**
+ * Aplica un preset de fechas para el reporte.
+ * @param {string} key - Identificador del preset.
+ * @returns {void}
+ */
+function aplicarPreset(key: string): void {
   const hoy = new Date(); let desde, hasta
   if (key === 'hoy') { desde = hasta = toYMD(hoy) }
   else if (key === 'semanal') { const h7 = new Date(hoy); h7.setDate(hoy.getDate()-7); desde = toYMD(h7); hasta = toYMD(hoy) }
@@ -367,7 +430,11 @@ function aplicarPreset(key) {
   reporteDesde.value = desde; reporteHasta.value = hasta; presetActivo.value = key; modalError.value = ''
 }
 
-async function generarReporte() {
+/**
+ * Genera el reporte en PDF.
+ * @returns {Promise<void>}
+ */
+async function generarReporte(): Promise<void> {
   if (!reporteDesde.value || !reporteHasta.value) { modalError.value = 'Selecciona ambas fechas'; return }
   if (reporteDesde.value > reporteHasta.value) { modalError.value = "'Desde' no puede ser posterior a 'Hasta'"; return }
   generando.value = true; modalError.value = ''

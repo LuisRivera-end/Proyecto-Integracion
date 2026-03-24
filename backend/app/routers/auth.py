@@ -1,6 +1,12 @@
+"""
+Authentication router handles user login, session validation, logout,
+forced session closure, emergency PIN validation, and session reset.
+It also provides lookup endpoints for roles and employee statuses.
+"""
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update, insert, and_, text
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy import select, update, insert, delete, and_, text
 from hashlib import sha256
 from typing import List
 import uuid
@@ -19,7 +25,16 @@ SESSION_DURATION_HOURS = 8
 
 
 def _broadcast_session_event(event_type: str, employee_id: int):
-    """Helper para emitir eventos de sesión por WS en background."""
+    """
+    Helper function to emit session events via WebSocket in the background.
+    
+    Args:
+        event_type (str): The type of session event to broadcast (e.g., 'session_started', 'session_ended')
+        employee_id (int): The ID of the employee associated with the event
+    
+    Returns:
+        None: This function runs asynchronously in the background and doesn't return a value
+    """
     async def _emit():
         try:
             from app.websocket.manager import manager
@@ -335,7 +350,19 @@ async def validate_emergency_pin(request: Request):
 
 @router.post("/emergency/reset-sessions")
 async def reset_sessions(request: Request, db: AsyncSession = Depends(get_db)):
-    """Trunca la tabla de sesiones activas. Requiere token de emergencia."""
+    """
+    Elimina todas las sesiones activas. Requiere token de emergencia.
+    
+    Args:
+        request: Objeto Request de FastAPI para obtener el cuerpo JSON.
+        db: Sesión de base de datos asíncrona inyectada por dependencia.
+    
+    Returns:
+        dict: Mensaje de éxito indicando que todas las sesiones fueron reiniciadas.
+    
+    Raises:
+        HTTPException: Si el cuerpo es inválido, el token de emergencia es incorrecto o expirado.
+    """
     try:
         body = await request.json()
         emergency_token = body.get("emergency_token", "")
@@ -350,8 +377,8 @@ async def reset_sessions(request: Request, db: AsyncSession = Depends(get_db)):
     # Consumir token (uso único)
     del _emergency_tokens[emergency_token]
 
-    # Ejecutar TRUNCATE
-    await db.execute(text("TRUNCATE TABLE Sesion_Activa"))
+    # Eliminar todas las sesiones activas usando ORM en lugar de TRUNCATE crudo
+    await db.execute(delete(SesionActiva))
     await db.commit()
 
     # Notificar por WS a todos los clientes

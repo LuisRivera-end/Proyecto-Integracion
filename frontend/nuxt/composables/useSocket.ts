@@ -7,6 +7,10 @@ export class NativeSocketClient {
     this.connect();
   }
 
+  /**
+   * Conecta el WebSocket al servidor especificado en la URL.
+   * Maneja los eventos de conexión, mensajes, errores y desconexión con reconexión automática.
+   */
   connect() {
     if (this.ws && (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING)) {
       return;
@@ -46,6 +50,12 @@ export class NativeSocketClient {
     }
   }
 
+  /**
+   * Suscribe un listener a un evento específico del WebSocket.
+   * 
+   * @param {string} event - El nombre del evento a escuchar.
+   * @param {(...args: any[]) => void} callback - La función que se ejecutará cuando ocurra el evento.
+   */
   on(event: string, callback: (...args: any[]) => void) {
     if (!this.listeners[event]) this.listeners[event] = [];
     // Evitar duplicados exactos
@@ -58,6 +68,13 @@ export class NativeSocketClient {
     }
   }
 
+  /**
+   * Elimina un listener de un evento específico del WebSocket.
+   * Si no se proporciona callback, elimina todos los listeners del evento.
+   * 
+   * @param {string} event - El nombre del evento a dejar de escuchar.
+   * @param {(...args: any[]) => void} [callback] - La función opcional a eliminar.
+   */
   off(event: string, callback?: (...args: any[]) => void) {
     if (!callback) {
       this.listeners[event] = [];
@@ -66,6 +83,12 @@ export class NativeSocketClient {
     }
   }
 
+  /**
+   * Emite un evento a través del WebSocket con los datos proporcionados.
+   * 
+   * @param {string} event - El nombre del evento a emitir.
+   * @param {any} [data={}] - Los datos a enviar con el evento.
+   */
   emit(event: string, data: any = {}) {
     if (this.ws && this.connected && this.ws.readyState === WebSocket.OPEN) {
       console.log('📤 WS Enviando:', event, data);
@@ -79,6 +102,9 @@ export class NativeSocketClient {
     }
   }
 
+  /**
+   * Desconecta el WebSocket y previene la reconexión automática.
+   */
   disconnect() {
       if(this.ws) {
           this.ws.onclose = null; // Prevent reconnect
@@ -86,6 +112,12 @@ export class NativeSocketClient {
       }
   }
 
+  /**
+   * Dispara un evento localmente llamando a todos los listeners suscritos.
+   * 
+   * @param {string} event - El nombre del evento a disparar.
+   * @param {any} [data] - Los datos opcionales a pasar a los listeners.
+   */
   private trigger(event: string, data?: any) {
     if (this.listeners[event]) {
       this.listeners[event].forEach(cb => cb(data));
@@ -95,6 +127,11 @@ export class NativeSocketClient {
 
 let socketInstance: NativeSocketClient | null = null;
 
+/**
+ * Proporciona una instancia única (Singleton) del cliente WebSocket.
+ * 
+ * @returns {NativeSocketClient} La instancia global del cliente WebSocket.
+ */
 export const useSocket = () => {
   if (socketInstance) return socketInstance;
 

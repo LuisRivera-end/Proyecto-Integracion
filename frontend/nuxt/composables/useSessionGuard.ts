@@ -2,12 +2,14 @@ import { useAuth } from './useAuth'
 import { useSocket } from './useSocket'
 
 /**
- * useSessionGuard – Vigilancia activa de sesión
- *
- * • Detecta inactividad de 5 minutos → logout + redirect a /login
- * • Heartbeat cada 30 s que valida la sesión en el backend (y la extiende si hay actividad)
- * • Escucha WS `session_force_closed` → si el empleado afectado es el actual → logout
- * • Escucha WS `sessions_reset` → logout inmediato (reinicio de emergencia)
+ * Proporciona un mecanismo de vigilancia activa de sesión.
+ * 
+ * Funcionalidades principales:
+ * - Detecta inactividad de 5 minutos y cierra la sesión redirigiendo al login.
+ * - Realiza un latido (heartbeat) cada 30 segundos para validar la sesión en el backend.
+ * - Escucha eventos del WebSocket para forzar el cierre de sesión ('session_force_closed' y 'sessions_reset').
+ * 
+ * @returns {{ startGuard: () => void, stopGuard: () => void }} Funciones para iniciar y detener el guardián de sesión.
  */
 export const useSessionGuard = () => {
   const { checkSession, logoutWithOverlay, getCurrentUser } = useAuth()
@@ -21,10 +23,19 @@ export const useSessionGuard = () => {
   const HEARTBEAT_INTERVAL = 30 * 1000        // 30 segundos
 
   // ── Helpers ──────────────────────────────────────────────
+  /**
+   * Actualiza el tiempo de última actividad detectada.
+   */
   const onActivity = () => {
     lastActivity = Date.now()
   }
 
+  /**
+   * Fuerza el cierre de sesión de manera asíncrona.
+   * Evita llamadas múltiples estableciendo la bandera isLoggingOut.
+   * 
+   * @returns {Promise<void>}
+   */
   const forceLogout = async () => {
     if (isLoggingOut) return
     isLoggingOut = true
@@ -33,6 +44,12 @@ export const useSessionGuard = () => {
   }
 
   // ── WS handlers ─────────────────────────────────────────
+  /**
+   * Manejador del evento de WebSocket que fuerza el cierre de sesión de un usuario específico.
+   * 
+   * @param {any} data - Los datos recibidos del servidor WebSocket, esperando que contenga el employee_id.
+   * @returns {Promise<void>}
+   */
   const onSessionForceClosed = async (data: any) => {
     const user = getCurrentUser()
     if (data && user && data.employee_id === user.id) {
@@ -41,6 +58,11 @@ export const useSessionGuard = () => {
     }
   }
 
+  /**
+   * Manejador del evento de WebSocket que fuerza el cierre de todas las sesiones activas.
+   * 
+   * @returns {Promise<void>}
+   */
   const onSessionsReset = async () => {
     console.log('🔄 Todas las sesiones han sido reiniciadas')
     await forceLogout()
@@ -49,6 +71,9 @@ export const useSessionGuard = () => {
   // ── Start / Stop ────────────────────────────────────────
   const ACTIVITY_EVENTS = ['mousedown', 'keydown', 'scroll', 'touchstart', 'mousemove']
 
+  /**
+   * Inicia la vigilancia de inactividad, añade escuchadores de eventos y el intervalo de verificación.
+   */
   const startGuard = () => {
     lastActivity = Date.now()
     isLoggingOut = false
@@ -84,6 +109,9 @@ export const useSessionGuard = () => {
     }, HEARTBEAT_INTERVAL)
   }
 
+  /**
+   * Detiene la vigilancia de la sesión y remueve todos los escuchadores y el intervalo del latido.
+   */
   const stopGuard = () => {
     if (heartbeatInterval) {
       clearInterval(heartbeatInterval)

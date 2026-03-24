@@ -4,36 +4,42 @@ from datetime import datetime
 from app.models.database import Base
 
 class Rol(Base):
+    """Modelo de la tabla Rol."""
     __tablename__ = "Rol"
     
     ID_Rol = Column(Integer, primary_key=True, autoincrement=True)
     Rol = Column(String(30), nullable=False)
 
 class Sector(Base):
+    """Modelo de la tabla Sectores."""
     __tablename__ = "Sectores"
     
     ID_Sector = Column(Integer, primary_key=True, autoincrement=True)
     Sector = Column(String(20), nullable=False)
 
 class EstadoEmpleado(Base):
+    """Modelo de la tabla Estado_Empleado."""
     __tablename__ = "Estado_Empleado"
     
     ID_Estado = Column(Integer, primary_key=True, autoincrement=True)
     Nombre = Column(String(15), nullable=False)
 
 class EstadoEmpleadoVentanilla(Base):
+    """Modelo de la tabla Estado_empleado_ventanilla."""
     __tablename__ = "Estado_empleado_ventanilla"
     
     ID_Estado = Column(Integer, primary_key=True, autoincrement=True)
     Nombre = Column(String(15), nullable=False)
 
 class EstadoTurno(Base):
+    """Modelo de la tabla Estados_Turno."""
     __tablename__ = "Estados_Turno"
     
     ID_Estado = Column(Integer, primary_key=True, autoincrement=True)
     Nombre = Column(String(15), nullable=False)
 
 class Ventanilla(Base):
+    """Modelo de la tabla Ventanillas."""
     __tablename__ = "Ventanillas"
     
     ID_Ventanilla = Column(Integer, primary_key=True, autoincrement=True)
@@ -42,6 +48,7 @@ class Ventanilla(Base):
     Activa = Column(Boolean, nullable=False, default=True)
 
 class Empleado(Base):
+    """Modelo de la tabla Empleado."""
     __tablename__ = "Empleado"
     
     ID_Empleado = Column(Integer, primary_key=True, autoincrement=True)
@@ -56,6 +63,7 @@ class Empleado(Base):
     ID_Sector = Column(Integer, ForeignKey("Sectores.ID_Sector"), nullable=True)
 
 class EmpleadoVentanilla(Base):
+    """Modelo de la tabla Empleado_Ventanilla."""
     __tablename__ = "Empleado_Ventanilla"
     
     ID_Asignacion = Column(Integer, primary_key=True, autoincrement=True)
@@ -66,6 +74,7 @@ class EmpleadoVentanilla(Base):
     ID_Estado = Column(Integer, ForeignKey("Estado_empleado_ventanilla.ID_Estado"), nullable=False)
 
 class Turno(Base):
+    """Modelo de la tabla Turno."""
     __tablename__ = "Turno"
     
     ID_Turno = Column(Integer, primary_key=True, autoincrement=True)
@@ -78,12 +87,14 @@ class Turno(Base):
     Tipo_Caja = Column(String(10), nullable=False, default='normal')
 
 class RolVentanilla(Base):
+    """Modelo de la tabla de intersección Rol_Ventanilla."""
     __tablename__ = "Rol_Ventanilla"
     
     ID_Rol = Column(Integer, ForeignKey("Rol.ID_Rol"), primary_key=True)
     ID_Ventanilla = Column(Integer, ForeignKey("Ventanillas.ID_Ventanilla"), primary_key=True)
 
 class SesionActiva(Base):
+    """Modelo de la tabla Sesion_Activa para manejar tokens de autenticación."""
     __tablename__ = "Sesion_Activa"
     
     Token = Column(String(64), primary_key=True)
