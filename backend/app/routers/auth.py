@@ -165,6 +165,7 @@ async def login(request: Request, credentials: LoginRequest, db: AsyncSession = 
             "nombre": f"{user.nombre1} {user.Apellido1}",
             "rol": user.ID_ROL,
             "sector": sector,
+            "id_sector": user.ID_Sector,
             "estado": user_row["Estado_Empleado"],
             "session_token": session_token,
             "id_ventanilla": user_row["ID_Ventanilla"],

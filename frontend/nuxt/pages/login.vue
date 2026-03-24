@@ -143,6 +143,7 @@ const handleLogin = async () => {
       username: data.nombre,
       rol: data.rol,
       sector: data.sector,
+      id_sector: data.id_sector,
     }
 
     if (currentUser.rol === 1) {
