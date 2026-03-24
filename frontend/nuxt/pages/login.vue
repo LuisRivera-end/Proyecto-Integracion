@@ -65,6 +65,15 @@
           >
             {{ errorMsg }}
           </div>
+
+          <div class="mt-6 text-center">
+            <NuxtLink
+              to="/emergencia"
+              class="text-sm text-slate-500 hover:text-emerald-600 transition-colors duration-200 underline underline-offset-2"
+            >
+              ¿Problemas para iniciar sesión?
+            </NuxtLink>
+          </div>
         </div>
       </div>
 

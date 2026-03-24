@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     DEBUG: bool = True
     
     SECRET_KEY: str
+    SESSION_RESET_PIN: str = "00000"
     
     model_config = ConfigDict(env_file=("../.env", ".env"), extra="ignore")
 

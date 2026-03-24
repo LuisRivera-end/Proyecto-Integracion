@@ -189,6 +189,7 @@ const { API_BASE_URL } = useConfig()
 const { lanzarAlerta } = useToast()
 const socket = useSocket()
 const { getSessionToken } = useAuth()
+const { startGuard, stopGuard } = useSessionGuard()
 
 const stats = ref(null)
 const loading = ref(false)
@@ -255,6 +256,7 @@ let onVentanillaStatus
 
 onMounted(() => {
   fetchStats()
+  startGuard()
 
   onConnect = () => {
     socketConnected.value = true
@@ -281,6 +283,7 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  stopGuard()
   socket.off('connect', onConnect)
   socket.off('disconnect', onDisconnect)
   socket.off('tickets_updated', onTicketsUpdate)

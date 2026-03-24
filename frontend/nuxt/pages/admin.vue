@@ -245,6 +245,7 @@ const { API_BASE_URL } = useConfig()
 const { lanzarAlerta } = useToast()
 const socket = useSocket()
 const { getCurrentUser, getSessionToken } = useAuth()
+const { startGuard, stopGuard } = useSessionGuard()
 
 // Sector list
 const sectores = ref([])
@@ -275,7 +276,7 @@ const cajaRapidaMensajeEstado = ref('')
 
 onMounted(() => {
   cargarSectores()
-
+  startGuard()
   socket.on('connect', () => {
     console.log('🟢 Departamentos WebSocket conectado')
     const currentUser = getCurrentUser()
@@ -297,17 +298,15 @@ onMounted(() => {
     }
   })
 
-
-
   // Semester cleanup
   verificarLimpiezaSemestral()
 })
 
 onUnmounted(() => {
+  stopGuard()
   socket.off('ventanilla_status_changed')
   socket.off('sectores_updated')
   socket.off('caja_rapida_updated')
-
 })
 
 // Load sectors
