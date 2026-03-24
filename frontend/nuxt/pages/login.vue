@@ -77,6 +77,90 @@
         </div>
       </div>
 
+      <!-- ═══ Modal: Configuración del Administrador ═══ -->
+      <div
+        v-if="showSetupModal"
+        class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+      >
+        <div class="bg-white rounded-3xl shadow-2xl p-8 w-full max-w-lg border border-slate-200 animate-fadeIn">
+          <div class="text-center mb-6">
+            <div class="inline-flex items-center justify-center w-14 h-14 bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl mb-3 shadow-lg">
+              <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+            </div>
+            <h2 class="text-2xl font-bold text-slate-800 mb-1">Configure su cuenta</h2>
+            <p class="text-slate-500 text-sm">Establezca los datos definitivos del administrador.</p>
+          </div>
+
+          <form @submit.prevent="handleFinalize" class="space-y-4">
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label for="setup-nombre1" class="block text-xs font-semibold text-slate-600 mb-1">Primer Nombre *</label>
+                <input v-model="setup.nombre1" type="text" id="setup-nombre1" required maxlength="20"
+                  class="w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-400 focus:border-amber-400 outline-none transition-all bg-slate-50 text-slate-800 text-sm" />
+              </div>
+              <div>
+                <label for="setup-nombre2" class="block text-xs font-semibold text-slate-600 mb-1">Segundo Nombre</label>
+                <input v-model="setup.nombre2" type="text" id="setup-nombre2" maxlength="20"
+                  class="w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-400 focus:border-amber-400 outline-none transition-all bg-slate-50 text-slate-800 text-sm" />
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label for="setup-apellido1" class="block text-xs font-semibold text-slate-600 mb-1">Primer Apellido *</label>
+                <input v-model="setup.apellido1" type="text" id="setup-apellido1" required maxlength="20"
+                  class="w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-400 focus:border-amber-400 outline-none transition-all bg-slate-50 text-slate-800 text-sm" />
+              </div>
+              <div>
+                <label for="setup-apellido2" class="block text-xs font-semibold text-slate-600 mb-1">Segundo Apellido</label>
+                <input v-model="setup.apellido2" type="text" id="setup-apellido2" maxlength="20"
+                  class="w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-400 focus:border-amber-400 outline-none transition-all bg-slate-50 text-slate-800 text-sm" />
+              </div>
+            </div>
+
+            <div>
+              <label for="setup-usuario" class="block text-xs font-semibold text-slate-600 mb-1">Nuevo Usuario *</label>
+              <input v-model="setup.usuario" type="text" id="setup-usuario" required maxlength="20" pattern="^[a-zA-Z0-9_.\-]+$"
+                class="w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-400 focus:border-amber-400 outline-none transition-all bg-slate-50 text-slate-800 text-sm"
+                placeholder="Solo letras, números, _ . -" />
+            </div>
+
+            <div>
+              <label for="setup-passwd" class="block text-xs font-semibold text-slate-600 mb-1">Nueva Contraseña *</label>
+              <input v-model="setup.passwd" type="password" id="setup-passwd" required minlength="8" maxlength="100"
+                class="w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-400 focus:border-amber-400 outline-none transition-all bg-slate-50 text-slate-800 text-sm"
+                placeholder="Mínimo 8 caracteres" />
+            </div>
+
+            <div>
+              <label for="setup-passwd-confirm" class="block text-xs font-semibold text-slate-600 mb-1">Confirmar Contraseña *</label>
+              <input v-model="setup.passwdConfirm" type="password" id="setup-passwd-confirm" required minlength="8" maxlength="100"
+                class="w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-400 focus:border-amber-400 outline-none transition-all bg-slate-50 text-slate-800 text-sm"
+                placeholder="Repita la contraseña" />
+            </div>
+
+            <div v-if="setupError" class="bg-red-50 border border-red-300 text-red-700 px-3 py-2 rounded-lg text-sm">
+              {{ setupError }}
+            </div>
+
+            <button
+              type="submit"
+              :disabled="setupLoading"
+              class="w-full bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-semibold py-3 rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 disabled:opacity-50"
+            >
+              <span v-if="setupLoading" class="flex items-center justify-center gap-2">
+                <svg class="animate-spin h-5 w-5 border-b-2 border-white rounded-full" viewBox="0 0 24 24"></svg>
+                Guardando...
+              </span>
+              <span v-else>✅ Guardar y Continuar</span>
+            </button>
+          </form>
+        </div>
+      </div>
+
       <ClientOnly>
         <GTranslateWidget />
       </ClientOnly>
@@ -88,6 +172,7 @@
  * Página Login
  * Maneja la autenticación de usuarios (Administradores, Jefes de sector y Operadores de ventanilla).
  * Si la autenticación es exitosa, guarda la sesión y redirige a la vista correspondiente.
+ * Si el admin es temporal (needs_setup), muestra un modal para configurar los datos reales.
  */
 definePageMeta({ layout: 'default' })
 
@@ -102,22 +187,60 @@ const password = ref('')
 const loading = ref(false)
 const errorMsg = ref('')
 
+// ── Setup modal state ──
+const showSetupModal = ref(false)
+const setupLoading = ref(false)
+const setupError = ref('')
+const pendingSessionToken = ref('')
+
+interface SetupForm {
+  nombre1: string
+  nombre2: string
+  apellido1: string
+  apellido2: string
+  usuario: string
+  passwd: string
+  passwdConfirm: string
+}
+
+const setup = reactive<SetupForm>({
+  nombre1: '',
+  nombre2: '',
+  apellido1: '',
+  apellido2: '',
+  usuario: '',
+  passwd: '',
+  passwdConfirm: '',
+})
+
 /**
  * Muestra un mensaje de error en pantalla durante 5 segundos.
- * 
- * @param {string} message - El mensaje de error a mostrar.
  */
 const showError = (message: string): void => {
   errorMsg.value = message
   setTimeout(() => { errorMsg.value = '' }, 5000)
 }
 
-// Al llegar al login, limpiar solo los datos locales de esta pestaña.
-onMounted(() => {
+// Al llegar al login, limpiar datos locales y verificar si hay admin.
+onMounted(async () => {
   const existingToken = getSessionToken()
   if (existingToken) {
     localStorage.removeItem(`session_${existingToken}`)
     sessionStorage.removeItem('session_token')
+  }
+
+  // ── Verificar si el sistema necesita setup ──
+  try {
+    const statusRes = await fetch(`${API_BASE_URL}/api/setup/status`)
+    if (statusRes.ok) {
+      const statusData = await statusRes.json()
+      if (statusData.needs_setup) {
+        navigateTo('/setup', { replace: true })
+        return
+      }
+    }
+  } catch {
+    // Si falla la verificación, continuar con login normal
   }
 
   // Escuchar eventos WS de sesión en tiempo real
@@ -142,9 +265,6 @@ onUnmounted(() => {
 
 /**
  * Maneja el envío del formulario de inicio de sesión.
- * Envía las credenciales al backend y maneja la redirección basada en el rol del usuario.
- * 
- * @returns {Promise<void>}
  */
 const handleLogin = async (): Promise<void> => {
   loading.value = true
@@ -169,6 +289,14 @@ const handleLogin = async (): Promise<void> => {
       rol: data.rol,
       sector: data.sector,
       id_sector: data.id_sector,
+    }
+
+    // ── Admin temporal: mostrar modal de configuración ──
+    if (currentUser.rol === 1 && data.needs_setup) {
+      pendingSessionToken.value = data.session_token
+      showSetupModal.value = true
+      loading.value = false
+      return
     }
 
     if (currentUser.rol === 1) {
@@ -208,4 +336,76 @@ const handleLogin = async (): Promise<void> => {
     loading.value = false
   }
 }
+
+/**
+ * Maneja la finalización de la configuración del administrador.
+ */
+const handleFinalize = async (): Promise<void> => {
+  setupError.value = ''
+
+  // Validaciones locales
+  if (!setup.nombre1.trim() || !setup.apellido1.trim() || !setup.usuario.trim() || !setup.passwd.trim()) {
+    setupError.value = 'Todos los campos marcados con * son obligatorios.'
+    return
+  }
+
+  if (setup.passwd !== setup.passwdConfirm) {
+    setupError.value = 'Las contraseñas no coinciden.'
+    return
+  }
+
+  if (setup.passwd.length < 8) {
+    setupError.value = 'La contraseña debe tener al menos 8 caracteres.'
+    return
+  }
+
+  setupLoading.value = true
+
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/setup/finalize`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        session_token: pendingSessionToken.value,
+        nombre1: setup.nombre1.trim(),
+        nombre2: setup.nombre2.trim(),
+        apellido1: setup.apellido1.trim(),
+        apellido2: setup.apellido2.trim(),
+        usuario: setup.usuario.trim(),
+        passwd: setup.passwd,
+      }),
+    })
+
+    if (!res.ok) {
+      const errData = await res.json()
+      throw new Error(errData.detail || 'Error al guardar la configuración')
+    }
+
+    // Guardar sesión con datos actualizados
+    const currentUser: any = {
+      id: 0, // Se recargará al redirigir
+      username: `${setup.nombre1.trim()} ${setup.apellido1.trim()}`,
+      rol: 1,
+      sector: 'Admin',
+      id_sector: null,
+    }
+    saveSession(currentUser, pendingSessionToken.value)
+    showSetupModal.value = false
+    navigateTo('/admin', { replace: true })
+  } catch (err: any) {
+    setupError.value = err.message
+  } finally {
+    setupLoading.value = false
+  }
+}
 </script>
+
+<style scoped>
+.animate-fadeIn {
+  animation: fadeIn 0.3s ease-out;
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: scale(0.95) translateY(10px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+</style>

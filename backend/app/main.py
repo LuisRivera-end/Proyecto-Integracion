@@ -4,13 +4,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import Depends
 from app.routers import (
     auth, ventanillas, tickets, empleados,
-    caja_rapida, reporte, health, dashboard
+    caja_rapida, reporte, health, dashboard, setup
 )
 from app.websocket.routes import router as websocket_router
 
 from app.models.database import engine, get_db
 from app.config import settings
 from starlette.middleware.sessions import SessionMiddleware
+
 
 app = FastAPI(title="UAL API - FastAPI")
 
@@ -50,5 +51,6 @@ app.include_router(caja_rapida.router)
 app.include_router(reporte.router)
 app.include_router(health.router)
 app.include_router(dashboard.router)
+app.include_router(setup.router)
 app.include_router(websocket_router)
 

@@ -188,10 +188,8 @@ INSERT INTO Ventanillas (Ventanilla, ID_Sector) VALUES
 ('Tesoreria1', 4);
 
 /* ====== 7. Empleado (Admin) ====== */
-/* Estado = Activo */
-INSERT INTO Empleado (ID_ROL, nombre1, nombre2, Apellido1, Apellido2, Usuario, Passwd, ID_Estado)
-VALUES 
-(1, 'Luis', '', 'Rivera', '', 'admin', SHA2('12345678', 256), 1),
+/* El administrador inicial se crea desde el backend al arrancar.
+   Consulte las variables ADMIN_USER y ADMIN_PASSWORD en .env */
 
 /* ====== 8. Rol_Ventanilla ====== */
 INSERT INTO Rol_Ventanilla (ID_Rol, ID_Ventanilla) VALUES

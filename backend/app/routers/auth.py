@@ -173,7 +173,13 @@ async def login(request: Request, credentials: LoginRequest, db: AsyncSession = 
         )
         await db.commit()
 
-        # ── 7. Emitir evento WS ──
+        # ── 7. Verificar si admin necesita configuración ──
+        needs_setup = False
+        if user.ID_ROL == 1:
+            from app.services.seed_admin import TEMPORAL_MARKER
+            needs_setup = user.nombre2 == TEMPORAL_MARKER
+
+        # ── 8. Emitir evento WS ──
         _broadcast_session_event("session_started", user.ID_Empleado)
 
         return {
@@ -186,7 +192,8 @@ async def login(request: Request, credentials: LoginRequest, db: AsyncSession = 
             "session_token": session_token,
             "id_ventanilla": user_row["ID_Ventanilla"],
             "ventanilla": user_row["Ventanilla"],
-            "sector_ventanilla": user_row["Sector_Ventanilla"]
+            "sector_ventanilla": user_row["Sector_Ventanilla"],
+            "needs_setup": needs_setup,
         }
 
     except HTTPException:
