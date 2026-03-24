@@ -113,6 +113,7 @@ useHead({ title: 'Panel de Ventanilla' })
 const { API_BASE_URL } = useConfig()
 const { lanzarAlerta } = useToast()
 const { logoutWithOverlay, getCurrentUser, getSessionToken } = useAuth()
+const { startGuard, stopGuard } = useSessionGuard()
 const socket = useSocket()
 
 const currentUser = ref(null)
@@ -343,9 +344,9 @@ onMounted(async () => {
   // --- WebSocket Listeners ---
   socket.on('tickets_updated', handleTicketsUpdated)
   socket.on('caja_rapida_updated', handleCajaRapidaUpdated)
-  socket.on('session_force_closed', handleSessionForceClosed)
 
   document.addEventListener("keydown", handleKeydown)
+  startGuard()
 
   socket.on('connect', () => {
     if (currentUser.value?.id) socket.emit('ventanilla_register', { id_empleado: currentUser.value.id, session_token: getSessionToken() })
@@ -384,20 +385,11 @@ async function handleCajaRapidaUpdated(data) {
   }
 }
 
-async function handleSessionForceClosed(data) {
-  console.log('🚫 Sesión forzada a cerrar:', data)
-  // Check if this session force close is for the current employee
-  if (data && data.employee_id === currentUser.value?.id) {
-    // Show logout overlay and redirect
-    await logoutWithOverlay()
-  }
-}
-
 onUnmounted(() => {
+  stopGuard()
   document.removeEventListener("keydown", handleKeydown)
   socket.off('tickets_updated', handleTicketsUpdated)
   socket.off('caja_rapida_updated', handleCajaRapidaUpdated)
-  socket.off('session_force_closed', handleSessionForceClosed)
   socket.emit('ventanilla_disconnect')
 })
 </script>

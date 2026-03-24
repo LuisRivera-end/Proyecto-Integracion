@@ -202,6 +202,7 @@ const { API_BASE_URL } = useConfig()
 const { lanzarAlerta } = useToast()
 const socket = useSocket()
 const { getCurrentUser, getSessionToken } = useAuth()
+const { startGuard, stopGuard } = useSessionGuard()
 const currentUser = ref(null)
 
 const empleados = ref([])
@@ -348,6 +349,7 @@ let onSessionForceClosed
 onMounted(() => {
   currentUser.value = getCurrentUser()
   cargarRoles()
+  startGuard()
 
   onConnect = () => {
     const token = getSessionToken()
@@ -378,6 +380,7 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  stopGuard()
   socket.off('connect', onConnect)
   socket.off('ventanilla_status_changed', onStatusChanged)
   socket.off('session_force_closed', onSessionForceClosed)

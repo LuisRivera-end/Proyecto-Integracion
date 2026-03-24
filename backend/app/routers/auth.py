@@ -1,10 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update, insert, and_
+from sqlalchemy import select, update, insert, and_, text
 from hashlib import sha256
 from typing import List
 import uuid
 import asyncio
+import secrets
 from datetime import datetime, timedelta
 
 from app.models.database import get_db
@@ -147,7 +148,7 @@ async def login(request: Request, credentials: LoginRequest, db: AsyncSession = 
         # ── 6. Crear nueva sesión con expiración basada en el rol ──
         session_token = str(uuid.uuid4())
         if user.ID_ROL in (1, 6): # Admin o Jefe de Departamento
-            expira = datetime.utcnow() + timedelta(seconds=30) # Token corto que se renueva con actividad
+            expira = datetime.utcnow() + timedelta(minutes=5) # Token corto que se renueva con actividad
         else:
             expira = datetime.utcnow() + timedelta(hours=SESSION_DURATION_HOURS) # 8 horas fijo para otros roles
 
@@ -216,7 +217,7 @@ async def check_session(request: Request, db: AsyncSession = Depends(get_db)):
 
     # Extender sesión para administradores y jefes de departamento (ventana deslizante)
     if row["ID_ROL"] in (1, 6):
-        new_expira = datetime.utcnow() + timedelta(seconds=30)
+        new_expira = datetime.utcnow() + timedelta(minutes=5)
         await db.execute(
             update(SesionActiva)
             .where(SesionActiva.Token == session_token)
@@ -254,8 +255,6 @@ async def logout(request: Request, body: LogoutRequest, db: AsyncSession = Depen
 
 @router.post("/employees/{id_empleado}/forzar-cierre", status_code=200)
 async def force_close_session(id_empleado: int, request: Request, db: AsyncSession = Depends(get_db)):
-    # Only allow administrators (Rol=1) to force close sessions
-    # Get the requester's employee ID from the session token
     try:
         body = await request.json()
         session_token = body.get("session_token")
@@ -265,77 +264,104 @@ async def force_close_session(id_empleado: int, request: Request, db: AsyncSessi
     if not session_token:
         raise HTTPException(status_code=401, detail="No session")
 
-    # Verify the session token and get the requester's employee ID and role
-    token_query = (
-        select(SesionActiva.ID_Empleado, SesionActiva.Expira)
+    # ── 1. Validar token + obtener rol en una sola consulta (JOIN) ──
+    result = await db.execute(
+        select(SesionActiva.ID_Empleado, SesionActiva.Expira, Empleado.ID_ROL)
+        .join(Empleado, SesionActiva.ID_Empleado == Empleado.ID_Empleado)
         .where(and_(SesionActiva.Token == session_token, SesionActiva.Activa == True))
     )
-    token_result = await db.execute(token_query)
-    token_row = token_result.mappings().fetchone()
+    row = result.mappings().fetchone()
 
-    if not token_row:
+    if not row:
         raise HTTPException(status_code=401, detail="Session expired or invalid")
 
-    requester_id = token_row["ID_Empleado"]
-    # Check if the requester's session is expired
-    if token_row["Expira"] < datetime.utcnow():
+    if row["Expira"] < datetime.utcnow():
         await db.execute(
-            update(SesionActiva)
-            .where(SesionActiva.Token == session_token)
-            .values(Activa=False)
+            update(SesionActiva).where(SesionActiva.Token == session_token).values(Activa=False)
         )
         await db.commit()
         raise HTTPException(status_code=401, detail="Session expired")
 
-    # Get the requester's role
-    requester_role_query = select(Empleado.ID_ROL).where(Empleado.ID_Empleado == requester_id)
-    requester_role_result = await db.execute(requester_role_query)
-    requester_role_row = requester_role_result.fetchone()
-    if not requester_role_row:
-        raise HTTPException(status_code=500, detail="Requester employee not found")
-    requester_role = requester_role_row[0]
-
-    # Only allow Rol=1 (Admin)
-    if requester_role != 1:
+    if row["ID_ROL"] != 1:
         raise HTTPException(status_code=403, detail="Solo los administradores pueden forzar el cierre de sesiones")
 
-    # Extend admin session (sliding window) - same logic as check_session
-    if requester_role in (1, 6):
-        new_expira = datetime.utcnow() + timedelta(seconds=30)
-        await db.execute(
-            update(SesionActiva)
-            .where(SesionActiva.Token == session_token)
-            .values(Expira=new_expira)
-        )
-
-    # Proceed to force close the target employee's session(s)
-    # Set Activa=0 for any active session of the target employee
+    # ── 2. Extender sesión admin + cerrar sesión del empleado objetivo (un solo commit) ──
+    await db.execute(
+        update(SesionActiva).where(SesionActiva.Token == session_token)
+        .values(Expira=datetime.utcnow() + timedelta(minutes=5))
+    )
     await db.execute(
         update(SesionActiva)
         .where(and_(SesionActiva.ID_Empleado == id_empleado, SesionActiva.Activa == True))
         .values(Activa=False)
     )
-
-    # Also terminate any active ventanilla assignment
-    await db.execute(
-        update(EmpleadoVentanilla)
-        .where(
-            and_(
-                EmpleadoVentanilla.ID_Empleado == id_empleado,
-                EmpleadoVentanilla.Fecha_Termino.is_(None),
-                EmpleadoVentanilla.ID_Estado == 1
-            )
-        )
-        .values(Fecha_Termino=datetime.utcnow(), ID_Estado=2)
-    )
-
     await db.commit()
 
-    # Emit WS event to notify that the session was forced closed (so the client can react if still connected)
     _broadcast_session_event("session_force_closed", id_empleado)
-    _broadcast_session_event("ventanilla_status_changed", id_empleado)
 
     return {"message": f"Sesión forzada a cerrar para el empleado {id_empleado}"}
+
+
+# ── Tokens temporales para emergencia ──
+_emergency_tokens: dict[str, float] = {}
+
+
+@router.post("/emergency/validate-pin")
+async def validate_emergency_pin(request: Request):
+    """Valida el PIN de emergencia y retorna un token temporal."""
+    from app.config import settings
+
+    try:
+        body = await request.json()
+        pin = body.get("pin", "")
+    except Exception:
+        raise HTTPException(status_code=400, detail="Body inválido")
+
+    if str(pin) != settings.SESSION_RESET_PIN:
+        raise HTTPException(status_code=403, detail="PIN incorrecto")
+
+    # Generar token temporal (válido 5 minutos)
+    temp_token = secrets.token_urlsafe(32)
+    _emergency_tokens[temp_token] = datetime.utcnow().timestamp() + 300
+
+    # Limpiar tokens expirados
+    now = datetime.utcnow().timestamp()
+    expired = [k for k, v in _emergency_tokens.items() if v < now]
+    for k in expired:
+        del _emergency_tokens[k]
+
+    return {"status": "ok", "emergency_token": temp_token}
+
+
+@router.post("/emergency/reset-sessions")
+async def reset_sessions(request: Request, db: AsyncSession = Depends(get_db)):
+    """Trunca la tabla de sesiones activas. Requiere token de emergencia."""
+    try:
+        body = await request.json()
+        emergency_token = body.get("emergency_token", "")
+    except Exception:
+        raise HTTPException(status_code=400, detail="Body inválido")
+
+    # Validar token temporal
+    expiry = _emergency_tokens.get(emergency_token)
+    if not expiry or expiry < datetime.utcnow().timestamp():
+        raise HTTPException(status_code=403, detail="Token de emergencia inválido o expirado")
+
+    # Consumir token (uso único)
+    del _emergency_tokens[emergency_token]
+
+    # Ejecutar TRUNCATE
+    await db.execute(text("TRUNCATE TABLE Sesion_Activa"))
+    await db.commit()
+
+    # Notificar por WS a todos los clientes
+    try:
+        from app.websocket.manager import manager
+        await manager.broadcast_json({"type": "sessions_reset"})
+    except Exception:
+        pass
+
+    return {"status": "ok", "message": "Todas las sesiones han sido reiniciadas"}
 
 
 @router.get("/roles", response_model=List[RolResponse])

@@ -219,6 +219,7 @@ const { API_BASE_URL } = useConfig()
 const { lanzarAlerta } = useToast()
 const socket = useSocket()
 const { getCurrentUser, getSessionToken } = useAuth()
+const { startGuard, stopGuard } = useSessionGuard()
 
 const currentUser = ref(null)
 const jefeSector = ref('')
@@ -398,6 +399,7 @@ onMounted(() => {
   jefeSector.value = u.sector || 'Sin Sector'
   jefeSectorId.value = u.id_sector || null
 
+  startGuard()
   loadEmployees()
   cargarRoles()
 
@@ -430,6 +432,7 @@ onMounted(() => {
   })
 })
 onUnmounted(() => {
+  stopGuard()
   socket.off('ventanilla_status_changed')
   socket.off('caja_rapida_updated')
 })

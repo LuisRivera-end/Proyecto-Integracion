@@ -257,6 +257,7 @@ useHead({ title: 'Historial de Tickets' })
 const { API_BASE_URL } = useConfig()
 const socket = useSocket()
 const { getCurrentUser, getSessionToken } = useAuth()
+const { startGuard, stopGuard } = useSessionGuard()
 const { lanzarAlerta } = useToast()
 
 const currentUser = ref(null)
@@ -397,9 +398,10 @@ onMounted(async () => {
   socket.on('connect', () => { if (currentUser.value?.id) socket.emit('ventanilla_register', { id_empleado: currentUser.value.id, session_token: getSessionToken() }) })
   socket.on('tickets_updated', async () => { await cargarHistorial(); aplicarFiltros(); cargarTotalTickets() })
 
+  startGuard()
 })
 onUnmounted(() => {
+  stopGuard()
   socket.off('tickets_updated')
-
 })
 </script>
