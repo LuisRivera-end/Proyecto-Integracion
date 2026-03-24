@@ -311,8 +311,8 @@ async function cargarTotalTickets() {
     const hoy = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Mexico_City' })
     totalTicketsHoy.value = historial.value.filter(t => {
       const f = parseFecha(t.creado); if (!f) return false
-      const y = f.getUTCFullYear(), m = String(f.getUTCMonth()+1).padStart(2,'0'), d = String(f.getUTCDate()).padStart(2,'0')
-      return `${y}-${m}-${d}` === hoy
+      const local = f.toLocaleDateString('en-CA', { timeZone: 'America/Mexico_City' })
+      return local === hoy
     }).length
   } else {
     try {

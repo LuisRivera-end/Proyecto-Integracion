@@ -74,7 +74,7 @@
                   <td class="px-6 py-3.5 text-slate-600 text-sm">{{ emp.Usuario }}</td>
                   <td class="px-6 py-3.5 text-slate-600 text-sm">{{ emp.Rol || 'N/A' }}</td>
                   <td class="px-6 py-3.5 text-center">
-                    <span v-if="emp.ID_ROL === 1" class="text-slate-300 text-xs italic">Sin acciones</span>
+                    <span v-if="emp.ID_ROL === 1 || emp.ID_Empleado === currentUser?.id" class="text-slate-300 text-xs italic">Sin acciones</span>
                     <button v-else class="edit-btn" @click="abrirEdicion(emp.ID_Empleado)">Editar</button>
                   </td>
                 </tr>
@@ -147,6 +147,64 @@
             </div>
           </div>
         </AdminAccordionPanel>
+
+        <!-- Panel 4: Caja Rápida (solo sector Cajas) -->
+        <AdminAccordionPanel v-if="esSectorCajas" id="caja-rapida" title="Modo Caja Rápida" icon-bg-class="bg-amber-100">
+          <template #icon>
+            <svg class="w-4 h-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+          </template>
+          <div class="p-6 sm:p-8 bg-white">
+            <div class="rounded-xl border border-amber-200 bg-amber-50 p-5">
+              <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center gap-3">
+                  <div class="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center">
+                    <svg class="w-4 h-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                  </div>
+                  <span class="font-bold text-slate-700 text-sm">Caja Rápida</span>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" v-model="crActiva" class="sr-only peer">
+                  <div class="w-11 h-6 bg-gray-300 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-amber-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
+                </label>
+              </div>
+
+              <div v-if="crActiva" class="space-y-3 mt-4 border-t border-amber-200/60 pt-4">
+                <div class="relative group">
+                  <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Hora de finalización *</label>
+                  <input v-model="crHoraFin" type="time" class="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all font-medium" />
+                  <div class="absolute left-0 -bottom-8 hidden group-hover:block bg-slate-800 text-white text-xs px-2 py-1 rounded shadow z-10">Selecciona hora y minutos de finalización</div>
+                </div>
+
+                <div>
+                  <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Selecciona las ventanillas *</label>
+                  <div class="space-y-2 max-h-40 overflow-y-auto">
+                    <div v-for="v in crVentanillas" :key="v.ID_Ventanilla"
+                      :class="['flex items-center gap-2 rounded-lg px-3 py-2 border transition-colors', (v.Activa === 1 || v.Activa === true) ? 'bg-white border-slate-200' : 'bg-slate-100 border-slate-200 opacity-60']">
+                      <input type="checkbox" :id="'cr-v-'+v.ID_Ventanilla" :value="v.ID_Ventanilla" v-model="crVentanillasSeleccionadas"
+                        class="w-4 h-4 text-amber-500 border-gray-300 rounded focus:ring-amber-400"
+                        :disabled="(v.Activa !== 1 && v.Activa !== true)">
+                      <label :for="'cr-v-'+v.ID_Ventanilla"
+                        :class="['text-sm font-medium cursor-pointer flex-1', (v.Activa === 1 || v.Activa === true) ? 'text-slate-700' : 'text-slate-400 cursor-not-allowed']">
+                        {{ v.Ventanilla }} {{ (v.Activa !== 1 && v.Activa !== true) ? '(Inactiva)' : '' }}
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                <p v-if="crMensaje" class="text-xs text-amber-700 font-medium">{{ crMensaje }}</p>
+
+                <button type="button" @click="guardarCajaRapida"
+                  :class="['w-full text-white font-bold py-2.5 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg text-sm mt-3', crEstadoActual ? 'bg-red-500 hover:bg-red-600' : 'bg-amber-500 hover:bg-amber-600']">
+                  {{ crEstadoActual ? 'Desactivar Caja Rápida' : 'Activar Caja Rápida' }}
+                </button>
+              </div>
+            </div>
+          </div>
+        </AdminAccordionPanel>
       </div>
     </div>
   </div>
@@ -164,6 +222,7 @@ const { getCurrentUser, getSessionToken } = useAuth()
 
 const currentUser = ref(null)
 const jefeSector = ref('')
+const jefeSectorId = ref(null)
 const empleados = ref([])
 const roles = ref([])
 const editAccordion = ref(null)
@@ -173,11 +232,21 @@ const editEmpleado = ref(null)
 const editF = reactive({ nombre1: '', nombre2: '', apellido1: '', apellido2: '', usuario: '', password: '', ventanilla: 0, estado: 1 })
 const editVentanillasDisp = ref([])
 
+// --- Caja Rápida ---
+const esSectorCajas = computed(() => jefeSector.value?.trim().toLowerCase() === 'cajas')
+const crActiva = ref(false)
+const crEstadoActual = ref(false)
+const crHoraFin = ref('')
+const crVentanillas = ref([])
+const crVentanillasSeleccionadas = ref([])
+const crMensaje = ref('')
+
 const nombreCompleto = (emp) => [emp.nombre1, emp.nombre2 || '', emp.Apellido1, emp.Apellido2 || ''].filter(n => n.trim() !== '').join(' ')
 
 async function loadEmployees() {
   try {
-    const res = await fetch(`${API_BASE_URL}/api/employees/full`)
+    const token = getSessionToken()
+    const res = await fetch(`${API_BASE_URL}/api/employees/full?session_token=${encodeURIComponent(token || '')}`)
     if (!res.ok) throw new Error()
     empleados.value = await res.json()
   } catch { lanzarAlerta('Error al cargar empleados', 'error') }
@@ -211,7 +280,8 @@ async function agregarEmpleado() {
 async function abrirEdicion(id) {
   editAccordion.value?.open()
   try {
-    const res = await fetch(`${API_BASE_URL}/api/employees/full`)
+    const token = getSessionToken()
+    const res = await fetch(`${API_BASE_URL}/api/employees/full?session_token=${encodeURIComponent(token || '')}`)
     const todos = await res.json()
     const emp = todos.find(e => e.ID_Empleado === id)
     if (!emp) throw new Error('No encontrado')
@@ -253,25 +323,115 @@ async function guardarEdicion() {
 
 function cancelarEdicion() { editEmpleado.value = null }
 
+// --- Caja Rápida funciones ---
+async function cargarVentanillasSector() {
+  if (!jefeSectorId.value) return
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/sectores/${jefeSectorId.value}/ventanillas`)
+    crVentanillas.value = res.ok ? await res.json() : []
+  } catch { crVentanillas.value = [] }
+}
 
+async function cargarEstadoCajaRapida() {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/caja-rapida/estado`)
+    const estado = await res.json()
+    if (estado.activo && estado.id_sector === jefeSectorId.value) {
+      crActiva.value = true
+      crEstadoActual.value = true
+      crHoraFin.value = estado.hora_fin || ''
+      crVentanillasSeleccionadas.value = estado.ventanillas || []
+      const count = (estado.ventanillas || []).length
+      crMensaje.value = `Activo desde ${estado.hora_inicio} hasta ${estado.hora_fin} (${count} ventanilla${count !== 1 ? 's' : ''})`
+    } else {
+      crActiva.value = false
+      crEstadoActual.value = false
+      crHoraFin.value = ''
+      crVentanillasSeleccionadas.value = []
+      crMensaje.value = ''
+    }
+  } catch (err) {
+    console.error('Error al cargar estado Caja Rápida:', err)
+  }
+}
 
+async function guardarCajaRapida() {
+  try {
+    if (crEstadoActual.value) {
+      const res = await fetch(`${API_BASE_URL}/api/caja-rapida/desactivar`, { method: 'POST' })
+      if (res.ok) {
+        lanzarAlerta('Caja Rápida desactivada', 'success')
+        await cargarEstadoCajaRapida()
+      }
+    } else {
+      if (!crHoraFin.value) { lanzarAlerta('Debes ingresar la hora de finalización', 'error'); return }
+      const ahora = new Date()
+      const [h, m] = crHoraFin.value.split(':').map(Number)
+      const horaFinDate = new Date()
+      horaFinDate.setHours(h, m, 0, 0)
+      if (horaFinDate <= ahora) { lanzarAlerta('La hora de finalización ya pasó. Selecciona una hora futura.', 'error'); return }
+      if (crVentanillasSeleccionadas.value.length === 0) { lanzarAlerta('Debes seleccionar al menos una ventanilla', 'error'); return }
+
+      const res = await fetch(`${API_BASE_URL}/api/caja-rapida/activar`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id_sector: jefeSectorId.value, hora_fin: crHoraFin.value, ventanillas: crVentanillasSeleccionadas.value })
+      })
+      if (res.ok) {
+        lanzarAlerta('Caja Rápida activada', 'success')
+        await cargarEstadoCajaRapida()
+      } else {
+        const data = await res.json()
+        lanzarAlerta(data.detail || data.error || 'Error al activar', 'error')
+      }
+    }
+  } catch (err) {
+    lanzarAlerta('Error de conexión', 'error')
+    console.error(err)
+  }
+}
 
 onMounted(() => {
   const u = getCurrentUser()
   if (!u || u.rol !== 6) { navigateTo('/login'); return }
   currentUser.value = u
   jefeSector.value = u.sector || 'Sin Sector'
+  jefeSectorId.value = u.id_sector || null
 
   loadEmployees()
   cargarRoles()
 
+  // Si es sector cajas, resolver id_sector y cargar caja rápida
+  if (u.sector?.trim().toLowerCase() === 'cajas') {
+    const initCajaRapida = async () => {
+      // Fallback: si no hay id_sector en sesión, resolver desde API
+      if (!jefeSectorId.value) {
+        try {
+          const res = await fetch(`${API_BASE_URL}/api/sectores`)
+          if (res.ok) {
+            const sectores = await res.json()
+            const cajas = sectores.find(s => s.Sector?.trim().toLowerCase() === 'cajas')
+            if (cajas) jefeSectorId.value = cajas.ID_Sector
+          }
+        } catch {}
+      }
+      if (jefeSectorId.value) {
+        await cargarVentanillasSector()
+        await cargarEstadoCajaRapida()
+      }
+    }
+    initCajaRapida()
+  }
+
   socket.on('connect', () => { if (u.id) socket.emit('ventanilla_register', { id_empleado: u.id, session_token: getSessionToken() }) })
   socket.on('ventanilla_status_changed', () => loadEmployees())
-
+  socket.on('caja_rapida_updated', () => {
+    if (esSectorCajas.value) cargarEstadoCajaRapida()
+  })
 })
 onUnmounted(() => {
   socket.off('ventanilla_status_changed')
-
+  socket.off('caja_rapida_updated')
 })
 </script>
 
