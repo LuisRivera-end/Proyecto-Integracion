@@ -1,6 +1,6 @@
 from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, cast, String
+from sqlalchemy import select, func, cast, String, Integer
 from app.models.models import Sector, Turno
 import pytz
 import subprocess
@@ -87,7 +87,7 @@ async def generar_folio_unico(sector_nombre: str, db: AsyncSession) -> str:
     hoy = datetime.now(tz_mexico).strftime('%Y-%m-%d')
         
     result = await db.execute(
-        select(func.max(cast(func.substring(Turno.Folio, prefix_len + 1), func.UNSIGNED)))
+        select(func.max(cast(func.substring(Turno.Folio, prefix_len + 1), Integer)))
         .where(
             Turno.Folio.like(f"{prefix}%"),
             func.date(Turno.Fecha_Ticket) == hoy
