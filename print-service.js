@@ -5,14 +5,22 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
+/**
+ * 🖨️ Print Service Client
+ * 
+ * Este servicio se conecta vía WebSockets al backend de UAL, recibe trabajos 
+ * de impresión en formato base64 (PDF), los guarda temporalmente y los 
+ * envía a la impresora local configurada.
+ */
+
 const platform = os.platform();
 const IS_WINDOWS = platform === 'win32';
 const IS_LINUX = platform === 'linux';
 
-// Detectar si corre como .exe (pkg) o como script normal
+// Detectar si corre como .exe (pkg) o como script normal para resolver rutas
 const appDir = process.pkg ? path.dirname(process.execPath) : __dirname;
 
-// Buscar el archivo .env en la carpeta actual, o en un nivel superior (útil si el .exe está en /dist)
+// Buscar el archivo .env en la carpeta del ejecutable o nivel superior
 const envPath = fs.existsSync(path.join(appDir, '.env')) 
     ? path.join(appDir, '.env') 
     : path.join(appDir, '..', '.env');
@@ -38,10 +46,13 @@ console.log(`🖨️ Impresora: ${PRINTER_NAME}`);
 let ws;
 let connected = false;
 
+/**
+ * Inicia la conexión WebSocket con el servidor y maneja la lógica de vida.
+ */
 function connect() {
     console.log(`🔌 Conectando WebSocket a ${wsUrl}...`);
     
-    // rejectUnauthorized: false para permitir certificados auto-firmados en desarrollo
+    // rejectUnauthorized: false permite certificados auto-firmados en desarrollo
     ws = new WebSocket(wsUrl, {
         rejectUnauthorized: false
     });
@@ -50,7 +61,7 @@ function connect() {
         console.log('✅ WebSocket Conectado');
         connected = true;
 
-        // Registrar la impresora
+        // Registro de la impresora ante el backend
         emit('register_printer', {
             printer_name: PRINTER_NAME,
             location: 'Recepcion',
@@ -63,7 +74,7 @@ function connect() {
             const payload = JSON.parse(messageRaw.toString());
             const type = payload.type;
             
-            // Los mensajes del servidor vienen planos con "type" y el resto de campos al mismo nivel
+            // Log de eventos recibidos
             console.log('📥 WS Recibido:', type, payload);
 
             if (type === 'registration_success') {
@@ -88,6 +99,11 @@ function connect() {
     });
 }
 
+/**
+ * Envía un evento serializado al servidor siguiendo el protocolo {type, data}.
+ * @param {string} type - Nombre del evento.
+ * @param {object} data - Payload del evento.
+ */
 function emit(type, data = {}) {
     if (ws && connected && ws.readyState === WebSocket.OPEN) {
         console.log('📤 WS Enviando:', type, data);
@@ -98,13 +114,17 @@ function emit(type, data = {}) {
 }
 
 /**
- * Construye el comando de impresión dependiendo del sistema operativo.
+ * Construye el comando de sistema para imprimir un PDF dependiendo del SO.
+ * @param {string} pdfPath - Ruta absoluta al archivo PDF.
+ * @returns {string} Comando para ejecutar vía exec.
  */
 function buildPrintCommand(pdfPath) {
     if (IS_WINDOWS) {
+        // En Windows se usa SumatraPDF (debe estar la ruta en el .env)
         const SUMATRA_PATH = `"${process.env.SUMATRA_PATH}"`;
         return `${SUMATRA_PATH} -print-to "${PRINTER_NAME}" "${pdfPath}"`;
     } else if (IS_LINUX) {
+        // En Linux usamos el sistema de impresión CUPS (lp)
         return `lp -d "${PRINTER_NAME}" "${pdfPath}"`;
     } else {
         throw new Error(`Plataforma ${platform} no soportada`);
@@ -112,10 +132,17 @@ function buildPrintCommand(pdfPath) {
 }
 
 /**
- * Procesa un trabajo de impresión.
+ * Maneja la recepción de un trabajo de impresión:
+ * 1. Decodifica el Base64 a un archivo temporal.
+ * 2. Ejecuta el comando de impresión del SO.
+ * 3. Notifica éxito/error al backend.
+ * 4. Elimina el archivo temporal.
+ * 
+ * @param {object} data - Datos del ticket incluyendo ticket_number y pdf_content.
  */
 function handlePrintJob(data) {
     try {
+        // Sanitización básica del número de ticket
         if (!/^[a-zA-Z0-9_\-]+$/.test(String(data.ticket_number))) {
             throw new Error(`El número de ticket es inválido.`);
         }
@@ -146,10 +173,11 @@ function handlePrintJob(data) {
                 ticket_number: data.ticket_number
             });
 
+            // Limpieza del archivo temporal tras 5 segundos
             setTimeout(() => {
                 try {
                     fs.unlinkSync(pdfPath);
-                    console.log('🧹 Archivo eliminado');
+                    console.log('🧹 Archivo temporal eliminado');
                 } catch(e) { /* ignore */ }
             }, 5000);
         });
@@ -163,15 +191,19 @@ function handlePrintJob(data) {
     }
 }
 
+// Iniciar ciclo de conexión
 connect();
 
-// Health check
+/**
+ * Endpoint de Health Check Local
+ * Permite monitorear el estado del servicio externamente.
+ */
 app.get('/health', (req, res) => {
     res.json({ 
         status: 'ok', 
         connected: connected && ws.readyState === WebSocket.OPEN, 
         printer: PRINTER_NAME, 
-        server_url: SERVER_URL,
+        base_url: SERVER_URL,
         ws_url: wsUrl
     });
 });
