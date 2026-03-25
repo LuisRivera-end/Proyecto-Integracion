@@ -90,9 +90,9 @@ class ConnectionManager:
             # Marcar sesión como inactiva en DB
             if session_token:
                 try:
-                    from app.models.database import AsyncSessionLocal
+                    from app.models.database import async_session_local
                     from sqlalchemy import text
-                    async with AsyncSessionLocal() as db:
+                    async with async_session_local() as db:
                         await db.execute(
                             text("UPDATE Sesion_Activa SET Activa = 0 WHERE Token = :token AND Activa = 1"),
                             {"token": session_token}
