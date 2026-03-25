@@ -9,7 +9,7 @@ from datetime import datetime
 import pytz
 import app.utils.helpers as helpers
 from app.models.database import get_db
-from app.models.models import Sector, Ventanilla, Turno, EstadoTurno, Empleado, RolVentanilla
+from app.models.models import Sector, Ventanilla, Turno, EstadoTurno, Empleado, RolVentanilla, Rol
 from app.schemas.tickets import TicketCreate, TicketGenerateReq, TicketAttendReq, TicketNextReq, TurnoStatusReq
 from app.schemas.empleados import SectorCreateReq, SectorUpdateReq
 from app.utils.helpers import generar_folio_unico, obtener_fecha_actual, obtener_fecha_publico
@@ -39,16 +39,31 @@ async def obtener_sectores(db: AsyncSession = Depends(get_db)):
 @router.post("/sectores", status_code=201)
 async def crear_sector(req: SectorCreateReq, db: AsyncSession = Depends(get_db)):
     try:
+        # 1. Crear el Sector
         q_ins = insert(Sector).values(Sector=req.sector)
         res = await db.execute(q_ins)
         id_sector = res.inserted_primary_key[0]
         
+        # 2. Crear las Ventanillas
+        ventanilla_ids = []
         if req.ventanillas > 0:
-            ventanillas_data = [{"ID_Sector": id_sector, "Ventanilla": f"Ventanilla {i+1}"} for i in range(req.ventanillas)]
-            await db.execute(insert(Ventanilla).values(ventanillas_data))
-            
+            for i in range(req.ventanillas):
+                q_v = insert(Ventanilla).values(ID_Sector=id_sector, Ventanilla=f"Ventanilla {i+1}")
+                res_v = await db.execute(q_v)
+                ventanilla_ids.append(res_v.inserted_primary_key[0])
+
+        # 3. Crear un Rol con el mismo nombre del departamento
+        q_rol = insert(Rol).values(Rol=req.sector)
+        res_rol = await db.execute(q_rol)
+        id_rol = res_rol.inserted_primary_key[0]
+
+        # 4. Mapear el Rol a las Ventanillas (Rol_Ventanilla)
+        if ventanilla_ids:
+            rv_data = [{"ID_Rol": id_rol, "ID_Ventanilla": vid} for vid in ventanilla_ids]
+            await db.execute(insert(RolVentanilla).values(rv_data))
+
         await db.commit()
-        return {"mensaje": "Sector creado exitosamente", "id_sector": id_sector}
+        return {"mensaje": "Sector creado exitosamente", "id_sector": id_sector, "id_rol": id_rol}
     except IntegrityError:
         await db.rollback()
         raise HTTPException(status_code=400, detail="Error de integridad en la base de datos")
@@ -198,6 +213,7 @@ async def get_tickets(
     db: AsyncSession = Depends(get_db)
 ):
     try:
+        # If id_empleado is provided, resolve their sector
         if id_empleado:
             q_emp = (
                 select(Sector.Sector)
@@ -210,21 +226,31 @@ async def get_tickets(
             )
             res_emp = await db.execute(q_emp)
             sector_empleado = res_emp.fetchone()
-        if sector_empleado:
-            sector = sector_empleado[0]
+            if sector_empleado:
+                sector = sector_empleado[0]
 
-        from sqlalchemy.exc import IntegrityError
-        from sqlalchemy import literal_column
         q = (
-            select(Sector.Sector.label("nombre_sector"), func.count(Turno.ID_Turno).label("cantidad"))
+            select(
+                Turno.Folio.label("folio"),
+                Turno.ID_Turno.label("id_turno"),
+                Sector.Sector.label("sector"),
+                EstadoTurno.ID_Estado.label("estado_id"),
+                EstadoTurno.Nombre.label("estado"),
+                Turno.Fecha_Ticket.label("fecha_ticket"),
+            )
             .join(Sector, Turno.ID_Sector == Sector.ID_Sector)
+            .join(EstadoTurno, Turno.ID_Estados == EstadoTurno.ID_Estado)
             .where(Turno.ID_Estados == 1)
-            .group_by(Sector.Sector)
+            .order_by(Turno.Fecha_Ticket.asc())
         )
+
+        if sector:
+            q = q.where(Sector.Sector == sector)
+        if tipo_caja and tipo_caja in ('normal', 'rapida'):
+            q = q.where(Turno.Tipo_Caja == tipo_caja)
+
         res = await db.execute(q)
-        rows = res.mappings().fetchall()
-        
-        return {r["nombre_sector"]: r["cantidad"] for r in rows}
+        return [dict(r) for r in res.mappings().fetchall()]
     except IntegrityError:
         raise HTTPException(status_code=400, detail="Error de integridad en la base de datos")
     except Exception as e:
@@ -367,6 +393,66 @@ async def actualizar_estado_turno(id_turno: int, req: TurnoStatusReq, db: AsyncS
         await emit_tickets_update()
         return {"mensaje": "Estado actualizado correctamente"}
         
+    except HTTPException:
+        await db.rollback()
+        raise
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(status_code=400, detail="Error de integridad en la base de datos")
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail="Error interno del servidor")
+
+@router.put("/tickets/{folio}/complete")
+async def completar_ticket(folio: str, db: AsyncSession = Depends(get_db)):
+    """Marca un ticket como completado (estado 4) usando su folio."""
+    import app.utils.helpers as sync_helpers
+    nueva_fecha = sync_helpers.obtener_fecha_actual()
+    try:
+        q_upd = (
+            update(Turno)
+            .where(and_(Turno.Folio == folio, Turno.ID_Estados == 3))
+            .values(ID_Estados=4, Fecha_Ultimo_Estado=nueva_fecha)
+        )
+        res = await db.execute(q_upd)
+
+        if res.rowcount == 0:
+            raise HTTPException(status_code=404, detail="Ticket no encontrado o no está en atención")
+
+        await db.commit()
+        await emit_tickets_update()
+        return {"mensaje": f"Ticket {folio} completado exitosamente", "folio": folio}
+
+    except HTTPException:
+        await db.rollback()
+        raise
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(status_code=400, detail="Error de integridad en la base de datos")
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail="Error interno del servidor")
+
+@router.put("/tickets/{folio}/cancel")
+async def cancelar_ticket(folio: str, db: AsyncSession = Depends(get_db)):
+    """Marca un ticket como cancelado (estado 2) usando su folio."""
+    import app.utils.helpers as sync_helpers
+    nueva_fecha = sync_helpers.obtener_fecha_actual()
+    try:
+        q_upd = (
+            update(Turno)
+            .where(and_(Turno.Folio == folio, Turno.ID_Estados.in_([1, 3])))
+            .values(ID_Estados=2, Fecha_Ultimo_Estado=nueva_fecha)
+        )
+        res = await db.execute(q_upd)
+
+        if res.rowcount == 0:
+            raise HTTPException(status_code=404, detail="Ticket no encontrado o ya fue procesado")
+
+        await db.commit()
+        await emit_tickets_update()
+        return {"mensaje": f"Ticket {folio} cancelado", "folio": folio}
+
     except HTTPException:
         await db.rollback()
         raise

@@ -304,6 +304,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   stopGuard()
+  socket.off('connect')
   socket.off('ventanilla_status_changed')
   socket.off('sectores_updated')
   socket.off('caja_rapida_updated')

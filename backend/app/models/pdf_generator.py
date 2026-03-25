@@ -11,10 +11,10 @@ class TicketPDF(FPDF):
         except Exception as e:
             print(f"Error al cargar la imagen: {e}")
             pass
-        self.ln(20)
+        self.ln(18) # Anteriormente 20
 
     def footer(self):
-        self.set_y(-12)
+        self.set_y(-10) # Anteriormente -12
         self.set_font("Arial", "I", 7)
         self.cell(0, 4, "Esfuerzo que trasciende", 0, 0, "C")
 
@@ -88,7 +88,7 @@ def generar_ticket_PDF(numero_ticket, sector, fecha, tipo_caja='normal'):
     
 
     # Espacio para corte
-    pdf.ln(8)
+    pdf.ln(5) # Anteriormente 8
 
     output = pdf.output(dest='S')
     if isinstance(output, str):

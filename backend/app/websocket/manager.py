@@ -79,34 +79,13 @@ class ConnectionManager:
             print(f"🔄 Empleado {emp_id} reconectado. Cancelada limpieza de sesión.")
 
     async def _delayed_session_clear(self, emp_id: int, session_token: str = None):
-        """Espera 5s. Si no se reconecta, marca la sesión como inactiva en DB."""
+        """Espera 5s. Si no se reconecta, limpia el estado de ventanilla (sin invalidar sesión en DB)."""
         try:
             await asyncio.sleep(5)
             
             # Limpiar estado de ventanilla
             self.active_ventanilla_employees.discard(emp_id)
             print(f"🔴 Empleado {emp_id} desconectado tras 5s de gracia")
-            
-            # Marcar sesión como inactiva en DB
-            if session_token:
-                try:
-                    from app.models.database import AsyncSessionLocal
-                    from sqlalchemy import text
-                    async with AsyncSessionLocal() as db:
-                        await db.execute(
-                            text("UPDATE Sesion_Activa SET Activa = 0 WHERE Token = :token AND Activa = 1"),
-                            {"token": session_token}
-                        )
-                        await db.commit()
-                    print(f"🔓 Sesión de empleado {emp_id} cerrada en DB (token: {session_token[:8]}...)")
-                    
-                    # Emitir evento WS
-                    await self.broadcast_json({
-                        "type": "session_ended",
-                        "employee_id": emp_id
-                    })
-                except Exception as e:
-                    print(f"⚠️ Error cerrando sesión en DB: {e}")
             
             await self.broadcast_json({"type": "ventanilla_status_changed"})
         except asyncio.CancelledError:

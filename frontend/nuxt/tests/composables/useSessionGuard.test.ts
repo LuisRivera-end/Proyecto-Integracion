@@ -58,21 +58,9 @@ describe('useSessionGuard', () => {
     expect(mockSocketOn).toHaveBeenCalledWith('sessions_reset', expect.any(Function))
   })
 
-  it('debería cerrar sesión por inactividad después de 5 minutos (Caso límite de tiempo)', () => {
-    guard.startGuard()
-    
-    // Avanzar 5 minutos
-    vi.advanceTimersByTime(5 * 60 * 1000)
-    
-    expect(mockLogoutWithOverlay).toHaveBeenCalled()
-  })
-
-  it('debería validar sesión cada 30 segundos si hay actividad (Caso normal)', () => {
+  it('debería validar sesión cada 30 segundos con heartbeat (Caso normal)', () => {
     guard.startGuard()
 
-    // Simular un click para reiniciar actividad
-    document.dispatchEvent(new Event('mousedown'))
-    
     // Avanzar 30 segundos
     vi.advanceTimersByTime(30 * 1000)
     

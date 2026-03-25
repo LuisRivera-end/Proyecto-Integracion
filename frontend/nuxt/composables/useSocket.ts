@@ -94,11 +94,7 @@ export class NativeSocketClient {
       console.log('📤 WS Enviando:', event, data);
       this.ws.send(JSON.stringify({ type: event, data }));
     } else {
-       console.warn(`⏳ WS no listo. Posponiendo o ignorando evento: ${event}`);
-       // Opcional: Reintento único tras conectar
-       if (event === 'ventanilla_register') {
-          this.on('connect', () => this.emit(event, data));
-       }
+       console.warn(`⏳ WS no listo. Ignorando evento: ${event}`);
     }
   }
 
