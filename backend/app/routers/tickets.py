@@ -9,7 +9,7 @@ from datetime import datetime
 import pytz
 import app.utils.helpers as helpers
 from app.models.database import get_db
-from app.models.models import Sector, Ventanilla, Turno, EstadoTurno, Empleado, RolVentanilla
+from app.models.models import Sector, Ventanilla, Turno, EstadoTurno, Empleado, RolVentanilla, Rol
 from app.schemas.tickets import TicketCreate, TicketGenerateReq, TicketAttendReq, TicketNextReq, TurnoStatusReq
 from app.schemas.empleados import SectorCreateReq, SectorUpdateReq
 from app.utils.helpers import generar_folio_unico, obtener_fecha_actual, obtener_fecha_publico
@@ -39,16 +39,31 @@ async def obtener_sectores(db: AsyncSession = Depends(get_db)):
 @router.post("/sectores", status_code=201)
 async def crear_sector(req: SectorCreateReq, db: AsyncSession = Depends(get_db)):
     try:
+        # 1. Crear el Sector
         q_ins = insert(Sector).values(Sector=req.sector)
         res = await db.execute(q_ins)
         id_sector = res.inserted_primary_key[0]
         
+        # 2. Crear las Ventanillas
+        ventanilla_ids = []
         if req.ventanillas > 0:
-            ventanillas_data = [{"ID_Sector": id_sector, "Ventanilla": f"Ventanilla {i+1}"} for i in range(req.ventanillas)]
-            await db.execute(insert(Ventanilla).values(ventanillas_data))
-            
+            for i in range(req.ventanillas):
+                q_v = insert(Ventanilla).values(ID_Sector=id_sector, Ventanilla=f"Ventanilla {i+1}")
+                res_v = await db.execute(q_v)
+                ventanilla_ids.append(res_v.inserted_primary_key[0])
+
+        # 3. Crear un Rol con el mismo nombre del departamento
+        q_rol = insert(Rol).values(Rol=req.sector)
+        res_rol = await db.execute(q_rol)
+        id_rol = res_rol.inserted_primary_key[0]
+
+        # 4. Mapear el Rol a las Ventanillas (Rol_Ventanilla)
+        if ventanilla_ids:
+            rv_data = [{"ID_Rol": id_rol, "ID_Ventanilla": vid} for vid in ventanilla_ids]
+            await db.execute(insert(RolVentanilla).values(rv_data))
+
         await db.commit()
-        return {"mensaje": "Sector creado exitosamente", "id_sector": id_sector}
+        return {"mensaje": "Sector creado exitosamente", "id_sector": id_sector, "id_rol": id_rol}
     except IntegrityError:
         await db.rollback()
         raise HTTPException(status_code=400, detail="Error de integridad en la base de datos")
