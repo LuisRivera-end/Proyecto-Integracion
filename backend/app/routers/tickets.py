@@ -275,6 +275,23 @@ async def total_tickets(db: AsyncSession = Depends(get_db)):
     except Exception as e:
         raise HTTPException(status_code=500, detail="Error interno del servidor")
 
+@router.get("/tickets_count")
+async def get_tickets_count(db: AsyncSession = Depends(get_db)):
+    """Devuelve la cantidad de tickets pendientes agrupados por sector."""
+    try:
+        q = (
+            select(Sector.Sector, func.count(Turno.ID_Turno).label("cantidad"))
+            .join(Sector, Turno.ID_Sector == Sector.ID_Sector)
+            .where(Turno.ID_Estados == 1)
+            .group_by(Sector.Sector)
+        )
+        res = await db.execute(q)
+        return {row.Sector: row.cantidad for row in res.fetchall()}
+    except IntegrityError:
+        raise HTTPException(status_code=400, detail="Error de integridad en la base de datos")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Error interno del servidor")
+
 @router.get("/tickets/activo/{id_ventanilla}")
 async def get_ticket_activo(id_ventanilla: int, db: AsyncSession = Depends(get_db)):
     try:
