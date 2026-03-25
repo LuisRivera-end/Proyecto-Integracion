@@ -5,7 +5,6 @@ import { useSocket } from './useSocket'
  * Proporciona un mecanismo de vigilancia activa de sesión.
  * 
  * Funcionalidades principales:
- * - Detecta inactividad de 5 minutos y cierra la sesión redirigiendo al login.
  * - Realiza un latido (heartbeat) cada 30 segundos para validar la sesión en el backend.
  * - Escucha eventos del WebSocket para forzar el cierre de sesión ('session_force_closed' y 'sessions_reset').
  * 
@@ -15,20 +14,10 @@ export const useSessionGuard = () => {
   const { checkSession, logoutWithOverlay, getCurrentUser } = useAuth()
   const socket = useSocket()
 
-  let lastActivity = Date.now()
   let heartbeatInterval: ReturnType<typeof setInterval> | null = null
   let isLoggingOut = false
 
-  const INACTIVITY_TIMEOUT = 5 * 60 * 1000   // 5 minutos
   const HEARTBEAT_INTERVAL = 30 * 1000        // 30 segundos
-
-  // ── Helpers ──────────────────────────────────────────────
-  /**
-   * Actualiza el tiempo de última actividad detectada.
-   */
-  const onActivity = () => {
-    lastActivity = Date.now()
-  }
 
   /**
    * Fuerza el cierre de sesión de manera asíncrona.
@@ -69,38 +58,21 @@ export const useSessionGuard = () => {
   }
 
   // ── Start / Stop ────────────────────────────────────────
-  const ACTIVITY_EVENTS = ['mousedown', 'keydown', 'scroll', 'touchstart', 'mousemove']
 
   /**
-   * Inicia la vigilancia de inactividad, añade escuchadores de eventos y el intervalo de verificación.
+   * Inicia la vigilancia de sesión con heartbeat y escuchadores de WebSocket.
    */
   const startGuard = () => {
-    lastActivity = Date.now()
     isLoggingOut = false
-
-    // Rastrear actividad del usuario
-    ACTIVITY_EVENTS.forEach(e =>
-      document.addEventListener(e, onActivity, { passive: true })
-    )
 
     // Listeners de WebSocket
     socket.on('session_force_closed', onSessionForceClosed)
     socket.on('sessions_reset', onSessionsReset)
 
-    // Heartbeat periódico
+    // Heartbeat periódico — solo valida la sesión con el backend
     heartbeatInterval = setInterval(async () => {
       if (isLoggingOut) return
 
-      const elapsed = Date.now() - lastActivity
-
-      // Sin actividad por 5 minutos → cerrar sesión
-      if (elapsed >= INACTIVITY_TIMEOUT) {
-        console.log('⏱️ Inactividad de 5 minutos detectada — cerrando sesión')
-        await forceLogout()
-        return
-      }
-
-      // Hay actividad reciente → verificar sesión con el backend (también la extiende)
       const valid = await checkSession()
       if (!valid) {
         console.log('❌ Sesión no válida en el backend — cerrando sesión')
@@ -117,9 +89,6 @@ export const useSessionGuard = () => {
       clearInterval(heartbeatInterval)
       heartbeatInterval = null
     }
-    ACTIVITY_EVENTS.forEach(e =>
-      document.removeEventListener(e, onActivity)
-    )
     socket.off('session_force_closed', onSessionForceClosed)
     socket.off('sessions_reset', onSessionsReset)
   }
