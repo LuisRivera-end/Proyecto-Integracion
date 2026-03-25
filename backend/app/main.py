@@ -10,10 +10,12 @@ from app.websocket.routes import router as websocket_router
 
 from app.models.database import engine, get_db
 from app.config import settings
+from app.websocket.manager import manager
 from starlette.middleware.sessions import SessionMiddleware
 
 
 app = FastAPI(title="UAL API - FastAPI")
+app.state.SEND_PRINT_JOB = manager.send_print_job
 
 app.add_middleware(
     CORSMiddleware,
