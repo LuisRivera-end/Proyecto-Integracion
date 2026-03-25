@@ -119,6 +119,29 @@ async def get_dashboard_stats(request: Request, db: AsyncSession = Depends(get_d
             ventanillas_activas=ventanillas_activas
         ))
     
+    historico_sql = text("""
+        SELECT 
+            DATE(Fecha_Ticket) as fecha,
+            SUM(CASE WHEN ID_Estados = 4 THEN 1 ELSE 0 END) as completados,
+            SUM(CASE WHEN ID_Estados = 2 THEN 1 ELSE 0 END) as cancelados,
+            AVG(CASE WHEN ID_Estados IN (3, 4) THEN TIMESTAMPDIFF(SECOND, Fecha_Ticket, Fecha_Ultimo_Estado) ELSE NULL END) as tiempo_promedio_espera
+        FROM Turno
+        WHERE Fecha_Ticket >= DATE_SUB(:hoy, INTERVAL 6 DAY)
+        GROUP BY DATE(Fecha_Ticket)
+        ORDER BY DATE(Fecha_Ticket) ASC
+    """)
+    res_historico = await db.execute(historico_sql, {"hoy": hoy_local})
+    historico_raw = res_historico.fetchall()
+    
+    historico_7_dias = []
+    for row in historico_raw:
+        historico_7_dias.append({
+            "fecha": str(row[0]),
+            "completados": int(row[1]) if row[1] else 0,
+            "cancelados": int(row[2]) if row[2] else 0,
+            "tiempo_promedio_espera": float(row[3]) if row[3] is not None else None
+        })
+
     return DashboardStats(
         tickets_en_cola=tickets_en_cola,
         tickets_atendiendo=tickets_atendiendo,
@@ -127,5 +150,6 @@ async def get_dashboard_stats(request: Request, db: AsyncSession = Depends(get_d
         empleados_en_ventanilla=empleados_en_ventanilla,
         tiempo_espera_promedio_segundos=tiempo_espera_promedio,
         tiempo_servicio_promedio_segundos=None,
-        por_sector=por_sector
+        por_sector=por_sector,
+        historico_7_dias=historico_7_dias
     )

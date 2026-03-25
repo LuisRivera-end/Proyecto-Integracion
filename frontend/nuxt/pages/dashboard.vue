@@ -77,41 +77,52 @@
       </div>
     </div>
 
-    <!-- Stats adicionales -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-      <!-- Tiempo promedio -->
-      <div class="bg-white/95 backdrop-blur-sm rounded-2xl shadow-lg border border-white/60 p-6">
+    <!-- Charts Row 1: Doughnut & Eficiencia -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <!-- Estado de Tickets -->
+      <div class="bg-white/95 backdrop-blur-sm rounded-2xl shadow-lg border border-white/60 p-6 col-span-1 lg:col-span-2 flex flex-col">
         <h3 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
-          <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          Tiempo Promedio de Espera
+          Estado de Tickets (Hoy)
         </h3>
-        <div class="flex items-baseline gap-2">
-          <p class="text-4xl font-bold text-slate-800">
-            {{ stats?.tiempo_espera_promedio_segundos ? formatTime(stats.tiempo_espera_promedio_segundos) : '-' }}
-          </p>
-          <span v-if="stats?.tiempo_espera_promedio_segundos" class="text-slate-400 text-sm">(promedio hoy)</span>
+        <div class="flex-grow min-h-[250px] relative w-full flex justify-center items-center">
+          <Doughnut v-if="stats" :data="estadoTicketsData" :options="doughnutOptions" />
+          <div v-else class="text-slate-400 text-sm">Cargando datos...</div>
         </div>
       </div>
 
-      <!-- Resumen rápido -->
+      <!-- Eficiencia / Tiempo -->
+      <div class="bg-white/95 backdrop-blur-sm rounded-2xl shadow-lg border border-white/60 p-6 col-span-1 flex flex-col items-center justify-center text-center">
+        <h3 class="text-lg font-bold text-slate-800 mb-4 w-full text-left">Eficiencia Diaria</h3>
+        <div class="relative w-40 h-40 mb-4">
+          <Doughnut v-if="stats" :data="pieEficienciaData" :options="pieEficienciaOptions" />
+          <div class="absolute inset-0 flex items-center justify-center flex-col">
+            <span class="text-3xl font-bold text-slate-800">{{ eficiencia }}%</span>
+          </div>
+        </div>
+        <div class="w-full bg-slate-50 rounded-xl p-4 mt-2">
+          <p class="text-sm text-slate-500 font-medium">Tiempo Promedio</p>
+          <p class="text-xl font-bold text-slate-800 mt-1">
+            {{ stats?.tiempo_espera_promedio_segundos ? formatTime(stats.tiempo_espera_promedio_segundos) : '-' }}
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Charts Row 2: Bar & Line -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <!-- Histórico 7 Días -->
       <div class="bg-white/95 backdrop-blur-sm rounded-2xl shadow-lg border border-white/60 p-6">
-        <h3 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
-          <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-          </svg>
-          Resumen del Día
-        </h3>
-        <div class="grid grid-cols-2 gap-4">
-          <div class="bg-slate-50 rounded-xl p-4">
-            <p class="text-sm text-slate-500 font-medium">Total procesados</p>
-            <p class="text-2xl font-bold text-slate-800 mt-1">{{ totalProcesados }}</p>
-          </div>
-          <div class="bg-slate-50 rounded-xl p-4">
-            <p class="text-sm text-slate-500 font-medium">Eficiencia</p>
-            <p class="text-2xl font-bold mt-1" :class="eficienciaColor">{{ eficiencia }}%</p>
-          </div>
+        <h3 class="text-lg font-bold text-slate-800 mb-4">Tendencia de Tickets (7 Días)</h3>
+        <div class="h-64 relative w-full">
+          <Bar v-if="stats" :data="barData" :options="barOptions" />
+        </div>
+      </div>
+
+      <!-- Tiempo Promedio Evolución -->
+      <div class="bg-white/95 backdrop-blur-sm rounded-2xl shadow-lg border border-white/60 p-6">
+        <h3 class="text-lg font-bold text-slate-800 mb-4">Evolución de Espera (7 Días)</h3>
+        <div class="h-64 relative w-full">
+          <Line v-if="stats" :data="lineData" :options="lineOptions" />
         </div>
       </div>
     </div>
@@ -182,6 +193,28 @@
 </template>
 
 <script setup lang="ts">
+import {
+  Chart as ChartJS,
+  ArcElement,
+  Tooltip,
+  Legend,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  Title,
+  Filler
+} from 'chart.js'
+import { Doughnut, Bar, Line } from 'vue-chartjs'
+
+ChartJS.register(
+  ArcElement, Tooltip, Legend, 
+  CategoryScale, LinearScale, 
+  PointElement, LineElement, 
+  BarElement, Title, Filler
+)
+
 /**
  * Página Dashboard
  * Muestra el panel principal de control para administradores.
@@ -225,6 +258,102 @@ const eficienciaColor = computed(() => {
   if (e >= 50) return 'text-amber-600'
   return 'text-red-600'
 })
+
+// === Configuración de Gráficas ===
+
+const estadoTicketsData = computed(() => ({
+  labels: ['En Cola', 'Atendiendo', 'Completados'],
+  datasets: [{
+    data: [
+      stats.value?.tickets_en_cola || 0,
+      stats.value?.tickets_atendiendo || 0,
+      stats.value?.tickets_completados_hoy || 0
+    ],
+    backgroundColor: ['#f59e0b', '#3b82f6', '#10b981'],
+    borderWidth: 0,
+    hoverOffset: 4
+  }]
+}))
+
+const doughnutOptions = {
+  responsive: true,
+  maintainAspectRatio: false,
+  cutout: '70%',
+  plugins: { legend: { position: 'right' as const } }
+}
+
+const pieEficienciaData = computed(() => {
+  const e = eficiencia.value
+  return {
+    labels: ['Eficiencia', 'Restante'],
+    datasets: [{
+      data: [e, 100 - e],
+      backgroundColor: ['#8b5cf6', '#f1f5f9'],
+      borderWidth: 0
+    }]
+  }
+})
+
+const pieEficienciaOptions = {
+  responsive: true,
+  maintainAspectRatio: false,
+  cutout: '80%',
+  plugins: { legend: { display: false }, tooltip: { enabled: false } }
+}
+
+const barData = computed(() => {
+  const hist = stats.value?.historico_7_dias || []
+  return {
+    labels: hist.map((h: any) => h.fecha.split('-').slice(1).join('/')), // MM/DD
+    datasets: [
+      {
+        label: 'Completados',
+        data: hist.map((h: any) => h.completados),
+        backgroundColor: '#10b981',
+      },
+      {
+        label: 'Cancelados',
+        data: hist.map((h: any) => h.cancelados),
+        backgroundColor: '#ef4444',
+      }
+    ]
+  }
+})
+
+const barOptions = {
+  responsive: true,
+  maintainAspectRatio: false,
+  scales: {
+    x: { stacked: true, grid: { display: false } },
+    y: { stacked: true, border: { display: false } }
+  },
+  plugins: { legend: { position: 'top' as const } }
+}
+
+const lineData = computed(() => {
+  const hist = stats.value?.historico_7_dias || []
+  return {
+    labels: hist.map((h: any) => h.fecha.split('-').slice(1).join('/')),
+    datasets: [{
+      label: 'Tiempo Promedio (s)',
+      data: hist.map((h: any) => h.tiempo_promedio_espera || 0),
+      borderColor: '#3b82f6',
+      backgroundColor: 'rgba(59, 130, 246, 0.1)',
+      tension: 0.4,
+      fill: true
+    }]
+  }
+})
+
+const lineOptions = {
+  responsive: true,
+  maintainAspectRatio: false,
+  scales: {
+    x: { grid: { display: false } },
+    y: { border: { display: false }, beginAtZero: true }
+  },
+  plugins: { legend: { display: false } }
+}
 
 /**
  * Formatea una cantidad de segundos en minutos y segundos.
