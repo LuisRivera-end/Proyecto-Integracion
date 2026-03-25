@@ -16,7 +16,7 @@ async def renew_session_if_privileged(client_id: str):
     session_token = manager.sid_to_token.get(client_id)
     if not session_token:
         return
-    async with AsyncSessionLocal() as db:
+    async with async_session_local() as db:
         # Get the role of the user tied to this token
         q = select(SesionActiva.ID_Empleado).where(SesionActiva.Token == session_token)
         res = await db.execute(q)

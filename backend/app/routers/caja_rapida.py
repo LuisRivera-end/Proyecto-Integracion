@@ -62,8 +62,8 @@ async def _desactivar_caja_rapida() -> None:
     global _timer_task
     _timer_task = None
 
-    from app.models.database import AsyncSessionLocal
-    async with AsyncSessionLocal() as db:
+    from app.models.database import async_session_local
+    async with async_session_local() as db:
         pendientes = await _contar_tickets_rapida_pendientes(db)
 
     if pendientes > 0:

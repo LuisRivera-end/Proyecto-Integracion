@@ -396,14 +396,10 @@ onMounted(async () => {
   document.addEventListener("keydown", handleKeydown)
   startGuard()
 
+  // on('connect', cb) fires immediately if already connected, and on every reconnect
   socket.on('connect', () => {
     if (currentUser.value?.id) socket.emit('ventanilla_register', { id_empleado: currentUser.value.id, session_token: getSessionToken() })
   })
-  
-  // Si ya está conectado al montar, emitir inmediatamente
-  if (socket.connected && currentUser.value?.id) {
-    socket.emit('ventanilla_register', { id_empleado: currentUser.value.id, session_token: getSessionToken() })
-  }
 })
 
 /**
