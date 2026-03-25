@@ -132,7 +132,7 @@
               <label for="setup-passwd" class="block text-xs font-semibold text-slate-600 mb-1">Nueva Contraseña *</label>
               <input v-model="setup.passwd" type="password" id="setup-passwd" required minlength="8" maxlength="100"
                 class="w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-400 focus:border-amber-400 outline-none transition-all bg-slate-50 text-slate-800 text-sm"
-                placeholder="Mínimo 8 caracteres" />
+                placeholder="Mayúscula, minúscula, número y símbolo" />
             </div>
 
             <div>
@@ -356,6 +356,18 @@ const handleFinalize = async (): Promise<void> => {
 
   if (setup.passwd.length < 8) {
     setupError.value = 'La contraseña debe tener al menos 8 caracteres.'
+    return
+  }
+
+  // Validación de contraseña segura
+  const missingRules: string[] = []
+  if (!/[A-Z]/.test(setup.passwd)) missingRules.push('una letra mayúscula')
+  if (!/[a-z]/.test(setup.passwd)) missingRules.push('una letra minúscula')
+  if (!/[0-9]/.test(setup.passwd)) missingRules.push('un número')
+  if (!/[^A-Za-z0-9]/.test(setup.passwd)) missingRules.push('un símbolo (ej. @, #, $, !)')
+
+  if (missingRules.length > 0) {
+    setupError.value = `La contraseña debe contener al menos: ${missingRules.join(', ')}.`
     return
   }
 

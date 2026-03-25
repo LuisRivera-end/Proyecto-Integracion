@@ -160,12 +160,9 @@ async def login(request: Request, credentials: LoginRequest, db: AsyncSession = 
                     detail="No tiene una ventanilla asignada. Contacte al administrador."
                 )
 
-        # ── 6. Crear nueva sesión con expiración basada en el rol ──
+        # ── 6. Crear nueva sesión con expiración de 8 horas ──
         session_token = str(uuid.uuid4())
-        if user.ID_ROL in (1, 6): # Admin o Jefe de Departamento
-            expira = datetime.utcnow() + timedelta(minutes=5) # Token corto que se renueva con actividad
-        else:
-            expira = datetime.utcnow() + timedelta(hours=SESSION_DURATION_HOURS) # 8 horas fijo para otros roles
+        expira = datetime.utcnow() + timedelta(hours=SESSION_DURATION_HOURS)
 
         await db.execute(
             insert(SesionActiva)
@@ -237,15 +234,7 @@ async def check_session(request: Request, db: AsyncSession = Depends(get_db)):
         await db.commit()
         raise HTTPException(status_code=401, detail="Session expired")
 
-    # Extender sesión para administradores y jefes de departamento (ventana deslizante)
-    if row["ID_ROL"] in (1, 6):
-        new_expira = datetime.utcnow() + timedelta(minutes=5)
-        await db.execute(
-            update(SesionActiva)
-            .where(SesionActiva.Token == session_token)
-            .values(Expira=new_expira)
-        )
-        await db.commit()
+
 
     return {"status": "ok", "user_id": row["ID_Empleado"], "rol": row["ID_ROL"]}
 
@@ -307,11 +296,7 @@ async def force_close_session(id_empleado: int, request: Request, db: AsyncSessi
     if row["ID_ROL"] != 1:
         raise HTTPException(status_code=403, detail="Solo los administradores pueden forzar el cierre de sesiones")
 
-    # ── 2. Extender sesión admin + cerrar sesión del empleado objetivo (un solo commit) ──
-    await db.execute(
-        update(SesionActiva).where(SesionActiva.Token == session_token)
-        .values(Expira=datetime.utcnow() + timedelta(minutes=5))
-    )
+    # ── 2. Cerrar sesión del empleado objetivo ──
     await db.execute(
         update(SesionActiva)
         .where(and_(SesionActiva.ID_Empleado == id_empleado, SesionActiva.Activa == True))

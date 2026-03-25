@@ -165,7 +165,7 @@ async def finalize_admin(data: SetupFinalizeRequest, db: AsyncSession = Depends(
         await db.execute(
             update(SesionActiva)
             .where(SesionActiva.Token == data.session_token)
-            .values(Expira=datetime.utcnow() + timedelta(minutes=5))
+            .values(Expira=datetime.utcnow() + timedelta(hours=8))
         )
 
         await db.commit()
