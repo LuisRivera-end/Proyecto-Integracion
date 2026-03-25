@@ -11,35 +11,7 @@ from datetime import datetime, timedelta
 router = APIRouter()
 
 
-async def renew_session_if_privileged(client_id: str):
-    """Extend session expiration for admin/subjefe roles on activity."""
-    session_token = manager.sid_to_token.get(client_id)
-    if not session_token:
-        return
-    async with async_session_local() as db:
-        # Get the role of the user tied to this token
-        q = select(SesionActiva.ID_Empleado).where(SesionActiva.Token == session_token)
-        res = await db.execute(q)
-        id_empleado_row = res.fetchone()
-        if not id_empleado_row:
-            return
-        id_empleado = id_empleado_row[0]
-        # Get role from Empleado
-        from app.models.models import Empleado
-        q2 = select(Empleado.ID_ROL).where(Empleado.ID_Empleado == id_empleado)
-        res2 = await db.execute(q2)
-        role_row = res2.fetchone()
-        if not role_row:
-            return
-        id_rol = role_row[0]
-        if id_rol in (1, 6):
-            new_expira = datetime.utcnow() + timedelta(seconds=30)
-            await db.execute(
-                update(SesionActiva)
-                .where(SesionActiva.Token == session_token)
-                .values(Expira=new_expira)
-            )
-            await db.commit()
+
 
 
 router = APIRouter()
@@ -149,8 +121,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 else:
                     print(f"Evento Desconocido: {event_type}")
 
-                # Renew session for privileged roles on any valid activity
-                await renew_session_if_privileged(client_id)
+
 
             except json.JSONDecodeError:
                 pass # Payload no valido
